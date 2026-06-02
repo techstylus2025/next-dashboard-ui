@@ -1,12 +1,21 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import "./globals.css";
+import { Plus_Jakarta_Sans } from "next/font/google";
 
-const inter = Inter({ subsets: ["latin"] });
+import "./globals.css";
+import { ClerkProvider } from "@clerk/nextjs";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap",
+  weight: ["300", "400", "500", "600", "700", "800"],
+});
 
 export const metadata: Metadata = {
-  title: "Lama Dev School Management Dashboard",
-  description: "Next.js School Management System",
+  title: "KING'S HEART MONTESSORI SCHOOL",
+  description: "School Management System",
 };
 
 export default function RootLayout({
@@ -15,8 +24,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={inter.className}>{children}</body>
-    </html>
+    <ClerkProvider>
+      <html lang="en">
+        <body className={`${plusJakartaSans.variable} font-sans`}>
+          {children} <ToastContainer position="bottom-right" theme="light" />
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

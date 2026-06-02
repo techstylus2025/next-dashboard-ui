@@ -1,3 +1,581 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Theme variables (light mode defaults) */
+  --bg-page: #ffffff;
+  --text-primary: #0f172a; /* slate-900 */
+  --muted: #64748b; /* slate-500 */
+  --card-bg: #ffffff;
+  --card-border: #e6edf3; /* near slate-200 */
+  --btn-primary-bg: #0f172a; /* slate-900 */
+  --btn-primary-bg-hover: #0b1220;
+  --btn-primary-text: #ffffff;
+  --surface-1: #f8fafc; /* light surface */
+  --accent: #38bdf8; /* sky-400 */
+  --accent-600: #0284c7;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--bg-page);
+  color: var(--text-primary);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: inherit;
+}
+
+/* ===== CONSISTENT COLOR SYSTEM ===== */
+
+/* Buttons - Primary Actions */
+.btn-create {
+  @apply bg-lamaSky hover:bg-blue-300 text-slate-900 font-semibold px-4 py-2 rounded-md transition-colors;
+}
+
+.btn-primary {
+  @apply bg-slate-900 hover:bg-slate-800 text-white font-semibold px-4 py-2 rounded-md transition-colors;
+}
+
+.btn-secondary {
+  @apply bg-slate-200 hover:bg-slate-300 text-slate-900 font-semibold px-4 py-2 rounded-md transition-colors;
+}
+
+.btn-delete {
+  @apply font-semibold px-4 py-2 rounded-md transition-colors;
+  background: var(--accent);
+  color: var(--text-primary);
+}
+
+.btn-create:hover {
+  background: var(--accent-600);
+}
+
+.btn-approve {
+  @apply font-semibold px-4 py-2 rounded-md transition-colors;
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+}
+
+.btn-primary:hover {
+  background: var(--btn-primary-bg-hover);
+}
+
+.btn-secondary {
+  @apply font-semibold px-4 py-2 rounded-md transition-colors;
+  background: var(--surface-1);
+  color: var(--text-primary);
+}
+
+.section-title {
+  @apply text-slate-900 font-semibold text-2xl mb-3;
+}
+
+.subsection-title {
+  @apply text-slate-900 font-semibold text-lg mb-2;
+}
+
+.form-label {
+  @apply text-xs text-slate-600 font-semibold uppercase tracking-wider;
+}
+
+/* Cards - Unified Styling */
+.card-base {
+  @apply border rounded-lg shadow-sm;
+  background: var(--card-bg);
+  border-color: var(--card-border);
+  color: var(--text-primary);
+}
+
+.card-padding {
+  @apply p-6;
+}
+
+.card-hover {
+  @apply hover:shadow-md transition-shadow;
+}
+
+/* Form Elements - Standardized */
+.input-base {
+  @apply w-full border rounded-md px-3 py-2 focus:outline-none;
+  background: var(--card-bg);
+  border-color: var(--card-border);
+  color: var(--text-primary);
+}
+
+.input-base::placeholder {
+  color: var(--muted);
+}
+
+.input-label {
+  @apply text-xs text-slate-600 font-semibold uppercase tracking-wider mb-1 block;
+}
+
+.icon-action {
+  @apply inline-flex items-center justify-center rounded-full bg-slate-100 text-slate-700 shadow-sm ring-1 ring-slate-200 transition hover:bg-slate-200;
+}
+
+/* Chat / Messages UI */
+.chat-thread-item {
+  @apply flex w-full flex-col gap-1 rounded-2xl px-4 py-3 text-left transition duration-150 ease-out;
+}
+.chat-thread-item-default {
+  @apply border rounded-2xl;
+  background: var(--card-bg);
+  border-color: var(--card-border);
+}
+.chat-thread-item-active {
+  @apply border border-sky-400 bg-sky-50 shadow-sm;
+}
+.chat-thread-title {
+  @apply text-sm font-semibold text-slate-900 truncate;
+}
+.chat-thread-sub {
+  @apply text-xs text-slate-500 truncate;
+}
+.chat-thread-snippet {
+  @apply text-xs leading-5 text-slate-500 truncate;
+}
+.chat-unread-badge {
+  @apply rounded-full bg-sky-600 px-2 py-0.5 text-[11px] font-semibold text-white;
+}
+
+.chat-messages {
+  @apply min-h-[40vh] max-h-[56vh] space-y-4 overflow-y-auto p-4;
+}
+
+.chat-bubble {
+  @apply max-w-[78%] rounded-[1.5rem] border border-transparent px-4 py-3 text-sm leading-6 shadow-sm;
+}
+.chat-bubble--me {
+  @apply text-white;
+  background: var(--accent);
+}
+.chat-bubble--them {
+  @apply text-slate-900;
+  background: var(--surface-1);
+}
+
+.chat-input {
+  @apply w-full rounded-full outline-none transition duration-150 ease-out;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  color: var(--text-primary);
+}
+
+.chat-send-btn {
+  @apply w-14 h-14 rounded-full bg-sky-600 text-white flex items-center justify-center hover:bg-sky-700 disabled:opacity-60 disabled:cursor-not-allowed;
+}
+
+/* Suggestion and search highlight styles */
+.suggestion-focus {
+  background: rgba(56,189,248,0.06);
+  transform: translateZ(0);
+  transition: background-color 120ms ease, transform 120ms ease;
+}
+.suggestion-focus:hover {
+  @apply bg-sky-100;
+}
+
+mark {
+  @apply bg-amber-200 rounded px-0.5;
+}
+
+@keyframes subtleFadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-in {
+  animation: subtleFadeIn 160ms ease both;
+}
+
+@keyframes slow-spin {
+  to { transform: rotate(360deg); }
+}
+.animate-slow-spin {
+  animation: slow-spin 1.8s linear infinite;
+}
+
+.loading-logo-spinner {
+  position: relative;
+  width: 10rem;
+  height: 10rem;
+}
+
+.loading-logo-spinner::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 1px solid rgba(56, 189, 248, 0.36);
+}
+
+.loading-logo-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 9999px;
+  background: #22d3ee;
+  box-shadow: 0 0 18px rgba(34, 211, 238, 0.95);
+  transform: translate(-50%, -50%);
+}
+
+.dot-1 { transform: translate(-50%, -50%) rotate(0deg) translate(4.5rem); }
+.dot-2 { transform: translate(-50%, -50%) rotate(45deg) translate(4.5rem); }
+.dot-3 { transform: translate(-50%, -50%) rotate(90deg) translate(4.5rem); }
+.dot-4 { transform: translate(-50%, -50%) rotate(135deg) translate(4.5rem); }
+.dot-5 { transform: translate(-50%, -50%) rotate(180deg) translate(4.5rem); }
+.dot-6 { transform: translate(-50%, -50%) rotate(225deg) translate(4.5rem); }
+.dot-7 { transform: translate(-50%, -50%) rotate(270deg) translate(4.5rem); }
+.dot-8 { transform: translate(-50%, -50%) rotate(315deg) translate(4.5rem); }
+
+/* Table Styling - Consistent */
+.table-base {
+  @apply w-full border-collapse overflow-hidden rounded-lg shadow-sm;
+  border: 1px solid var(--card-border);
+  background: var(--card-bg);
+  color: var(--text-primary);
+}
+
+.table-header {
+  @apply text-xs font-bold uppercase tracking-wider;
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+}
+
+.table-header th {
+  @apply px-6 py-4 text-left;
+}
+
+.table-body td {
+  @apply px-6 py-4 border-b;
+  border-color: var(--card-border);
+  color: var(--text-primary);
+}
+
+.table-body tr:hover {
+  @apply bg-slate-50 transition-colors;
+}
+
+.term-report-view {
+  font-family: inherit;
+}
+
+.term-report-view .report-table {
+  @apply table-base;
+}
+
+.term-report-view .report-table th,
+.term-report-view .report-table td {
+  @apply px-6 py-4 text-slate-900;
+  border: 1px solid #e2e8f0;
+}
+
+.term-report-view .report-table thead th {
+  @apply bg-slate-900 text-white font-bold uppercase text-xs tracking-wider;
+}
+
+.term-report-view .report-table tbody tr:nth-child(even) {
+  @apply bg-slate-50;
+}
+
+.term-report-view .report-table tbody tr:hover {
+  @apply bg-slate-100 transition-colors;
+}
+
+/* Additional Consistent Utilities */
+.text-error {
+  @apply text-red-500 text-sm;
+}
+
+.text-success {
+  @apply text-emerald-500 text-sm;
+}
+
+.text-warning {
+  @apply text-amber-500 text-sm;
+}
+
+.badge-success {
+  @apply inline-block bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-xs font-semibold;
+}
+
+.badge-error {
+  @apply inline-block bg-red-100 text-red-800 px-3 py-1 rounded-full text-xs font-semibold;
+}
+
+.badge-warning {
+  @apply inline-block bg-amber-100 text-amber-800 px-3 py-1 rounded-full text-xs font-semibold;
+}
+
+.term-report-view .report-card {
+  background: #ffffff;
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.08);
+  border-radius: 1.5rem;
+}
+
+.term-report-view .report-card-header {
+  background: #f8fafc;
+}
+
+.term-report-view .report-table thead th {
+  background: #062e61;
+  color: white;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.term-report-view .totals-row {
+  background: #f8dcc6;
+}
+
+@page {
+  size: A4 portrait;
+  margin: 8mm;
+}
+
+/* Print-optimized layout for term reports */
+@media print {
+  body {
+    -webkit-print-color-adjust: exact;
+  }
+  body * {
+    visibility: hidden;
+  }
+  .report-preview-modal,
+  .report-preview-modal *,
+  .term-report-view,
+  .term-report-view * {
+    visibility: visible;
+  }
+  .report-preview-modal {
+    position: fixed !important;
+    inset: 0 !important;
+    max-height: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    width: 100% !important;
+  }
+
+  .term-report-view {
+    width: 210mm !important;
+    height: 297mm !important;
+    margin: 0 !important;
+    padding: 8mm !important;
+    box-shadow: none !important;
+    background: white !important;
+  }
+
+  .term-report-view .report-card {
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    border: none !important;
+    padding: 0 !important;
+  }
+
+  .term-report-view .report-card-header {
+    padding: 6px !important;
+    margin-bottom: 6px !important;
+  }
+
+  .term-report-view .report-meta,
+  .term-report-view .report-card > div,
+  .term-report-view .report-card > .rounded {
+    padding: 6px !important;
+  }
+
+  .term-report-view .report-table th,
+  .term-report-view .report-table td {
+    padding: 0.35rem !important;
+    font-size: 10px !important;
+    border: 1px solid #ddd !important;
+  }
+
+  .term-report-view .report-table thead th {
+    font-size: 9px !important;
+  }
+
+  .term-report-view .totals-row td {
+    font-weight: 600 !important;
+  }
+
+  .term-report-view .min-h-\[5rem\] {
+    min-height: 4rem !important;
+  }
+
+  /* Avoid breaking table rows across pages */
+  .term-report-view table,
+  .term-report-view tr,
+  .term-report-view td,
+  .term-report-view th {
+    page-break-inside: avoid;
+  }
+}
+
+/* Constrain report width on screen for preview */
+.term-report-view {
+  max-width: 210mm;
+  margin: 8mm auto;
+}
+
+.react-calendar {
+  width: 100% !important;
+  border: none !important;
+  font-family: inherit !important;
+}
+
+.react-calendar__navigation__label__labelText {
+  font-weight: 600;
+}
+
+.react-calendar__tile--active {
+  background-color: #c3ebfa !important;
+  color: black !important;
+}
+
+.rbc-btn-group:first-child {
+  display: none !important;
+}
+
+.rbc-toolbar-label {
+  text-align: right !important;
+  padding: 0px 20px !important;
+}
+
+.rbc-btn-group:last-child {
+  font-size: 13px !important;
+}
+
+.rbc-btn-group:last-child button {
+  border: none !important;
+  background-color: #f1f0ff !important;
+  margin-left: 2px !important;
+}
+
+.rbc-toolbar button.rbc-active {
+  background-color: #dbdafe !important;
+  box-shadow: none !important;
+}
+
+.rbc-time-view {
+  border-color: #eee !important;
+}
+
+.rbc-time-header {
+  display: none !important;
+}
+
+.rbc-time-content {
+  border: none !important;
+}
+
+.rbc-time-gutter.rbc-time-column {
+  font-size: 12px !important;
+}
+
+.rbc-time-gutter.rbc-time-column .rbc-timeslot-group {
+  padding: 10px 10px !important;
+}
+
+.rbc-timeslot-group {
+  background-color: #f7fdff !important;
+}
+
+.rbc-day-slot {
+  font-size: 14px !important;
+}
+
+.rbc-event {
+  border: none !important;
+  color: black !important;
+  padding: 10px !important;
+  margin: 10px !important;
+  width: 99% !important;
+}
+
+.rbc-event:nth-child(1) {
+  background-color: #e2f8ff !important;
+}
+.rbc-event:nth-child(2) {
+  background-color: #fefce8 !important;
+}
+.rbc-event:nth-child(3) {
+  background-color: #f2f1ff !important;
+}
+.rbc-event:nth-child(4) {
+  background-color: #fdf2fb !important;
+}
+.rbc-event:nth-child(5) {
+  background-color: #e2f8ff !important;
+}
+.rbc-event:nth-child(6) {
+  background-color: #fefce8 !important;
+}
+.rbc-event:nth-child(7) {
+  background-color: #f2f1ff !important;
+}
+.rbc-event:nth-child(8) {
+  background-color: #fdf2fb !important;
+}
+
+.rbc-event-label{
+  color: gray !important;
+  margin-bottom: 5px;
+}
+
+/* Event tile circle styling for react-calendar */
+.react-calendar__tile.event-tile {
+  position: relative;
+  overflow: visible;
+}
+
+.react-calendar__tile.event-tile abbr {
+  position: relative;
+  z-index: 2;
+}
+
+.react-calendar__tile.event-tile::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 36px;
+  height: 36px;
+  border-radius: 9999px;
+  border: 2px solid #0ea5e9; /* sky-500 */
+  background: rgba(14,165,233,0.06);
+  z-index: 1;
+}
+
+/* Slightly darken today's tile border when it has an event */
+.react-calendar__tile--now.event-tile::before {
+  border-color: #0369a1;
+}
+
+.react-calendar__navigation button {
+  background: transparent !important;
+  border: none !important;
+  padding: 6px 10px !important;
+  color: #0f172a !important;
+}
+
+.react-calendar__navigation button:hover {
+  background: #f1f5f9 !important;
+  border-radius: 8px !important;
+}

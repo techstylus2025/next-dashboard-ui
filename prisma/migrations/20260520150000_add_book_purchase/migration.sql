@@ -1,0 +1,41 @@
+CREATE TYPE "BookOrderStatus" AS ENUM ('PENDING', 'CONFIRMED', 'CANCELLED');
+
+CREATE TABLE "Book" (
+    "id" SERIAL NOT NULL,
+    "title" TEXT NOT NULL,
+    "classId" INTEGER NOT NULL,
+    "priceCedis" DECIMAL(12,2) NOT NULL,
+    "quantity" INTEGER NOT NULL,
+    "supplierName" TEXT NOT NULL,
+    "supplierContact" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Book_pkey" PRIMARY KEY ("id")
+);
+
+ALTER TABLE "Book" ADD CONSTRAINT "Book_classId_fkey" FOREIGN KEY ("classId") REFERENCES "Class"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+CREATE TABLE "BookOrder" (
+    "id" SERIAL NOT NULL,
+    "parentId" TEXT NOT NULL,
+    "status" "BookOrderStatus" NOT NULL DEFAULT 'PENDING',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "BookOrder_pkey" PRIMARY KEY ("id")
+);
+
+ALTER TABLE "BookOrder" ADD CONSTRAINT "BookOrder_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "Parent"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+CREATE TABLE "BookOrderItem" (
+    "id" SERIAL NOT NULL,
+    "orderId" INTEGER NOT NULL,
+    "bookId" INTEGER NOT NULL,
+    "quantity" INTEGER NOT NULL,
+
+    CONSTRAINT "BookOrderItem_pkey" PRIMARY KEY ("id")
+);
+
+ALTER TABLE "BookOrderItem" ADD CONSTRAINT "BookOrderItem_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "BookOrder"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "BookOrderItem" ADD CONSTRAINT "BookOrderItem_bookId_fkey" FOREIGN KEY ("bookId") REFERENCES "Book"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
