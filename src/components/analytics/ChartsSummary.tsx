@@ -24,7 +24,7 @@ export default function ChartsSummary({
 
   return (
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-      <div className="bg-white dark:bg-slate-950 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+      <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
         <h3 className="text-sm font-semibold mb-2">Students by Class</h3>
         <div style={{ height: 260 }}>
           <ResponsiveContainer width="100%" height="100%">
@@ -38,7 +38,7 @@ export default function ChartsSummary({
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-950 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+      <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
         <h3 className="text-sm font-semibold mb-2">Subject Performance Summary</h3>
         <div style={{ height: 260 }}>
           <ResponsiveContainer width="100%" height="100%">
@@ -54,7 +54,7 @@ export default function ChartsSummary({
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-950 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm xl:col-span-2">
+      <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm xl:col-span-2">
         <div className="flex items-center justify-between mb-2">
           <div>
             <h3 className="text-sm font-semibold">Top Students by Class</h3>
@@ -78,7 +78,7 @@ export default function ChartsSummary({
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-950 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm xl:col-span-2">
+      <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm xl:col-span-2">
         <h3 className="text-sm font-semibold mb-3">Top Students Details</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {topStudentsByClass.map((entry) => (

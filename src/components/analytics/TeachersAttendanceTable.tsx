@@ -2,7 +2,7 @@
 
 export default function TeachersAttendanceTable({ rows }: { rows: { name: string; supervisorClass: string | null; subjects: string[]; presentToday: boolean }[] }) {
   return (
-    <div className="bg-white dark:bg-slate-950 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-x-auto">
+    <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm overflow-x-auto">
       <table className="w-full text-sm">
         <thead className="bg-slate-50 text-slate-700">
           <tr>
