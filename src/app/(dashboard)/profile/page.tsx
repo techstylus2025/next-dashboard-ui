@@ -33,6 +33,9 @@ const ProfilePage = async () => {
   const displayName = [user.firstName, user.lastName].filter(Boolean).join(" ") || user.fullName || user.username || "User";
   const profile = profileData.profile;
 
+  type DetailRow = { label: string; value: string | number };
+  type DetailSection = { title: string; rows: DetailRow[] };
+
   const summaryItems = [
     { label: "Role", value: profileData.role },
     { label: "Username", value: profile.username },
@@ -40,6 +43,8 @@ const ProfilePage = async () => {
     { label: "Phone", value: profile.phone ?? "Not set" },
     { label: "Birthday", value: profile.birthday ? new Date(profile.birthday).toLocaleDateString() : "Not set" },
   ];
+
+  const detailSections: DetailSection[] = [];
 
   if (role === "student") {
     summaryItems.push({ label: "Class", value: profile.class?.name ?? "Unknown" });
@@ -61,9 +66,7 @@ const ProfilePage = async () => {
   if (role === "admin") {
     summaryItems.push({ label: "Managed users", value: `${profileData.counts?.students ?? 0} students, ${profileData.counts?.teachers ?? 0} teachers, ${profileData.counts?.parents ?? 0} parents` });
   }
-
-  const detailSections = [];
-
+  
   if (role === "student") {
     detailSections.push({
       title: "Recent grades",

@@ -17,7 +17,7 @@ export default async function PurchaseBooksPage() {
     } = await loadPurchaseBooksPageData(role, userId ?? undefined);
 
     return (
-      <div className="flex-1 p-4 min-h-[60vh] rounded-2xl bg-lamaSkyLight">
+      <div className="flex-1 w-full p-4 min-h-[60vh] rounded-2xl bg-lamaSkyLight">
         <BooksManagement
           role={role}
           classes={classes}

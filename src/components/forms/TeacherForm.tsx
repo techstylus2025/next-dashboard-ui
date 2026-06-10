@@ -11,12 +11,24 @@ import {
   useState,
 } from "react";
 import InputField from "../InputField";
-import Image from "next/image";
 import { teacherSchema, TeacherSchema } from "@/lib/formValidationSchemas";
 import { createTeacher, updateTeacher } from "@/lib/actions";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
-import { CldUploadWidget } from "next-cloudinary";
+import {
+  FormErrorBanner,
+  FormFieldGrid,
+  FormHeader,
+  FormSection,
+  FormSelect,
+  PhotoUploadCard,
+} from "./FormUi";
+
+const formatDateValue = (value: string | Date | undefined) => {
+  if (!value) return undefined;
+  if (typeof value === "string") return value.split("T")[0];
+  return value.toISOString().split("T")[0];
+};
 
 const TeacherForm = ({
   type,
@@ -33,11 +45,28 @@ const TeacherForm = ({
     register,
     handleSubmit,
     formState: { errors },
+    reset,
   } = useForm<TeacherSchema>({
     resolver: zodResolver(teacherSchema),
+    defaultValues: data
+      ? {
+          ...data,
+          birthday: formatDateValue(data.birthday),
+        }
+      : undefined,
   });
 
-  const [img, setImg] = useState<any>();
+  const [img, setImg] = useState<any>(data?.img);
+
+  useEffect(() => {
+    if (data) {
+      reset({
+        ...data,
+        birthday: formatDateValue(data.birthday),
+      });
+      setImg(data.img);
+    }
+  }, [data, reset]);
 
   const [state, formAction] = useActionState(
     type === "create" ? createTeacher : updateTeacher,
@@ -47,11 +76,9 @@ const TeacherForm = ({
     }
   );
 
-  const onSubmit = handleSubmit((data) => {
-    console.log(data);
-    // cast to any to satisfy formAction expected param type
+  const onSubmit = handleSubmit((formData) => {
     startTransition(() => {
-      formAction({ ...(data as any), img: img?.secure_url } as any);
+      formAction({ ...(formData as any), img: img?.secure_url ?? data?.img } as any);
     });
   });
 
@@ -68,156 +95,161 @@ const TeacherForm = ({
   const { subjects } = relatedData;
 
   return (
-    <form className="flex flex-col gap-8" onSubmit={onSubmit}>
-      <h1 className="text-xl font-semibold">
-        {type === "create" ? "Create a new teacher" : "Update the teacher"}
-      </h1>
-      <span className="input-label font-medium mt-2 inline-block">
-        Authentication Information
-      </span>
-      <div className="flex justify-between flex-wrap gap-4">
-        <InputField
-          label="Username"
-          name="username"
-          defaultValue={data?.username}
-          register={register}
-          error={errors?.username}
-        />
-        <InputField
-          label="Email"
-          name="email"
-          defaultValue={data?.email}
-          register={register}
-          error={errors?.email}
-        />
-        <InputField
-          label="Password"
-          name="password"
-          type="password"
-          defaultValue={data?.password}
-          register={register}
-          error={errors?.password}
-        />
-      </div>
-      <span className="input-label font-medium mt-2 inline-block">
-        Personal Information
-      </span>
-      <div className="flex justify-between flex-wrap gap-4">
-        <InputField
-          label="First Name"
-          name="name"
-          defaultValue={data?.name}
-          register={register}
-          error={errors.name}
-        />
-        <InputField
-          label="Last Name"
-          name="surname"
-          defaultValue={data?.surname}
-          register={register}
-          error={errors.surname}
-        />
-        <InputField
-          label="Phone"
-          name="phone"
-          defaultValue={data?.phone}
-          register={register}
-          error={errors.phone}
-        />
-        <InputField
-          label="Address"
-          name="address"
-          defaultValue={data?.address}
-          register={register}
-          error={errors.address}
-        />
-        <InputField
-          label="Blood Type"
-          name="bloodType"
-          defaultValue={data?.bloodType}
-          register={register}
-          error={errors.bloodType}
-        />
-        <InputField
-          label="Birthday"
-          name="birthday"
-          defaultValue={data?.birthday.toISOString().split("T")[0]}
-          register={register}
-          error={errors.birthday}
-          type="date"
-        />
-        {data && (
+    <form className="flex flex-col gap-6" onSubmit={onSubmit}>
+      <FormHeader
+        title={type === "create" ? "Register a new teacher" : "Update teacher profile"}
+        description="Set up account access, personal details, and subject assignments in one place."
+        badge={type === "create" ? "New staff" : "Edit profile"}
+      />
+
+      <FormSection
+        title="Account access"
+        description="Login credentials used to sign in to the school portal."
+      >
+        <FormFieldGrid cols={2}>
           <InputField
-            label="Id"
-            name="id"
-            defaultValue={data?.id}
+            label="Username"
+            name="username"
+            defaultValue={data?.username}
             register={register}
-            error={errors?.id}
-            hidden
+            error={errors?.username}
           />
-        )}
-        <div className="flex flex-col gap-2 w-full md:w-1/4">
-          <label className="input-label">Sex</label>
-          <select
-            className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
-            {...register("sex")}
+          <InputField
+            label="Email"
+            name="email"
+            type="email"
+            defaultValue={data?.email}
+            register={register}
+            error={errors?.email}
+          />
+          <InputField
+            label={
+              type === "create"
+                ? "Password"
+                : "Password (leave blank to keep current)"
+            }
+            name="password"
+            type="password"
+            defaultValue={data?.password}
+            register={register}
+            error={errors?.password}
+          />
+        </FormFieldGrid>
+      </FormSection>
+
+      <FormSection
+        title="Personal information"
+        description="Basic profile details for records and identification."
+      >
+        <div className="mb-5">
+          <PhotoUploadCard
+            imageUrl={img?.secure_url ?? data?.img}
+            onUpload={setImg}
+            label="Staff photo"
+          />
+        </div>
+
+        <FormFieldGrid cols={2}>
+          <InputField
+            label="First name"
+            name="name"
+            defaultValue={data?.name}
+            register={register}
+            error={errors.name}
+          />
+          <InputField
+            label="Last name"
+            name="surname"
+            defaultValue={data?.surname}
+            register={register}
+            error={errors.surname}
+          />
+          <InputField
+            label="Phone"
+            name="phone"
+            defaultValue={data?.phone}
+            register={register}
+            error={errors.phone}
+          />
+          <InputField
+            label="Address"
+            name="address"
+            defaultValue={data?.address}
+            register={register}
+            error={errors.address}
+          />
+          <InputField
+            label="Blood type"
+            name="bloodType"
+            defaultValue={data?.bloodType}
+            register={register}
+            error={errors.bloodType}
+          />
+          <InputField
+            label="Date of birth"
+            name="birthday"
+            defaultValue={formatDateValue(data?.birthday)}
+            register={register}
+            error={errors.birthday}
+            type="date"
+          />
+          <FormSelect
+            label="Gender"
+            name="sex"
+            register={register}
+            error={errors.sex}
             defaultValue={data?.sex}
-          >
-            <option value="MALE">Male</option>
-            <option value="FEMALE">Female</option>
-          </select>
-          {errors.sex?.message && (
-            <p className="text-xs text-red-400">
-              {errors.sex.message.toString()}
-            </p>
-          )}
-        </div>
-        <div className="flex flex-col gap-2 w-full md:w-1/4">
-          <label className="input-label">Subjects</label>
-          <select
-            multiple
-            className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
-            {...register("subjects")}
-            defaultValue={data?.subjects}
-          >
-            {subjects.map((subject: { id: number; name: string }) => (
-              <option value={subject.id} key={subject.id}>
-                {subject.name}
-              </option>
-            ))}
-          </select>
-          {errors.subjects?.message && (
-            <p className="text-xs text-red-400">
-              {errors.subjects.message.toString()}
-            </p>
-          )}
-        </div>
-        <CldUploadWidget
-          uploadPreset="school"
-          onSuccess={(result, { widget }) => {
-            setImg(result.info);
-            widget.close();
-          }}
+            options={[
+              { value: "MALE", label: "Male" },
+              { value: "FEMALE", label: "Female" },
+            ]}
+          />
+          {data ? (
+            <InputField
+              label="Id"
+              name="id"
+              defaultValue={data?.id}
+              register={register}
+              error={errors?.id}
+              hidden
+            />
+          ) : null}
+        </FormFieldGrid>
+      </FormSection>
+
+      <FormSection
+        title="Teaching assignment"
+        description="Select the subjects this teacher is qualified to teach."
+      >
+        <FormSelect
+          label="Subjects"
+          name="subjects"
+          register={register}
+          error={errors.subjects}
+          defaultValue={data?.subjects}
+          multiple
+          options={subjects.map((subject: { id: number; name: string }) => ({
+            value: subject.id,
+            label: subject.name,
+          }))}
+        />
+        <p className="mt-2 text-xs text-slate-500">
+          Hold Ctrl (Windows) or Cmd (Mac) to select multiple subjects.
+        </p>
+      </FormSection>
+
+      {state.error ? (
+        <FormErrorBanner message="Something went wrong. Please check the form and try again." />
+      ) : null}
+
+      <div className="border-t border-slate-100 pt-4">
+        <button
+          type="submit"
+          className="w-full rounded-lg bg-sky-600 px-5 py-3 text-sm font-semibold text-white shadow-sm shadow-sky-200 transition hover:bg-sky-700 sm:w-auto"
         >
-          {({ open }) => {
-            return (
-              <div
-                className="text-xs text-slate-600 flex items-center gap-2 cursor-pointer"
-                onClick={() => open()}
-              >
-                <Image src="/upload.png" alt="" width={28} height={28} />
-                <span>Upload a photo</span>
-              </div>
-            );
-          }}
-        </CldUploadWidget>
+          {type === "create" ? "Create teacher" : "Save changes"}
+        </button>
       </div>
-      {state.error && (
-        <span className="text-red-500">Something went wrong!</span>
-      )}
-      <button className="bg-blue-400 text-white p-2 rounded-md">
-        {type === "create" ? "Create" : "Update"}
-      </button>
     </form>
   );
 };

@@ -64,20 +64,39 @@ export const studentSchema = z.object({
     .or(z.literal("")),
   name: z.string().min(1, { message: "First name is required!" }),
   surname: z.string().min(1, { message: "Last name is required!" }),
-  email: z
-    .string()
-    .email({ message: "Invalid email address!" })
-    .optional()
-    .or(z.literal("")),
-  phone: z.string().optional(),
-  address: z.string(),
+  otherNames: z.string().optional(),
+  nationality: z.string().min(1, { message: "Nationality is required!" }),
+  religion: z.string().min(1, { message: "Religion is required!" }),
+  address: z.string().min(1, { message: "Home address is required!" }),
+  gpsAddress: z.string().min(1, { message: "GPS address is required!" }),
+  languagesSpoken: z.string().optional(),
   img: z.string().optional(),
   bloodType: z.string().min(1, { message: "Blood Type is required!" }),
   birthday: z.coerce.date({ message: "Birthday is required!" }),
   sex: z.enum(["MALE", "FEMALE"], { message: "Sex is required!" }),
-  gradeId: z.coerce.number().min(1, { message: "Grade is required!" }),
+  department: z.enum(["PRESCHOOL", "PRIMARY", "JHS"], { message: "Department is required!" }),
   classId: z.coerce.number().min(1, { message: "Class is required!" }),
   parentId: z.string().min(1, { message: "Parent is required!" }),
+  previousSchoolName: z.string().min(1, { message: "Previous school name is required!" }),
+  previousClass: z.string().min(1, { message: "Class or form completed is required!" }),
+  yearsAttended: z.coerce.number().min(0, { message: "Years attended must be 0 or more" }),
+  reasonForTransfer: z.string().optional(),
+  knownMedicalConditions: z.string().optional(),
+  hasAllergies: z.boolean().default(false),
+  allergyDetails: z.string().optional(),
+  hasHearingDifficulties: z.boolean().default(false),
+  hearingDetails: z.string().optional(),
+  wearsCorrectiveGlasses: z.boolean().default(false),
+  correctiveGlassesDetails: z.string().optional(),
+  physicallyFitForSports: z.boolean().default(true),
+  fitnessDetails: z.string().optional(),
+  otherIssues: z.string().optional(),
+  emergencyContactPerson: z.string().min(1, { message: "Emergency contact person is required!" }),
+  emergencyContactNumber: z.string().min(1, { message: "Emergency contact number is required!" }),
+  alternativeEmergencyContactPerson: z.string().min(1, { message: "Alternative emergency contact person is required!" }),
+  alternativeEmergencyContactNumber: z.string().min(1, { message: "Alternative emergency contact number is required!" }),
+  declarationName: z.string().min(1, { message: "Declaration name is required!" }),
+  declarationDate: z.string().min(1, { message: "Declaration date is required!" }),
 });
 
 export type StudentSchema = z.infer<typeof studentSchema>;
@@ -146,6 +165,7 @@ export const parentSchema = z.object({
     .email({ message: "Invalid email address!" })
     .optional()
     .or(z.literal("")),
+  occupation: z.string().optional().or(z.literal("")),
   phone: z.string().min(1, { message: "Phone is required!" }),
   address: z.string().min(1, { message: "Address is required!" }),
 });

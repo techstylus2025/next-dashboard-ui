@@ -29,7 +29,7 @@ const InputField = ({
       className={
         hidden
           ? "hidden"
-          : containerClassName ?? "flex flex-col gap-2 w-full md:w-1/4"
+          : containerClassName ?? "flex flex-col gap-2 w-full"
       }
     >
       <label className="input-label">{label}</label>

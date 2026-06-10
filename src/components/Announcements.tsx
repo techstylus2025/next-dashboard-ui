@@ -1,6 +1,7 @@
 import { buildAnnouncementWhere } from "@/lib/announcementQueries";
 import prisma from "@/lib/prisma";
 import { auth } from "@clerk/nextjs/server";
+import Link from "next/link";
 
 const Announcements = async () => {
   const { userId, sessionClaims } = await auth();
@@ -16,7 +17,7 @@ const Announcements = async () => {
     <div className="bg-white p-4 rounded-md border border-slate-100">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Announcements</h1>
-        <span className="text-xs text-slate-500 bg-white rounded-md px-1 py-1">View All</span>
+        <Link href="/list/announcements" className="text-xs text-sky-600 hover:text-sky-700 bg-sky-50 rounded-md px-2 py-1.5 transition">View All</Link>
       </div>
       <div className="flex flex-col gap-4 mt-4">
         {data[0] && (

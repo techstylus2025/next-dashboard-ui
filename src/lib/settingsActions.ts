@@ -701,6 +701,8 @@ export async function archiveTeacherRecords(
       });
 
       const resultsCount = resultsExam.count + resultsAssignment.count;
+      // mark teacher row as archived
+      await tx.teacher.update({ where: { id: teacherId }, data: { isArchived: true, archivedAt: new Date() } });
       return {
         summary: `Archived for teacher ${teacherId}: ${attendance.count} attendance, ${exams.count} exams, ${assignments.count} assignments, ${resultsCount} results.`,
         counts: {
@@ -780,6 +782,8 @@ export async function archiveTeacherRecordsWithSelection(
         });
         counts.results = results.count;
       }
+      // mark teacher row as archived
+      await tx.teacher.update({ where: { id: teacherId }, data: { isArchived: true, archivedAt: new Date() } });
 
       return {
         summary: `Archived for teacher ${teacherId}: ${counts.attendance} attendance, ${counts.exams} exams, ${counts.assignments} assignments, ${counts.results} results.`,
@@ -826,10 +830,10 @@ export async function archiveStudentRecordsWithSelection(
         counts.results = results.count;
       }
 
-      const termly = await tx.termlyReport.updateMany({
-        where: { studentId },
-        data: {},
-      });
+      const termly = await tx.termlyReport.updateMany({ where: { studentId }, data: {} });
+
+      // mark student as archived
+      await tx.student.update({ where: { id: studentId }, data: { isArchived: true, archivedAt: new Date() } });
 
       return {
         summary: `Archived for student ${studentId}: ${counts.attendance} attendance, ${counts.results} results.`,
@@ -871,6 +875,9 @@ export async function archiveStudentRecords(
         where: { studentId },
         data: {},
       });
+
+      // mark student as archived
+      await tx.student.update({ where: { id: studentId }, data: { isArchived: true, archivedAt: new Date() } });
 
       return {
         summary: `Archived for student ${studentId}: ${attendance.count} attendance, ${results.count} results.`,

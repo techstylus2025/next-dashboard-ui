@@ -25,6 +25,7 @@ export async function loadPurchaseBooksPageData(
     const base = {
       id: b.id,
       title: b.title,
+      publication: b.publication,
       classId: b.classId,
       className: b.class.name,
       price: Number(b.priceCedis),

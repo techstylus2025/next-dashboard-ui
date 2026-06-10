@@ -6,11 +6,19 @@ import TableSearch from "@/components/TableSearch";
 import { buildAnnouncementWhere } from "@/lib/announcementQueries";
 import prisma from "@/lib/prisma";
 import { ITEM_PER_PAGE } from "@/lib/settings";
-import { Announcement, Class, Prisma } from "@prisma/client";
+import { Announcement, Class, Prisma, AcademicYear, AcademicTerm } from "@prisma/client";
 import Image from "next/image";
 import { auth } from "@clerk/nextjs/server";
 
 type AnnouncementList = Announcement & { class: Class | null };
+
+type GroupedAnnouncement = {
+  academicYearLabel: string;
+  terms: Array<{
+    termNumber: number;
+    announcements: AnnouncementList[];
+  }>;
+};
 
 const AnnouncementListPage = async ({
   searchParams,
@@ -43,14 +51,14 @@ const AnnouncementListPage = async ({
       <td>
         {isAdmin && (
           <div className="flex items-center gap-2">
-            <AnnouncementRowActions id={item.id} />
+            <AnnouncementRowActions id={item.id} announcement={item} />
           </div>
         )}
       </td>
     </tr>
   );
 
-  const { page, ...queryParams } = await searchParams;
+  const { page, search } = await searchParams;
   const p = page ? parseInt(page, 10) : 1;
 
   const query: Prisma.AnnouncementWhereInput = buildAnnouncementWhere(
@@ -58,17 +66,20 @@ const AnnouncementListPage = async ({
     userId ?? undefined
   );
 
-  if (queryParams?.search) {
-    query.title = { contains: queryParams.search, mode: "insensitive" };
+  if (search) {
+    query.title = { contains: search, mode: "insensitive" };
   }
 
-  const [data, count, classes] = await Promise.all([
+  const [academicYears, allAnnouncements, count, classes] = await Promise.all([
+    prisma.academicYear.findMany({
+      include: { terms: { orderBy: { termNumber: "asc" } } },
+      where: { isArchived: false },
+      orderBy: { createdAt: "desc" },
+    }),
     prisma.announcement.findMany({
       where: query,
       include: { class: true },
       orderBy: { date: "desc" },
-      take: ITEM_PER_PAGE,
-      skip: ITEM_PER_PAGE * (p - 1),
     }),
     prisma.announcement.count({ where: query }),
     isAdmin
@@ -78,6 +89,31 @@ const AnnouncementListPage = async ({
         })
       : Promise.resolve([]),
   ]);
+
+  const getTermForDate = (
+    date: Date,
+    year: AcademicYear & { terms: AcademicTerm[] }
+  ) => {
+    const term = year.terms.find((t) => date >= t.startDate && date <= t.endDate);
+    return term?.termNumber ?? null;
+  };
+
+  const groupedAnnouncements: GroupedAnnouncement[] = academicYears
+    .map((year) => ({
+      academicYearLabel: year.label,
+      terms: Array.from({ length: year.numberOfTerms }, (_, i) => ({
+        termNumber: i + 1,
+        announcements: allAnnouncements.filter((announcement) => {
+          const term = getTermForDate(announcement.date, year);
+          return term === i + 1;
+        }),
+      })).filter((t) => t.announcements.length > 0),
+    }))
+    .filter((y) => y.terms.length > 0);
+
+  const ungroupedAnnouncements = allAnnouncements.filter((announcement) => {
+    return !academicYears.some((year) => getTermForDate(announcement.date, year) !== null);
+  });
 
   return (
     <div className="flex-1 m-3 sm:m-4 mt-0 flex flex-col gap-4 min-h-0">
@@ -106,8 +142,60 @@ const AnnouncementListPage = async ({
             </div>
           </div>
         </div>
-        <Table columns={columns} renderRow={renderRow} data={data} />
-        <Pagination page={p} count={count} />
+        {/* GROUPED ANNOUNCEMENTS */}
+        <div className="space-y-6">
+          {groupedAnnouncements.length > 0 && (
+            groupedAnnouncements.map((yearGroup) => (
+              <div key={yearGroup.academicYearLabel} className="space-y-4">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <h2 className="text-lg font-semibold text-slate-900">
+                    {yearGroup.academicYearLabel}
+                  </h2>
+                </div>
+                <div className="space-y-6">
+                  {yearGroup.terms.map((termGroup) => (
+                    <div key={termGroup.termNumber} className="space-y-3">
+                      <div className="rounded-lg border border-slate-200 bg-white p-3">
+                        <h3 className="font-semibold text-slate-800">
+                          Term {termGroup.termNumber} ({termGroup.announcements.length} announcements)
+                        </h3>
+                      </div>
+                      <Table
+                        columns={columns}
+                        renderRow={renderRow}
+                        data={termGroup.announcements}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))
+          )}
+
+          {ungroupedAnnouncements.length > 0 && (
+            <div className="space-y-4">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <h2 className="text-lg font-semibold text-slate-900">
+                  Announcements outside current terms
+                </h2>
+                <p className="text-sm text-slate-600">
+                  Some announcements do not fall inside the active academic term dates; they are shown here.
+                </p>
+              </div>
+              <Table
+                columns={columns}
+                renderRow={renderRow}
+                data={ungroupedAnnouncements}
+              />
+            </div>
+          )}
+
+          {groupedAnnouncements.length === 0 && ungroupedAnnouncements.length === 0 && (
+            <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500">
+              No announcements found for any term.
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

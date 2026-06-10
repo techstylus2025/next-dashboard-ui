@@ -22,7 +22,7 @@ export default async function FeesPage() {
   let schedulesForCards = allSchedules;
   if (role === "parent" && userId) {
     const kids = await prisma.student.findMany({
-      where: { parentId: userId },
+      where: { parentId: userId, isArchived: false },
       select: { classId: true },
     });
     const classIds = new Set(kids.map((k) => k.classId));
@@ -54,6 +54,7 @@ export default async function FeesPage() {
     }, 0);
     return {
       id: s.id,
+      classId: s.classId,
       className: s.class.name,
       term: s.term,
       academicYear: s.academicYear,

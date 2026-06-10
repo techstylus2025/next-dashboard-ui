@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -25,7 +25,18 @@ export default function DashboardShell({
   const pathname = usePathname();
   const role = user?.publicMetadata.role as string | undefined;
 
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
+
   const bottomNavItems = [
+    {
+      icon: "/more.svg",
+      label: "Menu",
+      href: "#menu",
+      show: !!role,
+      action: () => setMenuOpen(true),
+    },
     {
       icon: "/home.svg",
       label: "Home",
@@ -45,13 +56,6 @@ export default function DashboardShell({
       show: !!role,
     },
     {
-      icon: "/more.svg",
-      label: "Menu",
-      href: "#menu",
-      show: !!role,
-      action: () => setMenuOpen(true),
-    },
-    {
       icon: "/setting.svg",
       label: "Settings",
       href: "/list/settings",
@@ -62,18 +66,18 @@ export default function DashboardShell({
   return (
     <div className="h-screen flex overflow-hidden bg-slate-100">
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-72 border-r border-slate-200 bg-white shadow-xl transition-transform duration-300 ease-out md:static md:translate-x-0 flex flex-col ${
+        className={`fixed inset-y-0 left-0 z-50 w-64 border-r border-slate-800/60 bg-slate-950 shadow-xl transition-transform duration-300 ease-out md:static md:translate-x-0 flex flex-col ${
           menuOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-slate-200 px-4 py-3 sm:px-5 bg-white">
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-slate-800/50 px-4 py-3 sm:px-5 bg-slate-950">
           <Link href={homeHref} className="flex items-center gap-2">
             <Image src="/logo.png" alt="logo" width={32} height={32} />
-            <span className="font-bold text-slate-800">TechStylus</span>
+            <span className="font-bold text-white">KINGS HEART SCHOOL</span>
           </Link>
           <button
             type="button"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-700 md:hidden"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-800 text-slate-200 hover:bg-slate-700 md:hidden"
             onClick={() => setMenuOpen(false)}
             aria-label="Close menu"
           >
@@ -86,14 +90,14 @@ export default function DashboardShell({
       </aside>
 
       <div className="flex flex-1 min-w-0 flex-col md:pl-0 lg:pl-0">
-        <div className="sticky top-0 z-40 flex items-center justify-center border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur-md shadow-sm md:hidden">
+        <div className="sticky top-0 z-40 flex items-center justify-center border-b border-slate-200 bg-white/90 px-0 py-3 backdrop-blur-md shadow-sm md:hidden">
           <Link href={homeHref} className="flex items-center gap-2">
             <Image src="/logo.png" alt="logo" width={28} height={28} />
-            <span className="font-semibold text-slate-900">TechStylus</span>
+            <span className="font-semibold text-slate-900">KINGS HEART SCHOOL</span>
           </Link>
         </div>
 
-        <div className="sticky top-0 z-30 border-b border-slate-200 bg-slate-50/95 backdrop-blur-md px-4 py-3 shadow-sm sm:px-5">
+        <div className="sticky top-0 z-30 border-b border-slate-200 bg-slate-50/95 backdrop-blur-md px-0 py-0 shadow-sm">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               {supervisorClassName ? (
@@ -130,8 +134,8 @@ export default function DashboardShell({
         <Image src="/message.svg" alt="Messages" width={24} height={24} className="invert" />
       </button>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 md:hidden rounded-t-3xl border border-slate-800/20 bg-slate-950/95 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-1 px-3 py-3">
+      <div className="fixed left-4 right-4 bottom-4 z-40 md:hidden rounded-full border border-slate-800/20 bg-slate-950/95 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-3xl items-center justify-center gap-2 px-2 py-2">
           {bottomNavItems.filter((item) => item.show).map((item) => {
             const active = item.href !== "#menu" && pathname === item.href;
             return item.action ? (

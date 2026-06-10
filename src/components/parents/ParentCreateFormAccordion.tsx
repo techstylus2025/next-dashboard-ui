@@ -4,7 +4,7 @@ import { useState } from "react";
 import ParentCreateForm from "@/components/parents/ParentCreateForm";
 
 export default function ParentCreateFormAccordion() {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
 
   return (
     <div className="rounded-3xl border border-slate-200/70 bg-white shadow-sm">

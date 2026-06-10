@@ -131,8 +131,8 @@ async function main() {
     
     await prisma.student.create({
       data: {
-        id: `student${i}`, 
-        username: `student${i}`, 
+        id: `student${i}`,
+        username: `student${i}`,
         name: `SName${i}`,
         surname: `SSurname ${i}`,
         email: `student${i}@example.com`,
@@ -140,9 +140,9 @@ async function main() {
         address: `Address${i}`,
         bloodType: "O-",
         sex: i % 2 === 0 ? UserSex.MALE : UserSex.FEMALE,
-        parentId: `parentId${Math.ceil(i / 2) % 25 || 25}`, 
-        gradeId: (i % 6) + 1, 
-        classId: (i % 6) + 1, 
+        parentId: `parentId${Math.ceil(i / 2) % 25 || 25}`,
+        gradeId: (i % 6) + 1,
+        classId: (i % 6) + 1,
         birthday,
       },
     });

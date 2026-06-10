@@ -11,6 +11,7 @@ import {
   resetAppData,
   type TermInput,
 } from "@/lib/settingsActions";
+import { archiveParentRecords } from "@/lib/parentArchiveActions";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "react-toastify";
@@ -85,6 +86,7 @@ export default function SettingsManagement({
   gradingEntries,
   teachers,
   students,
+  parents,
   schoolSettings,
   archivedCounts,
 }: {
@@ -92,6 +94,7 @@ export default function SettingsManagement({
   gradingEntries: GradingEntryRow[];
   teachers?: { id: string; name: string; surname: string }[];
   students?: { id: string; name: string; surname: string }[];
+  parents?: { id: string; name: string; surname: string }[];
   schoolSettings?: SchoolSettingsRow | null;
   archivedCounts: ArchiveCounts;
 }) {
@@ -306,6 +309,7 @@ export default function SettingsManagement({
 
   const [selectedTeacher, setSelectedTeacher] = useState<string>("");
   const [selectedStudent, setSelectedStudent] = useState<string>("");
+  const [selectedParent, setSelectedParent] = useState<string>("");
 
   const handleArchiveTeacher = () => {
     if (!selectedTeacher) return;
@@ -347,6 +351,20 @@ export default function SettingsManagement({
         router.refresh();
       } else {
         toast.error(res.error || "Could not archive student records.");
+      }
+    });
+  };
+
+  const handleArchiveParent = () => {
+    if (!selectedParent) return;
+    if (!confirm("Archive this parent and their student records?")) return;
+    startTransition(async () => {
+      const res = await archiveParentRecords(selectedParent);
+      if (res.success) {
+        toast.success(res.summary || "Parent records archived.");
+        router.refresh();
+      } else {
+        toast.error(res.error || "Could not archive parent records.");
       }
     });
   };
@@ -746,7 +764,7 @@ export default function SettingsManagement({
         <h2 className="text-lg font-medium text-slate-800 mb-4">Archive individuals</h2>
         <p className="text-sm text-slate-600 mb-4">Archive records for a teacher who has left or a student who has completed/left.</p>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-3">
           <div className="rounded-xl border p-4">
             <p className="text-sm font-medium text-slate-700">Archive teacher records</p>
             <p className="text-xs text-slate-500 mb-3">Select a teacher to archive related records (attendance, exams, assignments, results).</p>
@@ -884,6 +902,33 @@ export default function SettingsManagement({
               </button>
             </div>
           </div>
+
+          <div className="rounded-xl border p-4">
+            <p className="text-sm font-medium text-slate-700">Archive parent records</p>
+            <p className="text-xs text-slate-500 mb-3">Select a parent to archive related records.</p>
+            <select
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 mb-3"
+              value={selectedParent}
+              onChange={(e) => setSelectedParent(e.target.value)}
+            >
+              <option value="">Select a parent</option>
+              {parents?.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} {p.surname}
+                </option>
+              ))}
+            </select>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={!selectedParent || pending}
+                onClick={handleArchiveParent}
+                className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+              >
+                Archive parent records
+              </button>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -919,6 +964,55 @@ export default function SettingsManagement({
             <p className="mt-2 text-lg font-semibold">{archivedCounts.results}</p>
           </div>
         </div>
+      </section>
+
+      <section className="rounded-2xl border bg-white p-5 md:p-6 shadow-sm ring-1 ring-slate-200/60">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-medium text-slate-800 mb-1">Archived academic years</h2>
+            <p className="text-sm text-slate-600">View academic years that are archived and unarchive them when needed.</p>
+          </div>
+        </div>
+        {academicYears.filter((year) => year.isArchived).length === 0 ? (
+          <p className="text-sm text-slate-500 mt-4">No archived academic years found.</p>
+        ) : (
+          <div className="mt-4 grid gap-4">
+            {academicYears
+              .filter((year) => year.isArchived)
+              .map((year) => (
+                <div key={year.id} className="rounded-xl border border-amber-200 bg-amber-50/60 p-4">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="font-semibold text-slate-800">{year.label}</h3>
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                          Archived
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1">
+                        {year.numberOfTerms} term{year.numberOfTerms !== 1 ? "s" : ""}
+                      </p>
+                      {year.archivedAt && (
+                        <p className="text-xs text-amber-700 mt-1">
+                          Archived {new Date(year.archivedAt).toLocaleString()}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => handleUnarchiveYear(year.id)}
+                        className="rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-700 disabled:opacity-50"
+                      >
+                        Unarchive
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+          </div>
+        )}
       </section>
 
       {archiveOptionsYearId !== null && (

@@ -100,13 +100,16 @@ export async function getUnreadMessageCount(
 }
 
 export async function getAdminMessageThreads(): Promise<ChatThread[]> {
-  const parents = await prisma.parent.findMany({
-    select: { id: true, name: true, surname: true },
-  });
-
-  const teachers = await prisma.teacher.findMany({
-    select: { id: true, name: true, surname: true },
-  });
+  const [parents, teachers] = await Promise.all([
+    prisma.parent.findMany({
+      where: { isArchived: false },
+      select: { id: true, name: true, surname: true },
+    }),
+    prisma.teacher.findMany({
+      where: { isArchived: false },
+      select: { id: true, name: true, surname: true },
+    }),
+  ]);
 
   const parentMap = new Map<string, string>(
     parents.map((parent) => [parent.id, `${parent.name} ${parent.surname}`])
@@ -339,12 +342,16 @@ export async function markMessageAsRead(messageId: number): Promise<void> {
 }
 
 export async function getAllParentsAndTeachers() {
-  const parents = await prisma.parent.findMany({
-    select: { id: true, name: true, surname: true },
-  });
-  const teachers = await prisma.teacher.findMany({
-    select: { id: true, name: true, surname: true },
-  });
+  const [parents, teachers] = await Promise.all([
+    prisma.parent.findMany({
+      where: { isArchived: false },
+      select: { id: true, name: true, surname: true },
+    }),
+    prisma.teacher.findMany({
+      where: { isArchived: false },
+      select: { id: true, name: true, surname: true },
+    }),
+  ]);
   return { parents, teachers };
 }
 

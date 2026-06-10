@@ -57,7 +57,13 @@ const ParentListPage = async ({
       <td>
         {isAdmin && (
           <div className="flex items-center gap-2">
-            <ParentRowActions parent={{ ...item, email: item.email ?? undefined }} />
+            <ParentRowActions
+              parent={{
+                ...item,
+                email: item.email ?? undefined,
+                occupation: item.occupation ?? undefined,
+              }}
+            />
           </div>
         )}
       </td>
@@ -80,13 +86,13 @@ const ParentListPage = async ({
 
   const [data, count] = await prisma.$transaction([
     prisma.parent.findMany({
-      where: query,
+      where: { ...query, isArchived: false },
       include: { students: true },
       orderBy: [{ surname: "asc" }, { name: "asc" }],
       take: ITEM_PER_PAGE,
       skip: ITEM_PER_PAGE * (p - 1),
     }),
-    prisma.parent.count({ where: query }),
+    prisma.parent.count({ where: { ...query, isArchived: false } }),
   ]);
 
   return (

@@ -9,7 +9,14 @@ export const metadata: Metadata = {
 
 export default async function TransportPage() {
   const { userId, sessionClaims } = await auth();
-  const role = (sessionClaims?.metadata as { role?: string })?.role;
+  const rawRole = (sessionClaims?.metadata as { role?: string })?.role;
+  const role =
+    rawRole === "admin" ||
+    rawRole === "teacher" ||
+    rawRole === "parent" ||
+    rawRole === "student"
+      ? rawRole
+      : undefined;
 
   const parentName = role === "parent" && userId
     ? await prisma.parent
@@ -20,7 +27,7 @@ export default async function TransportPage() {
   const parentStudents =
     role === "parent" && userId
       ? await prisma.student.findMany({
-          where: { parentId: userId },
+          where: { parentId: userId, isArchived: false },
           include: { class: true },
           orderBy: { name: "asc" },
         })
@@ -29,6 +36,7 @@ export default async function TransportPage() {
   const adminStudentChoices =
     role === "admin"
       ? await prisma.student.findMany({
+          where: { isArchived: false },
           include: { class: true, parent: true },
           orderBy: { name: "asc" },
         })

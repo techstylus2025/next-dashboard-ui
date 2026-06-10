@@ -1,0 +1,110 @@
+import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
+import prisma from "@/lib/prisma";
+
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const table = url.searchParams.get("table");
+  const { sessionClaims } = await auth();
+  const role = (sessionClaims?.metadata as { role?: string })?.role;
+  const currentUserId = sessionClaims?.sub;
+
+  let relatedData: any = {};
+
+  switch (table) {
+    case "subject": {
+      const subjectTeachers = await prisma.teacher.findMany({
+        where: { isArchived: false },
+        select: { id: true, name: true, surname: true },
+      });
+      relatedData = { teachers: subjectTeachers };
+      break;
+    }
+    case "class": {
+      const classGrades = await prisma.grade.findMany({
+        select: { id: true, level: true },
+      });
+      const classTeachers = await prisma.teacher.findMany({
+        where: { isArchived: false },
+        select: { id: true, name: true, surname: true },
+      });
+      relatedData = { teachers: classTeachers, grades: classGrades };
+      break;
+    }
+    case "teacher": {
+      const teacherSubjects = await prisma.subject.findMany({
+        select: { id: true, name: true },
+      });
+      relatedData = { subjects: teacherSubjects };
+      break;
+    }
+    case "student": {
+      const studentClasses = await prisma.class.findMany({
+        include: { _count: { select: { students: true } } },
+      });
+      const parents = await prisma.parent.findMany({
+        where: { isArchived: false },
+        select: { id: true, name: true, surname: true },
+        orderBy: { name: "asc" },
+      });
+      relatedData = { classes: studentClasses, parents };
+      break;
+    }
+    case "exam": {
+      const examLessons = await prisma.lesson.findMany({
+        where: {
+          ...(role === "teacher" ? { teacherId: currentUserId!, teacher: { isArchived: false } } : {}),
+        },
+        select: { id: true, name: true },
+      });
+      relatedData = { lessons: examLessons };
+      break;
+    }
+    case "attendance": {
+      const attendanceStudents = await prisma.student.findMany({
+        where: {
+          isArchived: false,
+          ...(role === "teacher"
+            ? { class: { supervisorId: currentUserId! } }
+            : {}),
+        },
+        include: { class: true },
+        orderBy: { name: "asc" },
+      });
+      const attendanceLessons = await prisma.lesson.findMany({
+        where: {
+          ...(role === "teacher"
+            ? { class: { supervisorId: currentUserId! } }
+            : {}),
+        },
+        include: { class: true, teacher: true },
+        orderBy: { name: "asc" },
+      });
+      const attendanceTeachers =
+        role === "admin"
+          ? await prisma.teacher.findMany({
+              select: { id: true, name: true, surname: true },
+              orderBy: { name: "asc" },
+            })
+          : [];
+      relatedData = {
+        students: attendanceStudents,
+        lessons: attendanceLessons,
+        teachers: attendanceTeachers,
+      };
+      break;
+    }
+    case "event": {
+      const eventClasses = await prisma.class.findMany({
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      });
+      relatedData = { classes: eventClasses };
+      break;
+    }
+    default:
+      relatedData = {};
+  }
+
+  return NextResponse.json(relatedData);
+}

@@ -275,7 +275,7 @@ const Menu = () => {
   }
 
   return (
-    <div className="mt-2 flex flex-1 min-h-0 flex-col lg:mt-3 lg:rounded-3xl lg:border lg:border-slate-200/80 lg:bg-white lg:shadow-xl lg:shadow-slate-300/20 lg:ring-1 lg:ring-slate-200/40 lg:overflow-hidden">
+    <div className="mt-2 flex flex-1 min-h-0 flex-col lg:mt-3 lg:rounded-3xl lg:border lg:border-slate-800/60 lg:bg-slate-950 lg:shadow-xl lg:shadow-slate-950/20 lg:ring-1 lg:ring-slate-800/40 lg:overflow-hidden">
       <MenuPanel sections={sections} />
     </div>
   );

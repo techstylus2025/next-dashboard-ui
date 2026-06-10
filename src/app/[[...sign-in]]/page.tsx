@@ -55,7 +55,7 @@ const LoginPage = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 flex items-center justify-center px-4 py-10">
         <div className="text-center">
-          <div className="mx-auto relative flex h-40 w-40 items-center justify-center bg-transparent overflow-visible">
+          <div className="mx-auto relative flex h-40 w-40 items-center justify-center">
             <div className="absolute inset-0 flex items-center justify-center" aria-hidden="true">
               <div className="loading-logo-spinner animate-slow-spin">
                 <span className="loading-logo-dot dot-1" />
@@ -68,11 +68,7 @@ const LoginPage = () => {
                 <span className="loading-logo-dot dot-8" />
               </div>
             </div>
-            <div className="relative z-10 flex items-center justify-center">
-              <span className="absolute h-32 w-32 rounded-full bg-cyan-400/15 blur-3xl" aria-hidden="true" />
-              <span className="absolute h-24 w-24 rounded-full bg-slate-950/10" aria-hidden="true" />
-              <Image src="/logo.png" alt="Loading" width={56} height={56} className="relative z-10" />
-            </div>
+            <Image src="/logo.png" alt="Loading" width={56} height={56} className="relative z-10 rounded-full bg-slate-950/90 p-1" />
           </div>
           <p className="mt-4 text-sm text-slate-300">Loading sign in...</p>
         </div>

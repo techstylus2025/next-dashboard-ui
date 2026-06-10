@@ -87,7 +87,7 @@ export async function GET(req: Request) {
 
     if (userId && role) {
       if (role === "parent") {
-        const myStudents = await prisma.student.findMany({ where: { parentId: userId }, select: { id: true, classId: true } });
+        const myStudents = await prisma.student.findMany({ where: { parentId: userId, isArchived: false }, select: { id: true, classId: true } });
         allowedStudentIds = myStudents.map((s) => s.id);
         allowedClassIds = Array.from(new Set(myStudents.map((s) => s.classId)));
       } else if (role === "teacher") {
@@ -105,7 +105,7 @@ export async function GET(req: Request) {
           const rows: any = await prisma.$queryRaw`
             SELECT id, name, surname, username, email, img
             FROM "Student"
-            WHERE search_vector @@ plainto_tsquery('english', ${qTrim})
+            WHERE search_vector @@ plainto_tsquery('english', ${qTrim}) AND "isArchived" = false
             ORDER BY ts_rank(search_vector, plainto_tsquery('english', ${qTrim})) DESC
             LIMIT ${Math.max(50, take)}
           `;
@@ -117,6 +117,7 @@ export async function GET(req: Request) {
 
       const where: any = {
         OR: [{ name: qFilter }, { surname: qFilter }, { username: qFilter }, { email: qFilter }],
+        isArchived: false,
       };
       if (allowedStudentIds) where.AND = [{ id: { in: allowedStudentIds } }];
       if (allowedClassIds && allowedClassIds.length > 0 && !allowedStudentIds) {
@@ -134,7 +135,7 @@ export async function GET(req: Request) {
           const rows: any = await prisma.$queryRaw`
             SELECT id, name, surname, username, email, img
             FROM "Teacher"
-            WHERE search_vector @@ plainto_tsquery('english', ${qTrim})
+            WHERE search_vector @@ plainto_tsquery('english', ${qTrim}) AND "isArchived" = false
             ORDER BY ts_rank(search_vector, plainto_tsquery('english', ${qTrim})) DESC
             LIMIT ${Math.max(50, take)}
           `;
@@ -143,7 +144,7 @@ export async function GET(req: Request) {
           // fallback
         }
       }
-      const items = await prisma.teacher.findMany({ where: { OR: [{ name: qFilter }, { surname: qFilter }, { username: qFilter }, { email: qFilter }] }, select: { id: true, name: true, surname: true, username: true, email: true, img: true }, skip, take: Math.max(50, take) });
+      const items = await prisma.teacher.findMany({ where: { OR: [{ name: qFilter }, { surname: qFilter }, { username: qFilter }, { email: qFilter }], isArchived: false }, select: { id: true, name: true, surname: true, username: true, email: true, img: true }, skip, take: Math.max(50, take) });
       items.sort((a: any, b: any) => scoreItem(b, qTrim, ["name", "surname", "username", "email"]) - scoreItem(a, qTrim, ["name", "surname", "username", "email"]));
       return items.slice(0, take);
     };
@@ -154,7 +155,7 @@ export async function GET(req: Request) {
           const rows: any = await prisma.$queryRaw`
             SELECT id, name, surname, username, email, phone
             FROM "Parent"
-            WHERE search_vector @@ plainto_tsquery('english', ${qTrim})
+            WHERE search_vector @@ plainto_tsquery('english', ${qTrim}) AND "isArchived" = false
             ORDER BY ts_rank(search_vector, plainto_tsquery('english', ${qTrim})) DESC
             LIMIT ${Math.max(50, take)}
           `;
@@ -165,7 +166,7 @@ export async function GET(req: Request) {
           // fallback
         }
       }
-      const where: any = { OR: [{ name: qFilter }, { surname: qFilter }, { username: qFilter }, { phone: qFilter }, { email: qFilter }] };
+      const where: any = { OR: [{ name: qFilter }, { surname: qFilter }, { username: qFilter }, { phone: qFilter }, { email: qFilter }], isArchived: false };
       if (role === "parent" && userId) {
         where.AND = [{ id: userId }];
       }

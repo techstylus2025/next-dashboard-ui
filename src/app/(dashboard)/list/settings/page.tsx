@@ -26,6 +26,7 @@ export default async function SettingsPage() {
         gradingEntries={gradingEntries}
         teachers={settingsData.teachers}
         students={settingsData.students}
+        parents={settingsData.parents}
         schoolSettings={settingsData.schoolSettings}
         archivedCounts={settingsData.archivedCounts}
       />

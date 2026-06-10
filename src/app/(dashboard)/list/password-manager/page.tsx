@@ -34,9 +34,9 @@ export default async function PasswordManagerPage({
 
   const [admins, teachers, parents, students] = await prisma.$transaction([
     prisma.admin.findMany({ select: { id: true, username: true } }),
-    prisma.teacher.findMany({ select: { id: true, username: true, name: true, surname: true, email: true } }),
-    prisma.parent.findMany({ select: { id: true, username: true, name: true, surname: true, email: true } }),
-    prisma.student.findMany({ select: { id: true, username: true, name: true, surname: true, email: true } }),
+    prisma.teacher.findMany({ where: { isArchived: false }, select: { id: true, username: true, name: true, surname: true, email: true } }),
+    prisma.parent.findMany({ where: { isArchived: false }, select: { id: true, username: true, name: true, surname: true, email: true } }),
+    prisma.student.findMany({ where: { isArchived: false }, select: { id: true, username: true, name: true, surname: true, email: true } }),
   ]);
 
   const allUsers: PasswordManagerItem[] = [

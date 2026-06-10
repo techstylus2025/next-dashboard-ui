@@ -37,6 +37,7 @@ const ParentForm = ({
           name: data.name,
           surname: data.surname,
           email: data.email ?? "",
+          occupation: data.occupation ?? "",
           phone: data.phone,
           address: data.address,
           password: "",
@@ -83,11 +84,18 @@ const ParentForm = ({
           error={errors?.username}
         />
         <InputField
-          label="Email"
+          label="Email (optional)"
           name="email"
           defaultValue={data?.email ?? ""}
           register={register}
           error={errors?.email}
+        />
+        <InputField
+          label="Occupation (optional)"
+          name="occupation"
+          defaultValue={data?.occupation ?? ""}
+          register={register}
+          error={errors?.occupation}
         />
         <InputField
           label={type === "create" ? "Password" : "Password (leave blank to keep)"}

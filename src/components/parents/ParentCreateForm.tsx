@@ -70,10 +70,16 @@ export default function ParentCreateForm() {
           error={errors.password}
         />
         <InputField
-          label="Email"
+          label="Email (optional)"
           name="email"
           register={register}
           error={errors.email}
+        />
+        <InputField
+          label="Occupation (optional)"
+          name="occupation"
+          register={register}
+          error={errors.occupation}
         />
         <InputField
           label="First name"

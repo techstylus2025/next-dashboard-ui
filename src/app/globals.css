@@ -277,25 +277,48 @@ mark {
 }
 
 .term-report-view .report-table {
-  @apply table-base;
+  border-collapse: collapse;
 }
 
 .term-report-view .report-table th,
 .term-report-view .report-table td {
-  @apply px-6 py-4 text-slate-900;
-  border: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .term-report-view .report-table thead th {
-  @apply bg-slate-900 text-white font-bold uppercase text-xs tracking-wider;
+  background: #062e61;
+  color: #ffffff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .term-report-view .report-table tbody tr:nth-child(even) {
-  @apply bg-slate-50;
+  background: #f8fafc;
 }
 
 .term-report-view .report-table tbody tr:hover {
-  @apply bg-slate-100 transition-colors;
+  background: #f1f5f9;
+  transition: background-color 0.15s ease;
+}
+
+.term-report-view .report-grading-table {
+  border-collapse: collapse;
+}
+
+.term-report-view .report-grading-table th,
+.term-report-view .report-grading-table td {
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.term-report-view .report-grading-table thead th {
+  background: #e2e8f0;
+  color: #475569;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 /* Additional Consistent Utilities */
@@ -325,23 +348,23 @@ mark {
 
 .term-report-view .report-card {
   background: #ffffff;
-  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.08);
-  border-radius: 1.5rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  box-shadow:
+    0 4px 6px -1px rgba(15, 23, 42, 0.05),
+    0 20px 45px rgba(15, 23, 42, 0.08);
 }
 
 .term-report-view .report-card-header {
-  background: #f8fafc;
-}
-
-.term-report-view .report-table thead th {
-  background: #062e61;
-  color: white;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
 }
 
 .term-report-view .totals-row {
-  background: #f8dcc6;
+  background: #fef3c7;
+}
+
+.term-report-view .totals-row td {
+  border-top: 2px solid #f59e0b;
 }
 
 @page {
@@ -389,33 +412,50 @@ mark {
   }
 
   .term-report-view .report-card-header {
+    padding: 8px 10px !important;
+  }
+
+  .term-report-view .report-meta,
+  .term-report-view .report-summary-strip,
+  .term-report-view .report-card > div {
     padding: 6px !important;
     margin-bottom: 6px !important;
   }
 
-  .term-report-view .report-meta,
-  .term-report-view .report-card > div,
-  .term-report-view .report-card > .rounded {
-    padding: 6px !important;
-  }
-
   .term-report-view .report-table th,
   .term-report-view .report-table td {
-    padding: 0.35rem !important;
-    font-size: 10px !important;
+    padding: 0.3rem 0.4rem !important;
+    font-size: 9px !important;
     border: 1px solid #ddd !important;
   }
 
   .term-report-view .report-table thead th {
-    font-size: 9px !important;
+    font-size: 8px !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .term-report-view .totals-row {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
   .term-report-view .totals-row td {
-    font-weight: 600 !important;
+    font-weight: 700 !important;
   }
 
-  .term-report-view .min-h-\[5rem\] {
-    min-height: 4rem !important;
+  .term-report-view .report-remark-body {
+    min-height: 3rem !important;
+  }
+
+  .term-report-view .report-accent-bar,
+  .term-report-view .report-title-badge {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .term-report-view footer {
+    display: none !important;
   }
 
   /* Avoid breaking table rows across pages */
@@ -539,17 +579,21 @@ mark {
 }
 
 /* Event tile circle styling for react-calendar */
-.react-calendar__tile.event-tile {
+.react-calendar__tile.school-event-tile,
+.react-calendar__tile.national-event-tile,
+.react-calendar__tile.both-events-tile {
   position: relative;
   overflow: visible;
 }
 
-.react-calendar__tile.event-tile abbr {
+.react-calendar__tile.school-event-tile abbr,
+.react-calendar__tile.national-event-tile abbr,
+.react-calendar__tile.both-events-tile abbr {
   position: relative;
   z-index: 2;
 }
 
-.react-calendar__tile.event-tile::before {
+.react-calendar__tile.school-event-tile::before {
   content: "";
   position: absolute;
   left: 50%;
@@ -558,14 +602,47 @@ mark {
   width: 36px;
   height: 36px;
   border-radius: 9999px;
-  border: 2px solid #0ea5e9; /* sky-500 */
-  background: rgba(14,165,233,0.06);
+  border: 2px solid #0ea5e9;
+  background: rgba(14, 165, 233, 0.08);
   z-index: 1;
 }
 
-/* Slightly darken today's tile border when it has an event */
-.react-calendar__tile--now.event-tile::before {
+.react-calendar__tile.national-event-tile::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 36px;
+  height: 36px;
+  border-radius: 9999px;
+  border: 2px solid #10b981;
+  background: rgba(16, 185, 129, 0.08);
+  z-index: 1;
+}
+
+.react-calendar__tile.both-events-tile::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 36px;
+  height: 36px;
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    linear-gradient(135deg, #10b981 0%, #10b981 50%, #0ea5e9 50%, #0ea5e9 100%) border-box;
+  z-index: 1;
+}
+
+.react-calendar__tile--now.school-event-tile::before {
   border-color: #0369a1;
+}
+
+.react-calendar__tile--now.national-event-tile::before {
+  border-color: #047857;
 }
 
 .react-calendar__navigation button {

@@ -33,10 +33,12 @@ const AttendancePage = async ({
   if (role === "admin") {
     const [students, teachers, records] = await prisma.$transaction([
       prisma.student.findMany({
+        where: { isArchived: false },
         include: { class: true },
         orderBy: { name: "asc" },
       }),
       prisma.teacher.findMany({
+        where: { isArchived: false },
         orderBy: { name: "asc" },
       }),
       prisma.attendance.findMany({

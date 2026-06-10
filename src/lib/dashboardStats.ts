@@ -19,6 +19,13 @@ export type AdminDashboardSummary = {
   totalFeesOutstanding: number;
   outstandingAssignments: number;
   monthlyPayments: MonthlyPaymentPoint[];
+  currentFridayEvent?: {
+    title: string;
+    className: string | null;
+    startTime: string;
+    endTime: string;
+    description: string;
+  };
 };
 
 function getMonthLabel(year: number, month: number) {
@@ -90,6 +97,35 @@ export async function loadAdminDashboardSummary(): Promise<AdminDashboardSummary
     }
   }
 
+  const now = new Date();
+  const dayIndex = now.getDay();
+  const monday = new Date(now);
+  monday.setHours(0, 0, 0, 0);
+  monday.setDate(now.getDate() - ((dayIndex + 6) % 7));
+
+  const friday = new Date(monday);
+  friday.setDate(monday.getDate() + 4);
+  friday.setHours(0, 0, 0, 0);
+
+  const fridayEnd = new Date(friday);
+  fridayEnd.setHours(23, 59, 59, 999);
+
+  const fridayEvent = await db.event.findFirst({
+    where: {
+      isArchived: false,
+      startTime: {
+        gte: friday,
+        lte: fridayEnd,
+      },
+    },
+    include: {
+      class: true,
+    },
+    orderBy: {
+      startTime: "asc",
+    },
+  });
+
   return {
     totalStudents,
     totalTeachers,
@@ -101,5 +137,22 @@ export async function loadAdminDashboardSummary(): Promise<AdminDashboardSummary
     totalFeesOutstanding,
     outstandingAssignments,
     monthlyPayments,
+    currentFridayEvent: fridayEvent
+      ? {
+          title: fridayEvent.title,
+          className: fridayEvent.class?.name ?? null,
+          startTime: fridayEvent.startTime.toLocaleTimeString("en-US", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+          }),
+          endTime: fridayEvent.endTime.toLocaleTimeString("en-US", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+          }),
+          description: fridayEvent.description,
+        }
+      : undefined,
   };
 }

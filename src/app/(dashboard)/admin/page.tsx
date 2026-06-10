@@ -15,41 +15,62 @@ const AdminPage = async ({
 }: {
   searchParams: Promise<{ [key: string]: string | undefined }>;
 }) => {
-  const pendingRequests = await getPendingPasswordChangeRequests();
-  const summary = await loadAdminDashboardSummary();
+  const [pendingRequests, summary] = await Promise.all([
+    getPendingPasswordChangeRequests(),
+    loadAdminDashboardSummary(),
+  ]);
 
   return (
-    <div className="p-4 flex gap-4 flex-col md:flex-row">
-      {/* LEFT */}
-      <div className="w-full lg:w-2/3 flex flex-col gap-8">
-        {/* USER CARDS */}
-        <div className="flex gap-4 justify-between flex-wrap">
+    <div className="p-4 grid gap-8 xl:grid-cols-[2fr_1fr]">
+      <div className="flex flex-col gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <UserCard type="admin" />
           <UserCard type="student" />
           <UserCard type="teacher" />
           <UserCard type="parent" />
+          <DashboardStatCard
+            label="Classes"
+            value={String(summary.totalClasses)}
+            detail="Active classes in the current term"
+            className="bg-gradient-to-br from-sky-400 to-blue-600 shadow-md shadow-sky-500/35 ring-2 ring-white/20 text-white"
+          />
+          <DashboardStatCard
+            label="Friday event"
+            value={summary.currentFridayEvent?.title ?? "No Friday event"}
+            badge="Friday"
+            detail={
+              summary.currentFridayEvent
+                ? `${summary.currentFridayEvent.className ?? "General"} · ${summary.currentFridayEvent.startTime} - ${summary.currentFridayEvent.endTime}`
+                : "No Friday event scheduled for this week"
+            }
+            className="bg-gradient-to-br from-indigo-500 to-violet-600 shadow-md shadow-indigo-500/35 ring-2 ring-white/20 text-white"
+          />
         </div>
-        {/* MIDDLE CHARTS */}
-        <div className="flex gap-4 flex-col lg:flex-row">
-          {/* COUNT CHART */}
-          <div className="w-full lg:w-1/3 h-[450px]">
+
+        <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+          <div className="h-[450px] min-h-[320px] rounded-3xl border border-slate-200/80 bg-white/95 shadow-sm p-4">
             <CountChartContainer />
           </div>
-          {/* ATTENDANCE CHART */}
-          <div className="w-full lg:w-2/3 h-[450px]">
-            <AttendanceChartContainer/>
+          <div className="h-[450px] min-h-[320px] rounded-3xl border border-slate-200/80 bg-white/95 shadow-sm p-4">
+            <AttendanceChartContainer />
           </div>
         </div>
-        {/* BOTTOM CHART */}
-        <div className="w-full h-[500px]">
+
+        <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-4 shadow-sm h-[500px]">
           <FinanceChart data={summary.monthlyPayments} />
         </div>
       </div>
-      {/* RIGHT */}
-      <div className="w-full lg:w-1/3 flex flex-col gap-8">
-        <EventCalendarContainer searchParams={searchParams} />
-        <Announcements />
-        <PasswordChangeApprovalPanel initialRequests={pendingRequests} />
+
+      <div className="flex flex-col gap-8">
+        <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-4 shadow-sm">
+          <EventCalendarContainer searchParams={searchParams} />
+        </div>
+        <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-4 shadow-sm">
+          <Announcements />
+        </div>
+        <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-4 shadow-sm">
+          <PasswordChangeApprovalPanel initialRequests={pendingRequests} />
+        </div>
       </div>
     </div>
   );

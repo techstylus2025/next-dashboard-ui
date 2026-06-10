@@ -269,9 +269,7 @@ const Navbar = ({ onMessagesOpen }: { onMessagesOpen?: () => void }) => {
         {/* Left: logo + title + date/academic info (admin only) */}
         <div className="flex items-center gap-3">
           <Link href={"/"} className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-slate-800/40 flex items-center justify-center shadow-md backdrop-blur-sm">
-              <Image src="/logo.svg" alt="logo" width={20} height={20} className="filter invert brightness-125" />
-            </div>
+              
                   <div className="hidden sm:flex flex-col leading-tight">
                     <span className="text-md sm:text-sm font-semibold text-amber-400">School Management</span>
                     <span className="text-xs sm:text-xs text-slate-300">

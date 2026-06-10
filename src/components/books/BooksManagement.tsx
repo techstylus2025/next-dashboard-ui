@@ -18,6 +18,7 @@ export type ClassOption = { id: number; name: string };
 export type BookRow = {
   id: number;
   title: string;
+  publication: string;
   classId: number;
   className: string;
   price: number;
@@ -64,6 +65,7 @@ export default function BooksManagement({
   const [bookFormOpen, setBookFormOpen] = useState(false);
   const [editingBook, setEditingBook] = useState<BookRow | null>(null);
   const [title, setTitle] = useState("");
+  const [publication, setPublication] = useState("");
   const [classId, setClassId] = useState("");
   const [price, setPrice] = useState("");
   const [quantity, setQuantity] = useState("");
@@ -74,6 +76,7 @@ export default function BooksManagement({
 
   const resetBookForm = () => {
     setTitle("");
+    setPublication("");
     setClassId("");
     setPrice("");
     setQuantity("");
@@ -86,6 +89,7 @@ export default function BooksManagement({
   const openEditBook = (book: BookRow) => {
     setEditingBook(book);
     setTitle(book.title);
+    setPublication(book.publication ?? "");
     setClassId(String(book.classId));
     setPrice(String(book.price));
     setQuantity(String(book.quantity));
@@ -98,8 +102,8 @@ export default function BooksManagement({
     const cId = parseInt(classId, 10);
     const p = parseFloat(price);
     const q = parseInt(quantity, 10);
-    if (!title.trim() || !classId || Number.isNaN(cId)) {
-      toast.error("Enter book title and class.");
+    if (!title.trim() || !publication.trim() || !classId || Number.isNaN(cId)) {
+      toast.error("Enter book title, publication, and class.");
       return;
     }
     if (Number.isNaN(p) || p <= 0) {
@@ -117,6 +121,7 @@ export default function BooksManagement({
     startTransition(async () => {
       const payload = {
         title: title.trim(),
+        publication: publication.trim(),
         classId: cId,
         priceCedis: p,
         quantity: q,
@@ -224,7 +229,7 @@ export default function BooksManagement({
   const pendingOrders = orders.filter((o) => o.status === "PENDING");
 
   return (
-    <div className="flex flex-col gap-6 p-4 md:p-6 max-w-7xl mx-auto">
+    <div className="flex flex-col gap-6 p-4 md:p-6 w-full">
       <div>
         <h1 className="text-2xl font-semibold text-slate-800">Purchase books</h1>
         <p className="text-sm text-slate-500 mt-1">
@@ -294,6 +299,15 @@ export default function BooksManagement({
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder="e.g. Mathematics"
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-sm">
+                  <span className="text-slate-600">Publication</span>
+                  <input
+                    className="rounded-lg border border-slate-200 px-3 py-2"
+                    value={publication}
+                    onChange={(e) => setPublication(e.target.value)}
+                    placeholder="e.g. Oxford University Press"
                   />
                 </label>
                 <label className="flex flex-col gap-1 text-sm">
@@ -382,6 +396,7 @@ export default function BooksManagement({
                 <thead>
                   <tr className="text-slate-500 border-b border-slate-200">
                     <th className="pb-3 pr-2">Title</th>
+                    <th className="pb-3 pr-2">Publication</th>
                     <th className="pb-3 pr-2">Class</th>
                     <th className="pb-3 pr-2 text-right">Price (₵)</th>
                     <th className="pb-3 pr-2 text-center">Stock</th>
@@ -397,6 +412,7 @@ export default function BooksManagement({
                       className="border-b border-slate-100 hover:bg-slate-50/80"
                     >
                       <td className="py-3 pr-2 font-medium">{book.title}</td>
+                      <td className="py-3 pr-2 text-slate-600">{book.publication || "—"}</td>
                       <td className="py-3 pr-2">{book.className}</td>
                       <td className="py-3 pr-2 text-right">
                         {book.price.toFixed(2)}
@@ -535,7 +551,9 @@ export default function BooksManagement({
                       }`}
                     >
                       <h3 className="font-semibold text-slate-800">{book.title}</h3>
-                      <p className="text-xs text-slate-500 mt-0.5">{book.className}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {book.publication ? `${book.publication} · ` : ""}{book.className}
+                      </p>
                       <p className="mt-2 text-sm font-medium text-sky-700">
                         ₵{book.price.toFixed(2)}
                       </p>

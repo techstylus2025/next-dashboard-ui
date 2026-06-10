@@ -44,7 +44,7 @@ export async function createFeeSchedule(input: {
         },
       });
       const students = await tx.student.findMany({
-        where: { classId: input.classId },
+        where: { classId: input.classId, isArchived: false },
         select: { id: true },
       });
       if (students.length === 0) {
@@ -202,5 +202,108 @@ export async function deleteFeePayment(id: number): Promise<{
     return { success: true, error: null };
   } catch {
     return { success: false, error: "Could not delete payment." };
+  }
+}
+
+export async function updateFeeSchedule(input: {
+  id: number;
+  totalBillCedis: number;
+  academicYear: string;
+  term: "TERM_1" | "TERM_2" | "TERM_3";
+}): Promise<{ success: boolean; error: string | null }> {
+  const role = await getRole();
+  if (role !== "admin") {
+    return { success: false, error: "Only administrators can edit fee schedules." };
+  }
+  if (input.totalBillCedis <= 0) {
+    return { success: false, error: "Total bill must be greater than zero." };
+  }
+  const year = input.academicYear.trim();
+  if (!year) {
+    return { success: false, error: "Academic year is required." };
+  }
+
+  const schedule = await prisma.feeSchedule.findUnique({
+    where: { id: input.id },
+    include: {
+      assignments: { include: { payments: true } },
+    },
+  });
+  if (!schedule) {
+    return { success: false, error: "Fee schedule not found." };
+  }
+
+  const maxPaidOnAnyAssignment = schedule.assignments.reduce((max, assignment) => {
+    const paid = assignment.payments.reduce(
+      (sum, payment) => sum + Number(payment.amountCedis),
+      0
+    );
+    return Math.max(max, paid);
+  }, 0);
+
+  if (input.totalBillCedis + 0.009 < maxPaidOnAnyAssignment) {
+    return {
+      success: false,
+      error: `Total bill cannot be less than payments already recorded (max ₵${maxPaidOnAnyAssignment.toFixed(2)}).`,
+    };
+  }
+
+  try {
+    const total = toDecimal(input.totalBillCedis);
+    await prisma.$transaction(async (tx) => {
+      await tx.feeSchedule.update({
+        where: { id: input.id },
+        data: {
+          academicYear: year,
+          term: input.term,
+          totalBillCedis: total,
+        },
+      });
+      await tx.studentFeeAssignment.updateMany({
+        where: { feeScheduleId: input.id },
+        data: { totalBillCedis: total },
+      });
+    });
+    revalidatePath("/list/fees");
+    return { success: true, error: null };
+  } catch (e: unknown) {
+    const code = (e as { code?: string })?.code;
+    if (code === "P2002") {
+      return {
+        success: false,
+        error: "A fee for this class, academic year, and term already exists.",
+      };
+    }
+    console.error(e);
+    return { success: false, error: "Could not update fee schedule." };
+  }
+}
+
+export async function deleteFeeSchedule(id: number): Promise<{
+  success: boolean;
+  error: string | null;
+}> {
+  const role = await getRole();
+  if (role !== "admin") {
+    return { success: false, error: "Only administrators can delete fee schedules." };
+  }
+
+  const schedule = await prisma.feeSchedule.findUnique({
+    where: { id },
+    include: {
+      assignments: { include: { payments: true } },
+    },
+  });
+  if (!schedule) {
+    return { success: false, error: "Fee schedule not found." };
+  }
+
+  try {
+    await prisma.feeSchedule.delete({ where: { id } });
+    revalidatePath("/list/fees");
+    return { success: true, error: null };
+  } catch (e) {
+    console.error(e);
+    return { success: false, error: "Could not delete fee schedule." };
   }
 }

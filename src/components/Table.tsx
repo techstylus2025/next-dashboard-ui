@@ -11,7 +11,7 @@ const Table = ({
 }) => {
   return (
     <div className={`overflow-x-auto rounded-3xl border border-slate-200/80 bg-white/95 shadow-sm ${className ?? ""}`}>
-      <table className="min-w-full text-sm sm:text-sm">
+      <table className="min-w-full w-full table-auto text-sm sm:text-sm break-words">
         <thead className="bg-slate-50">
           <tr className="text-left text-slate-500 text-xs uppercase tracking-[0.08em]">
             {columns.map((col) => (

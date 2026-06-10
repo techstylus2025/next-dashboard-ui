@@ -24,6 +24,7 @@ function toDecimal(value: number): Prisma.Decimal {
 
 export async function createBook(input: {
   title: string;
+  publication: string;
   classId: number;
   priceCedis: number;
   quantity: number;
@@ -41,6 +42,7 @@ export async function createBook(input: {
     await db.book.create({
       data: {
         title: input.title.trim(),
+        publication: input.publication.trim(),
         classId: input.classId,
         priceCedis: toDecimal(input.priceCedis),
         quantity: input.quantity,
@@ -59,6 +61,7 @@ export async function createBook(input: {
 export async function updateBook(input: {
   id: number;
   title: string;
+  publication: string;
   classId: number;
   priceCedis: number;
   quantity: number;
@@ -74,6 +77,7 @@ export async function updateBook(input: {
       where: { id: input.id },
       data: {
         title: input.title.trim(),
+        publication: input.publication.trim(),
         classId: input.classId,
         priceCedis: toDecimal(input.priceCedis),
         quantity: input.quantity,

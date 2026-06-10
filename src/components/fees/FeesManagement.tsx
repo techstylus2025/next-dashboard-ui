@@ -7,14 +7,17 @@ import { toast } from "react-toastify";
 import {
   createFeeSchedule,
   deleteFeePayment,
+  deleteFeeSchedule,
   recordFeePayment,
   updateFeePayment,
+  updateFeeSchedule,
 } from "@/lib/feeActions";
 
 export type ClassOption = { id: number; name: string };
 
 export type ClassFeeCard = {
   id: number;
+  classId: number;
   className: string;
   term: string;
   academicYear: string;
@@ -127,6 +130,14 @@ export default function FeesManagement({
   const [editPayment, setEditPayment] = useState<PaymentRow | null>(null);
   const [editAmount, setEditAmount] = useState("");
   const [editDate, setEditDate] = useState("");
+
+  const [feeEditOpen, setFeeEditOpen] = useState(false);
+  const [feeEditCard, setFeeEditCard] = useState<ClassFeeCard | null>(null);
+  const [feeEditTotal, setFeeEditTotal] = useState("");
+  const [feeEditYear, setFeeEditYear] = useState("");
+  const [feeEditTerm, setFeeEditTerm] = useState<"TERM_1" | "TERM_2" | "TERM_3">(
+    "TERM_1"
+  );
 
   const [cardFilterOpen, setCardFilterOpen] = useState(false);
   const [cardFilterYear, setCardFilterYear] = useState("");
@@ -311,6 +322,66 @@ export default function FeesManagement({
     setEditOpen(true);
   };
 
+  const openFeeEdit = (card: ClassFeeCard) => {
+    setFeeEditCard(card);
+    setFeeEditTotal(String(card.totalBill));
+    setFeeEditYear(card.academicYear);
+    setFeeEditTerm(card.term as "TERM_1" | "TERM_2" | "TERM_3");
+    setFeeEditOpen(true);
+  };
+
+  const handleUpdateFeeSchedule = () => {
+    if (!feeEditCard) return;
+    const total = parseFloat(feeEditTotal);
+    if (!feeEditYear.trim()) {
+      toast.error("Enter academic year.");
+      return;
+    }
+    if (Number.isNaN(total) || total <= 0) {
+      toast.error("Enter a valid total bill in cedis.");
+      return;
+    }
+    startTransition(async () => {
+      const res = await updateFeeSchedule({
+        id: feeEditCard.id,
+        totalBillCedis: total,
+        academicYear: feeEditYear.trim(),
+        term: feeEditTerm,
+      });
+      if (res.success) {
+        toast.success("Fee schedule updated.");
+        setFeeEditOpen(false);
+        setFeeEditCard(null);
+        router.refresh();
+      } else {
+        toast.error(res.error || "Update failed.");
+      }
+    });
+  };
+
+  const handleDeleteFeeSchedule = (card: ClassFeeCard) => {
+    const paymentWarning =
+      card.totalCollected > 0
+        ? ` This fee has ₵${card.totalCollected.toFixed(2)} in recorded payments, which will also be removed.`
+        : "";
+    if (
+      !confirm(
+        `Delete the fee for ${card.className} (${termLabel(card.term)} ${card.academicYear})?${paymentWarning}`
+      )
+    ) {
+      return;
+    }
+    startTransition(async () => {
+      const res = await deleteFeeSchedule(card.id);
+      if (res.success) {
+        toast.success("Fee schedule deleted.");
+        router.refresh();
+      } else {
+        toast.error(res.error || "Delete failed.");
+      }
+    });
+  };
+
   const handleCreateSchedule = () => {
     const classId = parseInt(feeClassId, 10);
     const total = parseFloat(feeTotal);
@@ -467,7 +538,7 @@ export default function FeesManagement({
   };
 
   return (
-    <div className="flex flex-col gap-8 p-4 md:p-6 max-w-7xl mx-auto">
+    <div className="w-full flex flex-col gap-8 p-4 md:p-6">
       <div>
         <h1 className="text-2xl font-semibold text-slate-800">Fee management</h1>
         <p className="text-sm text-slate-500 mt-1">
@@ -608,9 +679,31 @@ export default function FeesManagement({
                     </h3>
                     <p className="text-xs text-slate-500">{card.academicYear}</p>
                   </div>
-                  <span className="rounded-lg bg-sky-100 px-2 py-1 text-xs font-medium text-sky-800">
-                    {card.studentCount} students
-                  </span>
+                  <div className="flex items-start gap-2">
+                    {canAdmin && (
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          title="Edit fee"
+                          onClick={() => openFeeEdit(card)}
+                          className="rounded-lg p-1.5 hover:bg-white/80 transition-colors"
+                        >
+                          <Image src="/edit.svg" alt="Edit" width={16} height={16} />
+                        </button>
+                        <button
+                          type="button"
+                          title="Delete fee"
+                          onClick={() => handleDeleteFeeSchedule(card)}
+                          className="rounded-lg p-1.5 hover:bg-red-100 transition-colors"
+                        >
+                          <Image src="/delete.svg" alt="Delete" width={16} height={16} />
+                        </button>
+                      </div>
+                    )}
+                    <span className="rounded-lg bg-sky-100 px-2 py-1 text-xs font-medium text-sky-800">
+                      {card.studentCount} students
+                    </span>
+                  </div>
                 </div>
                 <dl className="mt-4 space-y-2 text-sm">
                   <div className="flex justify-between">
@@ -717,12 +810,12 @@ export default function FeesManagement({
           <h2 className="text-lg font-medium text-slate-800 mb-4">
             Record fee payment (admin)
           </h2>
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div className="space-y-4">
-              <label className="flex flex-col gap-1 text-sm">
+          <div className="grid gap-6 lg:grid-cols-2 min-w-0">
+            <div className="space-y-4 min-w-0">
+              <label className="flex flex-col gap-1 text-sm min-w-0">
                 <span className="text-slate-600">Student & fee period</span>
                 <select
-                  className="rounded-lg border border-slate-300 px-3 py-2"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2"
                   value={assignId}
                   onChange={(e) => setAssignId(e.target.value)}
                 >
@@ -771,31 +864,31 @@ export default function FeesManagement({
               )}
             </div>
             <div className="space-y-4">
-              <label className="flex flex-col gap-1 text-sm">
+              <label className="flex flex-col gap-1 text-sm min-w-0">
                 <span className="text-slate-600">Payment date</span>
                 <input
                   type="date"
-                  className="rounded-lg border border-slate-300 px-3 py-2"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2"
                   value={payDate}
                   onChange={(e) => setPayDate(e.target.value)}
                 />
               </label>
-              <label className="flex flex-col gap-1 text-sm">
+              <label className="flex flex-col gap-1 text-sm min-w-0">
                 <span className="text-slate-600">Payment amount (₵)</span>
                 <input
                   type="number"
                   min="0"
                   step="0.01"
-                  className="rounded-lg border border-slate-300 px-3 py-2"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2"
                   value={payAmount}
                   onChange={(e) => setPayAmount(e.target.value)}
                   placeholder="0.00"
                 />
               </label>
-              <label className="flex flex-col gap-1 text-sm">
+              <label className="flex flex-col gap-1 text-sm min-w-0">
                 <span className="text-slate-600">Payment method</span>
                 <select
-                  className="rounded-lg border border-slate-300 px-3 py-2"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2"
                   value={paymentMethod}
                   onChange={(e) => {
                     setPaymentMethod(e.target.value);
@@ -810,10 +903,10 @@ export default function FeesManagement({
               </label>
               {paymentMethod === "mobile_money" && (
                 <>
-                  <label className="flex flex-col gap-1 text-sm">
+                  <label className="flex flex-col gap-1 text-sm min-w-0">
                     <span className="text-slate-600">Mobile Money Service</span>
                     <select
-                      className="rounded-lg border border-slate-300 px-3 py-2"
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2"
                       value={mobileMoneyService}
                       onChange={(e) => setMobileMoneyService(e.target.value)}
                     >
@@ -835,11 +928,11 @@ export default function FeesManagement({
                 </>
               )}
               {paymentMethod === "bank_payment" && (
-                <label className="flex flex-col gap-1 text-sm">
+                <label className="flex flex-col gap-1 text-sm min-w-0">
                   <span className="text-slate-600">Bank transaction ID</span>
                   <input
                     type="text"
-                    className="rounded-lg border border-slate-300 px-3 py-2"
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2"
                     value={methodDetails}
                     onChange={(e) => setMethodDetails(e.target.value)}
                     placeholder="Enter transaction ID"
@@ -847,11 +940,11 @@ export default function FeesManagement({
                 </label>
               )}
               {paymentMethod === "other" && (
-                <label className="flex flex-col gap-1 text-sm">
+                <label className="flex flex-col gap-1 text-sm min-w-0">
                   <span className="text-slate-600">Payment method</span>
                   <input
                     type="text"
-                    className="rounded-lg border border-slate-300 px-3 py-2"
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2"
                     value={methodDetails}
                     onChange={(e) => setMethodDetails(e.target.value)}
                     placeholder="Specify payment method"
@@ -1160,6 +1253,79 @@ export default function FeesManagement({
           </div>
         )}
       </section>
+
+      {feeEditOpen && feeEditCard && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-slate-800">Edit fee schedule</h3>
+            <p className="text-xs text-slate-500 mt-1">
+              {feeEditCard.className} — changes apply to all{" "}
+              {feeEditCard.studentCount} student assignments.
+            </p>
+            <div className="mt-4 space-y-3">
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="text-slate-600">Total bill (₵)</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="rounded-lg border border-slate-300 px-3 py-2"
+                  value={feeEditTotal}
+                  onChange={(e) => setFeeEditTotal(e.target.value)}
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="text-slate-600">Academic year</span>
+                <input
+                  className="rounded-lg border border-slate-300 px-3 py-2"
+                  value={feeEditYear}
+                  onChange={(e) => setFeeEditYear(e.target.value)}
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="text-slate-600">Term</span>
+                <select
+                  className="rounded-lg border border-slate-300 px-3 py-2"
+                  value={feeEditTerm}
+                  onChange={(e) =>
+                    setFeeEditTerm(e.target.value as "TERM_1" | "TERM_2" | "TERM_3")
+                  }
+                >
+                  <option value="TERM_1">Term 1</option>
+                  <option value="TERM_2">Term 2</option>
+                  <option value="TERM_3">Term 3</option>
+                </select>
+              </label>
+              {feeEditCard.totalCollected > 0 ? (
+                <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                  ₵{feeEditCard.totalCollected.toFixed(2)} already collected. Total
+                  bill cannot be set below the highest amount paid by any student.
+                </p>
+              ) : null}
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                className="rounded-lg px-4 py-2 text-sm text-slate-600 hover:bg-slate-100"
+                onClick={() => {
+                  setFeeEditOpen(false);
+                  setFeeEditCard(null);
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={handleUpdateFeeSchedule}
+                className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800 disabled:opacity-50"
+              >
+                Save changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {editOpen && editPayment && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">

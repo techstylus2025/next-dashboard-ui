@@ -118,7 +118,7 @@ export async function loadAnalyticsData() {
   });
   const presentTeachers = new Set(todaysTeacherAttendances.filter((t) => t.present).map((t) => t.teacherId));
 
-  const teachers = await db.teacher.findMany({ include: { lessons: { include: { subject: true } }, classes: true } });
+  const teachers = await db.teacher.findMany({ where: { isArchived: false }, include: { lessons: { include: { subject: true } }, classes: true } });
 
   const teachersAttendanceSummary = teachers.map((t) => ({
     teacherId: t.id,

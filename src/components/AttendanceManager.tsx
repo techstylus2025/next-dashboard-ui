@@ -189,7 +189,7 @@ const AttendanceManager = ({
 
   return (
     <div className="space-y-6">
-      <section className="bg-white dark:bg-slate-950 shadow-lg rounded-2xl p-6 border border-slate-100 dark:border-slate-800">
+      <section className="bg-white shadow-lg rounded-2xl p-6 border border-slate-100">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm uppercase tracking-[0.3em] text-sky-500">
@@ -210,7 +210,7 @@ const AttendanceManager = ({
             </div>
 
             <div className="grid flex-1 gap-3 sm:grid-cols-2">
-              <div className="rounded-2xl bg-white dark:bg-slate-950 p-4 shadow-md border border-slate-100 dark:border-slate-800">
+              <div className="rounded-2xl bg-white p-4 shadow-md border border-slate-100">
                 <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
                   Students
                 </p>

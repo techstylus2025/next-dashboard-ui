@@ -135,9 +135,9 @@ export async function getProfilePageData(
   if (role === "admin") {
     const [admin, studentCount, teacherCount, parentCount, pendingRequestCount] = await prisma.$transaction([
       prisma.admin.findUnique({ where: { id: userId } }),
-      prisma.student.count(),
-      prisma.teacher.count(),
-      prisma.parent.count(),
+      prisma.student.count({ where: { isArchived: false } }),
+      prisma.teacher.count({ where: { isArchived: false } }),
+      prisma.parent.count({ where: { isArchived: false } }),
       prisma.passwordChangeRequest.count({ where: { status: "PENDING" } }),
     ]);
 
@@ -189,23 +189,27 @@ export async function getUserPendingPasswordRequest(userId: string) {
 }
 
 export async function getPendingPasswordChangeRequests() {
-  const requests = await prisma.passwordChangeRequest.findMany({
-    where: { status: "PENDING" },
-    orderBy: { requestedAt: "asc" },
-  });
-
-  const students = await prisma.student.findMany({
-    select: { id: true, name: true, surname: true },
-  });
-  const teachers = await prisma.teacher.findMany({
-    select: { id: true, name: true, surname: true },
-  });
-  const parents = await prisma.parent.findMany({
-    select: { id: true, name: true, surname: true },
-  });
-  const admins = await prisma.admin.findMany({
-    select: { id: true, username: true },
-  });
+  const [requests, students, teachers, parents, admins] = await Promise.all([
+    prisma.passwordChangeRequest.findMany({
+      where: { status: "PENDING" },
+      orderBy: { requestedAt: "asc" },
+    }),
+    prisma.student.findMany({
+      where: { isArchived: false },
+      select: { id: true, name: true, surname: true },
+    }),
+    prisma.teacher.findMany({
+      where: { isArchived: false },
+      select: { id: true, name: true, surname: true },
+    }),
+    prisma.parent.findMany({
+      where: { isArchived: false },
+      select: { id: true, name: true, surname: true },
+    }),
+    prisma.admin.findMany({
+      select: { id: true, username: true },
+    }),
+  ]);
 
   const typeMap = new Map<string, string>([
     ...students.map((item) => [item.id, `${item.name} ${item.surname}`]),

@@ -8,6 +8,7 @@ import {
   deleteSubject,
   deleteTeacher,
   deleteAttendance,
+  deleteAssignment,
 } from "@/lib/actions";
 import { deleteEvent } from "@/lib/eventActions";
 import dynamic from "next/dynamic";
@@ -32,7 +33,7 @@ const deleteActionMap = {
   // TODO: OTHER DELETE ACTIONS
   parent: deleteParent,
   lesson: deleteSubject,
-  assignment: deleteSubject,
+  assignment: deleteAssignment,
   result: deleteSubject,
   attendance: deleteAttendance,
   event: deleteEvent,
@@ -66,6 +67,9 @@ const ParentForm = dynamic(() => import("./forms/ParentForm.js"), {
   loading: () => <h1>Loading...</h1>,
 }) as any;
 const EventForm = dynamic(() => import("./forms/EventForm.js"), {
+  loading: () => <h1>Loading...</h1>,
+}) as any;
+const AssignmentForm = dynamic(() => import("./forms/AssignmentForm"), {
   loading: () => <h1>Loading...</h1>,
 }) as any;
 
@@ -128,6 +132,9 @@ const forms: {
   event: (setOpen, type, data, relatedData) => (
     <EventForm type={type} data={data} setOpen={setOpen} relatedData={relatedData} />
   ),
+  assignment: (setOpen, type, data, relatedData) => (
+    <AssignmentForm type={type} data={data} setOpen={setOpen} relatedData={relatedData} />
+  ),
   parent: (setOpen, type, data) => (
     <ParentForm type={type} data={data} setOpen={setOpen} />
   ),
@@ -185,6 +192,8 @@ const FormModal = ({
     );
   };
 
+  const iconSrc = type === "update" ? "/edit.svg" : type === "delete" ? "/delete.svg" : `/${type}.png`;
+
   return (
     <>
       <button
@@ -192,11 +201,11 @@ const FormModal = ({
         className={`${size} flex items-center justify-center rounded-full ${bgColor}`}
         onClick={() => setOpen(true)}
       >
-        <Image src={`/${type}.png`} alt="" width={16} height={16} />
+        <Image src={iconSrc} alt="" width={16} height={16} />
       </button>
       {open && (
-        <div className="w-screen h-screen absolute left-0 top-0 bg-black bg-opacity-60 z-50 flex items-center justify-center">
-          <div className="bg-white p-4 rounded-md relative w-[90%] md:w-[70%] lg:w-[60%] xl:w-[50%] 2xl:w-[40%]">
+        <div className="w-screen h-screen absolute left-0 top-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white p-4 rounded-md relative w-full max-w-2xl md:w-[95%] lg:w-[85%] xl:w-[75%] 2xl:w-[65%] max-h-[85vh] overflow-y-auto">
             <Form />
             <button
               type="button"

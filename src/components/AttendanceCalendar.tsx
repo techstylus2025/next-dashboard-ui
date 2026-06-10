@@ -32,7 +32,7 @@ const AttendanceCalendar = ({ selectedDate }: { selectedDate: string }) => {
   }, [value, selectedDate, router]);
 
   return (
-    <div className="rounded-3xl border border-slate-200 bg-white dark:bg-slate-950 dark:border-slate-700 p-4 shadow-sm">
+    <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
       <p className="mb-3 text-sm font-semibold text-slate-700">Attendance calendar</p>
       <Calendar
         onChange={(nextValue: Value) => {

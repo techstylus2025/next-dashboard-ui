@@ -321,16 +321,39 @@ export const createStudent = async (
         username: data.username,
         name: data.name,
         surname: data.surname,
-        email: data.email || null,
-        phone: data.phone || null,
+        otherNames: data.otherNames || null,
+        nationality: data.nationality,
+        religion: data.religion,
         address: data.address,
+        gpsAddress: data.gpsAddress,
+        languagesSpoken: data.languagesSpoken || null,
         img: data.img || null,
         bloodType: data.bloodType,
         sex: data.sex,
         birthday: data.birthday,
-        gradeId: data.gradeId,
+        department: data.department,
         classId: data.classId,
         parentId: data.parentId,
+        previousSchoolName: data.previousSchoolName,
+        previousClass: data.previousClass,
+        yearsAttended: data.yearsAttended,
+        reasonForTransfer: data.reasonForTransfer || null,
+        knownMedicalConditions: data.knownMedicalConditions || null,
+        hasAllergies: data.hasAllergies,
+        allergyDetails: data.allergyDetails || null,
+        hasHearingDifficulties: data.hasHearingDifficulties,
+        hearingDetails: data.hearingDetails || null,
+        wearsCorrectiveGlasses: data.wearsCorrectiveGlasses,
+        correctiveGlassesDetails: data.correctiveGlassesDetails || null,
+        physicallyFitForSports: data.physicallyFitForSports,
+        fitnessDetails: data.fitnessDetails || null,
+        otherIssues: data.otherIssues || null,
+        emergencyContactPerson: data.emergencyContactPerson,
+        emergencyContactNumber: data.emergencyContactNumber,
+        alternativeEmergencyContactPerson: data.alternativeEmergencyContactPerson,
+        alternativeEmergencyContactNumber: data.alternativeEmergencyContactNumber,
+        declarationName: data.declarationName,
+        declarationDate: data.declarationDate ? new Date(data.declarationDate) : null,
       },
     });
 
@@ -367,19 +390,76 @@ export const updateStudent = async (
         username: data.username,
         name: data.name,
         surname: data.surname,
-        email: data.email || null,
-        phone: data.phone || null,
+        otherNames: data.otherNames || null,
+        nationality: data.nationality,
+        religion: data.religion,
         address: data.address,
+        gpsAddress: data.gpsAddress,
+        languagesSpoken: data.languagesSpoken || null,
         img: data.img || null,
         bloodType: data.bloodType,
         sex: data.sex,
         birthday: data.birthday,
-        gradeId: data.gradeId,
+        department: data.department,
         classId: data.classId,
         parentId: data.parentId,
+        previousSchoolName: data.previousSchoolName,
+        previousClass: data.previousClass,
+        yearsAttended: data.yearsAttended,
+        reasonForTransfer: data.reasonForTransfer || null,
+        knownMedicalConditions: data.knownMedicalConditions || null,
+        hasAllergies: data.hasAllergies,
+        allergyDetails: data.allergyDetails || null,
+        hasHearingDifficulties: data.hasHearingDifficulties,
+        hearingDetails: data.hearingDetails || null,
+        wearsCorrectiveGlasses: data.wearsCorrectiveGlasses,
+        correctiveGlassesDetails: data.correctiveGlassesDetails || null,
+        physicallyFitForSports: data.physicallyFitForSports,
+        fitnessDetails: data.fitnessDetails || null,
+        otherIssues: data.otherIssues || null,
+        emergencyContactPerson: data.emergencyContactPerson,
+        emergencyContactNumber: data.emergencyContactNumber,
+        alternativeEmergencyContactPerson: data.alternativeEmergencyContactPerson,
+        alternativeEmergencyContactNumber: data.alternativeEmergencyContactNumber,
+        declarationName: data.declarationName,
+        declarationDate: data.declarationDate ? new Date(data.declarationDate) : null,
       },
     });
     // revalidatePath("/list/students");
+    return { success: true, error: false };
+  } catch (err) {
+    console.log(err);
+    return { success: false, error: true };
+  }
+};
+
+export const promoteStudents = async (
+  currentState: CurrentState,
+  data: { studentIds?: string[]; fromClassId?: number; toClassId?: number; promoteAll?: boolean }
+) => {
+  try {
+    if (data.promoteAll && data.fromClassId && data.toClassId) {
+      if (data.fromClassId === data.toClassId) {
+        return { success: false, error: true };
+      }
+
+      const updateResult = await prisma.student.updateMany({ where: { classId: data.fromClassId }, data: { classId: data.toClassId } });
+      if (updateResult.count === 0) {
+        return { success: false, error: true };
+      }
+    } else if (data.studentIds && data.studentIds.length && data.toClassId) {
+      const students = await prisma.student.findMany({ where: { id: { in: data.studentIds }, isArchived: false } });
+      if (students.some((student) => student.classId === data.toClassId)) {
+        return { success: false, error: true };
+      }
+      const updateResult = await prisma.student.updateMany({ where: { id: { in: data.studentIds } }, data: { classId: data.toClassId } });
+      if (updateResult.count === 0) {
+        return { success: false, error: true };
+      }
+    } else {
+      return { success: false, error: true };
+    }
+
     return { success: true, error: false };
   } catch (err) {
     console.log(err);
@@ -434,6 +514,7 @@ export const createParent = async (
         name: data.name,
         surname: data.surname,
         email: data.email || null,
+        occupation: data.occupation || null,
         phone: data.phone,
         address: data.address,
       },
@@ -470,6 +551,7 @@ export const updateParent = async (
         name: data.name,
         surname: data.surname,
         email: data.email || null,
+        occupation: data.occupation || null,
         phone: data.phone,
         address: data.address,
       },
@@ -699,6 +781,39 @@ export const deleteAttendance = async (
     });
 
     revalidatePath("/list/attendance");
+    return { success: true, error: false };
+  } catch (err) {
+    console.log(err);
+    return { success: false, error: true };
+  }
+};
+
+export const deleteAssignment = async (
+  currentState: CurrentState,
+  data: FormData
+) => {
+  const id = data.get("id") as string;
+  if (!id) return { success: false, error: true };
+
+  const { userId, sessionClaims } = await auth();
+  const role = (sessionClaims?.metadata as { role?: string })?.role;
+
+  try {
+    const existing = await prisma.assignment.findUnique({ where: { id: Number(id) }, include: { lesson: true } });
+    if (!existing) return { success: false, error: true };
+
+    if (role === "admin") {
+      // admin can delete
+    } else if (role === "teacher") {
+      if (existing.lesson.teacherId !== userId) {
+        return { success: false, error: true };
+      }
+    } else {
+      return { success: false, error: true };
+    }
+
+    await prisma.assignment.delete({ where: { id: Number(id) } });
+    revalidatePath("/list/assignments");
     return { success: true, error: false };
   } catch (err) {
     console.log(err);

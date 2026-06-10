@@ -142,7 +142,7 @@ const LessonListPage = async ({
       ? await prisma.lesson.findMany({
           where: {
             OR: [
-              { teacherId: currentUserId! },
+              { teacherId: currentUserId!, teacher: { isArchived: false } },
               { class: { supervisorId: currentUserId! } },
             ],
           },

@@ -42,7 +42,7 @@ export default function ReportPreviewModal({
       onClick={onClose}
     >
       <div
-        className="report-preview-modal bg-white w-full sm:max-w-3xl max-h-[92vh] sm:max-h-[90vh] rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col overflow-hidden"
+        className="report-preview-modal bg-slate-100 w-full sm:max-w-4xl max-h-[92vh] sm:max-h-[90vh] rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 shrink-0 print:hidden">
@@ -75,7 +75,7 @@ export default function ReportPreviewModal({
           </div>
         </div>
 
-        <div className="overflow-y-auto flex-1 p-4 sm:p-6 print:p-8 print:overflow-visible">
+        <div className="overflow-y-auto flex-1 p-3 sm:p-5 print:bg-white print:p-8 print:overflow-visible">
           <TermReportView report={report} />
         </div>
       </div>

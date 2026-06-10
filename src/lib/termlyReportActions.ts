@@ -189,7 +189,7 @@ async function generateReportsForClass(
   }
 
   const students = await db.student.findMany({
-    where: { classId },
+    where: { classId, isArchived: false },
     orderBy: [{ surname: "asc" }, { name: "asc" }],
     select: { id: true },
   });

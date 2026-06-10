@@ -30,7 +30,7 @@ export default function MenuPanel({ sections }: { sections: MenuSection[] }) {
 
   return (
     <nav
-      className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain py-2 px-2 lg:px-3 [scrollbar-width:thin]"
+      className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain py-2 px-2 lg:px-3 [scrollbar-width:thin] text-slate-200"
       aria-label="Main navigation"
       style={{ touchAction: "pan-y" }}
     >
@@ -47,8 +47,8 @@ export default function MenuPanel({ sections }: { sections: MenuSection[] }) {
               const active = isActivePath(pathname, item.href);
               const itemClasses = `group flex items-center gap-2 rounded-2xl py-1.5 px-2 transition-all duration-200 ${
                 active
-                  ? "bg-slate-100 shadow-sm ring-1 ring-slate-200/80"
-                  : "hover:bg-slate-50 hover:shadow-sm hover:ring-1 hover:ring-slate-200/70"
+                  ? "bg-slate-800 shadow-sm ring-1 ring-slate-700/80"
+                  : "hover:bg-slate-800 hover:shadow-sm hover:ring-1 hover:ring-slate-700/70"
               }`;
 
               const renderContent = (
@@ -56,8 +56,8 @@ export default function MenuPanel({ sections }: { sections: MenuSection[] }) {
                   <span
                     className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ring-2 transition-transform duration-200 ${
                       active
-                        ? "ring-slate-300/60 scale-105 shadow"
-                        : "ring-slate-200/70 group-hover:scale-105"
+                        ? "ring-slate-500/70 scale-105 shadow"
+                        : "ring-slate-700/70 group-hover:scale-105"
                     } ${item.accent}`}
                   >
                     <Image
@@ -76,8 +76,8 @@ export default function MenuPanel({ sections }: { sections: MenuSection[] }) {
                   <span
                     className={`min-w-0 text-left text-sm leading-tight transition-colors truncate ${
                       active
-                        ? "font-semibold text-slate-900"
-                        : "font-medium text-slate-700 group-hover:text-slate-900"
+                        ? "font-semibold text-white"
+                        : "font-medium text-slate-200 group-hover:text-white"
                     }`}
                   >
                     {item.label}

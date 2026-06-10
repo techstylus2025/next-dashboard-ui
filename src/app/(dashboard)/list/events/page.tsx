@@ -4,11 +4,19 @@ import Table from "@/components/Table";
 import TableSearch from "@/components/TableSearch";
 import prisma from "@/lib/prisma";
 import { ITEM_PER_PAGE } from "@/lib/settings";
-import { Class, Event, Prisma } from "@prisma/client";
+import { Class, Event, Prisma, AcademicYear, AcademicTerm } from "@prisma/client";
 import Image from "next/image";
 import { auth } from "@clerk/nextjs/server";
 
-type EventList = Event & { class: Class };
+type EventList = Event & { class: Class | null };
+
+type GroupedEvent = {
+  academicYearLabel: string;
+  terms: Array<{
+    termNumber: number;
+    events: EventList[];
+  }>;
+};
 
 const EventListPage = async ({
   searchParams,
@@ -91,7 +99,7 @@ const EventListPage = async ({
     </tr>
   );
 
-  const { page, ...queryParams } = await searchParams;
+  const { page, search } = await searchParams;
 
   const p = page ? parseInt(page) : 1;
 
@@ -99,18 +107,8 @@ const EventListPage = async ({
 
   const query: Prisma.EventWhereInput = {};
 
-  if (queryParams) {
-    for (const [key, value] of Object.entries(queryParams)) {
-      if (value !== undefined) {
-        switch (key) {
-          case "search":
-            query.title = { contains: value, mode: "insensitive" };
-            break;
-          default:
-            break;
-        }
-      }
-    }
+  if (search) {
+    query.title = { contains: search, mode: "insensitive" };
   }
 
   // ROLE CONDITIONS
@@ -128,17 +126,40 @@ const EventListPage = async ({
     },
   ];
 
-  const [data, count] = await prisma.$transaction([
+  // Fetch academic years and terms to group events
+  const [academicYears, allEvents, count] = await Promise.all([
+    prisma.academicYear.findMany({
+      include: { terms: { orderBy: { termNumber: "asc" } } },
+      where: { isArchived: false },
+      orderBy: { createdAt: "desc" },
+    }),
     prisma.event.findMany({
       where: query,
-      include: {
-        class: true,
-      },
-      take: ITEM_PER_PAGE,
-      skip: ITEM_PER_PAGE * (p - 1),
+      include: { class: true },
+      orderBy: { startTime: "desc" },
     }),
     prisma.event.count({ where: query }),
   ]);
+
+  // Function to find which term an event belongs to
+  const getTermForDate = (date: Date, year: AcademicYear & { terms: AcademicTerm[] }) => {
+    const term = year.terms.find(t => date >= t.startDate && date <= t.endDate);
+    return term?.termNumber ?? null;
+  };
+
+  // Group events by academic year and term
+  const groupedEvents: GroupedEvent[] = academicYears
+    .map((year) => ({
+      academicYearLabel: year.label,
+      terms: Array.from({ length: year.numberOfTerms }, (_, i) => ({
+        termNumber: i + 1,
+        events: allEvents.filter(event => {
+          const term = getTermForDate(event.startTime, year);
+          return term === i + 1;
+        }),
+      })).filter(t => t.events.length > 0),
+    }))
+    .filter(y => y.terms.length > 0);
 
   return (
     <div className="bg-white p-4 rounded-md flex-1 m-4 mt-0">
@@ -148,20 +169,41 @@ const EventListPage = async ({
         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
           <TableSearch />
           <div className="flex items-center gap-4 self-end">
-            <button className="icon-action w-8 h-8">
-              <Image src="/filter.svg" alt="" width={14} height={14} />
-            </button>
-            <button className="icon-action w-8 h-8">
-              <Image src="/sort.svg" alt="" width={14} height={14} />
-            </button>
             {role === "admin" && <FormContainer table="event" type="create" />}
           </div>
         </div>
       </div>
-      {/* LIST */}
-      <Table columns={columns} renderRow={renderRow} data={data} />
-      {/* PAGINATION */}
-      <Pagination page={p} count={count} />
+
+      {/* GROUPED EVENTS */}
+      <div className="mt-6 space-y-8">
+        {groupedEvents.length > 0 ? (
+          groupedEvents.map((yearGroup) => (
+            <div key={yearGroup.academicYearLabel} className="space-y-4">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <h2 className="text-lg font-semibold text-slate-900">
+                  {yearGroup.academicYearLabel}
+                </h2>
+              </div>
+              <div className="space-y-6">
+                {yearGroup.terms.map((termGroup) => (
+                  <div key={termGroup.termNumber} className="space-y-3">
+                    <div className="rounded-lg border border-slate-200 bg-white p-3">
+                      <h3 className="font-semibold text-slate-800">
+                        Term {termGroup.termNumber} ({termGroup.events.length} events)
+                      </h3>
+                    </div>
+                    <Table columns={columns} renderRow={renderRow} data={termGroup.events} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500">
+            No events found for any term.
+          </div>
+        )}
+      </div>
     </div>
   );
 };
