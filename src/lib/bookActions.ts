@@ -124,7 +124,11 @@ export async function deleteBook(
 
 export async function submitBookOrder(
   items: { bookId: number; quantity: number }[]
-): Promise<{ success: boolean; error: string | null }> {
+): Promise<{
+  success: boolean;
+  error: string | null;
+  pickupCode?: string;
+}> {
   const { role, userId } = await getRole();
   if (role !== "parent" || !userId) {
     return { success: false, error: "Only parents can place orders." };
@@ -151,7 +155,7 @@ export async function submitBookOrder(
       }
     }
 
-    await db.bookOrder.create({
+    const createdOrder = await db.bookOrder.create({
       data: {
         parentId: userId,
         items: {
@@ -162,8 +166,15 @@ export async function submitBookOrder(
         },
       },
     });
+
+    const pickupCode = `BK-${String(createdOrder.id).padStart(4, "0")}`;
+    await db.bookOrder.update({
+      where: { id: createdOrder.id },
+      data: { pickupCode },
+    });
+
     revalidatePath(BOOKS_PATH);
-    return { success: true, error: null };
+    return { success: true, error: null, pickupCode };
   } catch (e) {
     console.error(e);
     return { success: false, error: "Could not submit order." };

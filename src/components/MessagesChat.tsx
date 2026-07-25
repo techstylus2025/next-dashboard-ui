@@ -120,8 +120,8 @@ const MessagesChat = ({
   };
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[300px_1fr_300px] h-[72vh]">
-      <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+    <div className="grid h-[76vh] gap-4 lg:grid-cols-[320px_minmax(0,1fr)_300px]">
+      <section className="space-y-4 rounded-[1.75rem] border border-slate-200/80 bg-white p-4 shadow-sm">
         <div>
           <div className="flex items-center justify-between gap-3">
             <div>
@@ -353,8 +353,8 @@ const MessagesChat = ({
         </div>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4">
+      <section className="flex flex-col overflow-hidden rounded-[1.75rem] border border-slate-200/80 bg-white shadow-sm">
+        <div className="flex items-center justify-between gap-4 border-b border-slate-200/80 px-5 py-5">
           <div>
             <p className="text-lg font-semibold text-slate-900">
               {activeThread?.title}
@@ -440,7 +440,7 @@ const MessagesChat = ({
         </div>
       </section>
 
-      <aside className="space-y-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+      <aside className="space-y-4 rounded-[1.75rem] border border-slate-200/80 bg-white p-5 shadow-sm">
         <div className="rounded-3xl bg-slate-50 p-4">
           <p className="text-sm font-semibold text-slate-900">Quick overview</p>
           <dl className="mt-4 grid gap-3">

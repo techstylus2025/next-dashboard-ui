@@ -2,10 +2,11 @@
 
 import Image from "next/image";
 import { useState } from "react";
+import type { GradingLevel } from "@prisma/client";
 import ExamTimetableForm from "@/components/forms/ExamTimetableForm";
 
 type Props = {
-  classes: { id: number; name: string; gradingLevel: string }[];
+  classes: { id: number; name: string; gradingLevel: GradingLevel }[];
   lessons: {
     id: number;
     name: string;

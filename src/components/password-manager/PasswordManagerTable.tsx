@@ -64,6 +64,7 @@ export default function PasswordManagerTable({
       items.map((item) => ({
         ...item,
         editingUsername: item.username,
+        editingRole: item.role,
         newPassword: "",
         showPassword: false,
         saving: false,

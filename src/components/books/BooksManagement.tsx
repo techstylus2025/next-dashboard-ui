@@ -31,6 +31,7 @@ export type BookOrderRow = {
   id: number;
   parentName: string;
   status: string;
+  pickupCode: string;
   createdAt: string;
   items: {
     id: number;
@@ -73,6 +74,59 @@ export default function BooksManagement({
   const [supplierContact, setSupplierContact] = useState("");
 
   const [cart, setCart] = useState<Record<number, number>>({});
+
+  type GroupedBookSet = {
+    title: string;
+    publication: string;
+    classNames: string[];
+    books: BookRow[];
+  };
+
+  const groupedBooks = useMemo<GroupedBookSet[]>(() => {
+    const grouped = new Map<string, GroupedBookSet>();
+
+    books.forEach((book) => {
+      const key = `${book.title}::${book.publication || ""}`.toLowerCase();
+      const existing = grouped.get(key);
+      if (existing) {
+        existing.books.push(book);
+        existing.classNames = Array.from(
+          new Set([...existing.classNames, book.className])
+        );
+      } else {
+        grouped.set(key, {
+          title: book.title,
+          publication: book.publication || "",
+          classNames: [book.className],
+          books: [book],
+        });
+      }
+    });
+
+    return Array.from(grouped.values()).sort((a, b) => {
+      const titleDiff = a.title.localeCompare(b.title);
+      return titleDiff !== 0 ? titleDiff : a.publication.localeCompare(b.publication);
+    });
+  }, [books]);
+
+  const groupedBooksByClass = useMemo(() => {
+    const sections = new Map<string, GroupedBookSet[]>();
+
+    groupedBooks.forEach((group) => {
+      group.classNames.forEach((className) => {
+        const current = sections.get(className) ?? [];
+        current.push(group);
+        sections.set(className, current);
+      });
+    });
+
+    return Array.from(sections.entries())
+      .map(([className, groups]) => ({
+        className,
+        groups: groups.sort((a, b) => a.title.localeCompare(b.title)),
+      }))
+      .sort((a, b) => a.className.localeCompare(b.className));
+  }, [groupedBooks]);
 
   const resetBookForm = () => {
     setTitle("");
@@ -191,7 +245,11 @@ export default function BooksManagement({
         cartItems.map(({ book, qty }) => ({ bookId: book.id, quantity: qty }))
       );
       if (res.success) {
-        toast.success("Order sent to admin for confirmation.");
+        toast.success(
+          res.pickupCode
+            ? `Order sent to admin. Pickup code: ${res.pickupCode}`
+            : "Order sent to admin for confirmation."
+        );
         setCart({});
         router.refresh();
       } else {
@@ -474,7 +532,7 @@ export default function BooksManagement({
                         {order.parentName}
                       </p>
                       <p className="text-xs text-slate-500">
-                        {new Date(order.createdAt).toLocaleString()} ·{" "}
+                        {new Date(order.createdAt).toLocaleString()} · Pickup: {order.pickupCode} ·{" "}
                         <span
                           className={
                             order.status === "PENDING"
@@ -537,50 +595,88 @@ export default function BooksManagement({
             {books.length === 0 ? (
               <p className="text-sm text-slate-500">No books available right now.</p>
             ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {books.map((book) => {
-                  const qty = cart[book.id] ?? 0;
-                  const inStock = book.quantity > 0;
-                  return (
-                    <div
-                      key={book.id}
-                      className={`rounded-xl border p-4 ${
-                        inStock
-                          ? "border-slate-200 bg-white"
-                          : "border-slate-100 bg-slate-50 opacity-60"
-                      }`}
-                    >
-                      <h3 className="font-semibold text-slate-800">{book.title}</h3>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        {book.publication ? `${book.publication} · ` : ""}{book.className}
+              <div className="space-y-6">
+                {groupedBooksByClass.map(({ className, groups }) => (
+                  <div key={className} className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-base font-semibold text-slate-800">
+                        {className}
+                      </h3>
+                      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                        {groups.length} book set{groups.length === 1 ? "" : "s"}
                       </p>
-                      <p className="mt-2 text-sm font-medium text-sky-700">
-                        ₵{book.price.toFixed(2)}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        {inStock ? `${book.quantity} in stock` : "Out of stock"}
-                      </p>
-                      {inStock && (
-                        <div className="mt-3 flex items-center gap-2">
-                          <label className="text-xs text-slate-600">Qty</label>
-                          <input
-                            type="number"
-                            min={0}
-                            max={book.quantity}
-                            value={qty || ""}
-                            onChange={(e) =>
-                              setCartQty(
-                                book.id,
-                                parseInt(e.target.value, 10) || 0
-                              )
-                            }
-                            className="w-16 rounded-lg border border-slate-200 px-2 py-1 text-sm"
-                          />
-                        </div>
-                      )}
                     </div>
-                  );
-                })}
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                      {groups.map((group) => (
+                        <div
+                          key={`${group.title}-${group.publication}`}
+                          className="rounded-xl border border-slate-200 bg-white p-4"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <h4 className="font-semibold text-slate-800">{group.title}</h4>
+                              <p className="text-xs text-slate-500 mt-0.5">
+                                {group.publication || "General publication"}
+                              </p>
+                            </div>
+                            <span className="rounded-full bg-sky-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-sky-700">
+                              {group.classNames.length > 1
+                                ? `${group.classNames.length} classes`
+                                : group.classNames[0]}
+                            </span>
+                          </div>
+
+                          <div className="mt-3 space-y-2">
+                            {group.books.map((book) => {
+                              const qty = cart[book.id] ?? 0;
+                              const inStock = book.quantity > 0;
+                              return (
+                                <div
+                                  key={book.id}
+                                  className={`rounded-lg border p-3 ${
+                                    inStock
+                                      ? "border-slate-200 bg-slate-50/70"
+                                      : "border-slate-100 bg-slate-50 opacity-60"
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between gap-2 text-sm">
+                                    <span className="font-medium text-slate-700">
+                                      {book.className}
+                                    </span>
+                                    <span className="text-sky-700">
+                                      ₵{book.price.toFixed(2)}
+                                    </span>
+                                  </div>
+                                  <p className="mt-1 text-xs text-slate-500">
+                                    {inStock ? `${book.quantity} in stock` : "Out of stock"}
+                                  </p>
+                                  {inStock && (
+                                    <div className="mt-2 flex items-center gap-2">
+                                      <label className="text-xs text-slate-600">Qty</label>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        max={book.quantity}
+                                        value={qty || ""}
+                                        onChange={(e) =>
+                                          setCartQty(
+                                            book.id,
+                                            parseInt(e.target.value, 10) || 0
+                                          )
+                                        }
+                                        className="w-16 rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </section>
@@ -624,7 +720,7 @@ export default function BooksManagement({
                     className="rounded-lg border border-slate-200 p-3 text-sm"
                   >
                     <p className="font-medium text-slate-700">
-                      {new Date(order.createdAt).toLocaleDateString()} —{" "}
+                      {new Date(order.createdAt).toLocaleDateString()} — Pickup: {order.pickupCode} —{" "}
                       <span
                         className={
                           order.status === "CONFIRMED"

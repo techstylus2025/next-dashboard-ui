@@ -5,9 +5,18 @@ import prisma from "@/lib/prisma";
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const table = url.searchParams.get("table");
-  const { sessionClaims } = await auth();
-  const role = (sessionClaims?.metadata as { role?: string })?.role;
-  const currentUserId = sessionClaims?.sub;
+
+  let role: string | undefined;
+  let currentUserId: string | undefined;
+
+  try {
+    const { sessionClaims } = await auth();
+    role = (sessionClaims?.metadata as { role?: string })?.role;
+    currentUserId = sessionClaims?.sub;
+  } catch {
+    role = undefined;
+    currentUserId = undefined;
+  }
 
   let relatedData: any = {};
 
@@ -23,10 +32,12 @@ export async function GET(request: Request) {
     case "class": {
       const classGrades = await prisma.grade.findMany({
         select: { id: true, level: true },
+        orderBy: { id: "asc" },
       });
       const classTeachers = await prisma.teacher.findMany({
         where: { isArchived: false },
         select: { id: true, name: true, surname: true },
+        orderBy: [{ name: "asc" }, { surname: "asc" }],
       });
       relatedData = { teachers: classTeachers, grades: classGrades };
       break;

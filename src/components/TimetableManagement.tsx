@@ -130,7 +130,12 @@ const TimetableManagement = ({
             </button>
           </div>
           <LessonForm
-            lesson={editingLesson || undefined}
+            lesson={editingLesson ? {
+              ...editingLesson,
+              subjectId: editingLesson.subject.id,
+              classId: editingLesson.class.id,
+              teacherId: editingLesson.teacher.id,
+            } : undefined}
             teachers={teachers}
             subjects={subjects}
             classes={classes}
@@ -197,11 +202,11 @@ const TimetableManagement = ({
                                 {lesson.name}
                               </p>
                               <p className="text-xs text-slate-500">
-                                {lesson.subject.name} • {lesson.class.name}
+                                {(lesson.subject?.name ?? "Unknown subject")} • {(lesson.class?.name ?? "Unknown class")}
                               </p>
                             </div>
                             <div className="flex flex-wrap gap-2 text-xs text-slate-500 md:text-right">
-                              <span>{lesson.teacher.name} {lesson.teacher.surname}</span>
+                              <span>{lesson.teacher ? `${lesson.teacher.name} ${lesson.teacher.surname}` : "Unknown teacher"}</span>
                               <span>•</span>
                               <span>{String(start.getHours()).padStart(2, "0")}:{String(start.getMinutes()).padStart(2, "0")} - {String(end.getHours()).padStart(2, "0")}:{String(end.getMinutes()).padStart(2, "0")}</span>
                             </div>

@@ -6,6 +6,7 @@ import InputField from "../InputField";
 import {
   Dispatch,
   SetStateAction,
+  startTransition,
   useActionState,
   useEffect,
   useState,
@@ -51,7 +52,7 @@ const StudentForm = ({
     reset,
     trigger,
   } = useForm<StudentSchema>({
-    resolver: zodResolver(studentSchema),
+    resolver: zodResolver(studentSchema) as any,
     defaultValues: {
       ...data,
       birthday: formatBirthday(data?.birthday),
@@ -135,8 +136,10 @@ const StudentForm = ({
     }
   );
 
-  const onSubmit = handleSubmit(async (formData) => {
-    await formAction({ ...formData, img: img?.secure_url ?? data?.img });
+  const onSubmit = handleSubmit((formData) => {
+    startTransition(() => {
+      formAction({ ...(formData as any), img: img?.secure_url ?? data?.img } as any);
+    });
   });
 
   const router = useRouter();
@@ -146,6 +149,8 @@ const StudentForm = ({
       toast(`Student has been ${type === "create" ? "created" : "updated"}!`);
       setOpen(false);
       router.refresh();
+    } else if (state.error) {
+      toast.error("Could not save student record. Please check the form and try again.");
     }
   }, [state, router, type, setOpen]);
 

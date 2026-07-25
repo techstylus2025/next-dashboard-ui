@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "GradingLevel" ADD VALUE 'NURSERY' AFTER 'CRECHE';

@@ -30,7 +30,7 @@ const ExamQuestionUploadForm = ({
     handleSubmit,
     formState: { errors },
   } = useForm<ExamQuestionUploadSchema>({
-    resolver: zodResolver(examQuestionUploadSchema),
+    resolver: zodResolver(examQuestionUploadSchema) as any,
   });
 
   const onSubmit = handleSubmit((data) => {

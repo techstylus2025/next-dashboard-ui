@@ -66,6 +66,7 @@ export default async function FeesPage() {
   });
 
   const allAssignments = await prisma.studentFeeAssignment.findMany({
+    where: role === "parent" && userId ? { student: { parentId: userId } } : role === "student" && userId ? { studentId: userId } : {},
     include: {
       student: {
         select: {
@@ -135,9 +136,7 @@ export default async function FeesPage() {
     parentId: p.assignment.student.parentId,
   }));
 
-  let payments = paymentRowsFull.map(
-    ({ studentId: _sid, parentId: _pid, ...row }) => row
-  );
+  let payments = paymentRowsFull.map(({ studentId: _sid, parentId: _pid, ...row }) => row);
 
   if (role === "parent" && userId) {
     payments = paymentRowsFull
@@ -167,7 +166,8 @@ export default async function FeesPage() {
         role={role}
         classes={classes}
         classFeeCards={classFeeCards}
-        assignmentOptions={canCollect ? assignmentOptions : []}
+        // show assignment options for parents and students as well as admins
+        assignmentOptions={role === "parent" || role === "student" ? assignmentOptions : canCollect ? assignmentOptions : []}
         payments={payments}
         canAdmin={canAdmin}
         canCollect={canCollect}

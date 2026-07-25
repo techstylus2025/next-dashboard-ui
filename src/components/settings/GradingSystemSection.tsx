@@ -14,6 +14,7 @@ import { toast } from "react-toastify";
 
 const LEVELS: GradingLevel[] = [
   "CRECHE",
+  "NURSERY",
   "KINDERGARTEN",
   "PRIMARY",
   "JHS",

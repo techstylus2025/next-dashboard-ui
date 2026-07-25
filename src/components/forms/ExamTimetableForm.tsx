@@ -39,7 +39,7 @@ const ExamTimetableForm = ({
     setValue,
     formState: { errors },
   } = useForm<ExamTimetableSchema>({
-    resolver: zodResolver(examTimetableSchema),
+    resolver: zodResolver(examTimetableSchema) as any,
     defaultValues: {
       gradingLevel: "PRIMARY" as GradingLevel,
     } as any,

@@ -1,4 +1,5 @@
 import Announcements from "@/components/Announcements";
+import Avatar from "@/components/Avatar";
 import BigCalendarContainer from "@/components/BigCalendarContainer";
 import FormContainer from "@/components/FormContainer";
 import Performance from "@/components/Performance";
@@ -6,7 +7,6 @@ import StudentAttendanceCard from "@/components/StudentAttendanceCard";
 import prisma from "@/lib/prisma";
 import { auth } from "@clerk/nextjs/server";
 import { Class, Student } from "@prisma/client";
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
@@ -119,12 +119,12 @@ const SingleStudentPage = async ({
           {/* USER INFO CARD */}
           <div className="bg-lamaSky py-4 px-4 rounded-md flex-1 flex flex-col gap-4 lg:flex-row">
             <div className="w-full lg:w-1/3 flex-shrink-0">
-              <Image
-                src={student.img || "/user.svg"}
-                alt=""
-                width={144}
-                height={144}
-                className="w-36 h-36 rounded-full object-cover"
+              <Avatar
+                src={student.img ?? undefined}
+                name={`${student.name} ${student.surname}`}
+                alt={`${student.name} ${student.surname}`}
+                size={144}
+                className="w-36 h-36"
               />
             </div>
             <div className="w-full lg:w-2/3 flex-1 min-w-0 flex flex-col justify-between gap-2">
@@ -198,15 +198,16 @@ const SingleStudentPage = async ({
           <div className="flex-1 flex gap-4 justify-between flex-wrap">
             {/* CARD */}
             <div className="bg-white p-4 rounded-md flex gap-4 w-full md:w-[48%] xl:w-[45%] 2xl:w-[48%] shadow-sm border border-slate-200">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-sky-500 text-white shadow-lg">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-sky-500 text-white shadow-lg flex-shrink-0">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-7 h-7" aria-hidden="true">
                     <path d="M12.5 16a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7m1.679-4.493-1.335 2.226a.75.75 0 0 1-1.174.144l-.774-.773a.5.5 0 0 1 .708-.708l.547.548 1.17-1.951a.5.5 0 1 1 .858.514"/>
                     <path d="M11 5a3 3 0 1 1-6 0 3 3 0 0 1 6 0"/>
                     <path d="M8.256 14a4.5 4.5 0 0 1-.229-1.004H3c.001-.246.154-.986.832-1.664C4.484 10.68 5.711 10 8 10q.39 0 .74.025c.226-.341.496-.65.804-.918Q8.844 9.002 8 9c-5 0-6 3-6 4s1 1 1 1z"/>
                   </svg>
                 </div>
-              <div className="">
-                <Suspense fallback="loading...">
+              <div className="flex-1">
+                <p className="text-xs text-gray-400 font-medium mb-2 uppercase tracking-wider">Attendance (Active Term)</p>
+                <Suspense fallback={<p className="text-sm text-gray-500">loading...</p>}>
                   <StudentAttendanceCard id={student.id} />
                 </Suspense>
               </div>

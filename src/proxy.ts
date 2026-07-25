@@ -9,6 +9,11 @@ const matchers = Object.keys(routeAccessMap).map((route) => ({
 }));
 
 export default clerkMiddleware(async (auth, req) => {
+  // Dev bypass: if a dev user header is present, skip clerk middleware checks
+  const devUserId = req.headers.get("x-dev-user-id");
+  if (devUserId) {
+    return NextResponse.next();
+  }
   const pathname = decodeURIComponent(req.nextUrl.pathname);
 
   // Legacy URL with space — redirect to canonical route

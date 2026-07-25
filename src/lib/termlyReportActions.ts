@@ -669,3 +669,29 @@ export async function deleteTermlyReport(
     return { success: false, error: "Could not delete report." };
   }
 }
+
+/**
+ * Fetch all students in a given class.
+ * Used by admin to see all students (not just those with reports) when filling individual reports.
+ */
+export async function getAllStudentsInClass(
+  classId: number
+): Promise<Array<{ id: string; name: string; surname: string }>> {
+  const ctx = await getAuthCtx();
+  if (!ctx || !ctx.isAdmin) {
+    return [];
+  }
+
+  try {
+    const students = await db.student.findMany({
+      where: { classId },
+      select: { id: true, name: true, surname: true },
+      orderBy: [{ surname: "asc" }, { name: "asc" }],
+    });
+
+    return students;
+  } catch (e) {
+    console.error("Failed to fetch students for class:", e);
+    return [];
+  }
+}

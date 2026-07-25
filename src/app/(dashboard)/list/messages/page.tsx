@@ -39,23 +39,26 @@ const MessagesPage = async () => {
       : "Reply to admin messages or send feedback and complaints through the same inbox.";
 
   return (
-    <div className="p-4">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <header className="rounded-3xl bg-gradient-to-r from-slate-950 via-slate-900 to-slate-800 px-6 py-6 text-white shadow-lg shadow-slate-900/20">
+    <div className="p-4 md:p-6 lg:p-8">
+      <div className="space-y-6 w-full">
+        <header className="rounded-[2rem] border border-slate-200/80 bg-slate-950/95 px-6 py-8 text-white shadow-xl shadow-slate-900/20">
           <p className="text-sm uppercase tracking-[0.3em] text-sky-300">
             Messages
           </p>
           <h1 className="mt-3 text-3xl font-semibold">{pageHeading}</h1>
-          <p className="mt-2 max-w-2xl text-sm text-slate-200">{pageSubtitle}</p>
+          <p className="mt-2 max-w-3xl text-sm text-slate-200">{pageSubtitle}</p>
         </header>
-        <MessagesChat
-          role={role}
-          currentUserId={currentUserId}
-          currentName={displayName}
-          initialThreads={threads}
-          allParents={parents}
-          allTeachers={teachers}
-        />
+
+        <div className="rounded-[2rem] border border-slate-200/80 bg-white p-4 shadow-sm">
+          <MessagesChat
+            role={role}
+            currentUserId={currentUserId}
+            currentName={displayName}
+            initialThreads={threads}
+            allParents={parents}
+            allTeachers={teachers}
+          />
+        </div>
       </div>
     </div>
   );

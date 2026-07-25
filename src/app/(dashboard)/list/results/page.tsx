@@ -1,4 +1,4 @@
-import ResultsManagement from "@/components/results/ResultsManagement";
+import ResultsPageOfflineWrapper from "@/components/results/ResultsPageOfflineWrapper";
 import { loadResultsPageData } from "@/lib/resultsData";
 import { auth } from "@clerk/nextjs/server";
 
@@ -10,7 +10,7 @@ export default async function ResultsPage() {
 
   return (
     <div className="flex-1 p-4 min-h-[60vh] rounded-2xl bg-lamaSkyLight">
-      <ResultsManagement {...pageData} />
+      <ResultsPageOfflineWrapper initialData={pageData} />
     </div>
   );
 }

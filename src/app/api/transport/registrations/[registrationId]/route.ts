@@ -9,7 +9,8 @@ const getRoleFromSession = async () => {
   let role = (sessionClaims?.metadata as { role?: string })?.role;
 
   if (!role && userId) {
-    const user = await clerkClient.users.getUser(userId);
+    const client = await clerkClient();
+    const user = await client.users.getUser(userId);
     role = (user?.publicMetadata as { role?: string })?.role;
   }
 

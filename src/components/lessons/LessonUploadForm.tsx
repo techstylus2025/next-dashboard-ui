@@ -150,7 +150,7 @@ const LessonUploadForm = ({
               id: editingUpload.id,
               title: row.title.trim(),
               weekNumber: Number(row.weekNumber),
-              file: row.file,
+              file: row.file ?? undefined,
             });
 
             if (!result.success) {

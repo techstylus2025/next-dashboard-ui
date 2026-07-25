@@ -41,13 +41,8 @@ const AttendanceManager = ({
 }: AttendanceManagerProps) => {
   const router = useRouter();
   const [recordType, setRecordType] = useState<"student" | "teacher">("student");
-  const [selectedStudentId, setSelectedStudentId] = useState<string>(
-    students[0]?.id || ""
-  );
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
-  const [selectedTeacherId, setSelectedTeacherId] = useState<string>(
-    teachers[0]?.id || ""
-  );
+  const [selectedTeacherIds, setSelectedTeacherIds] = useState<string[]>([]);
   const [date, setDate] = useState<string>(selectedDate);
 
   useEffect(() => {
@@ -72,15 +67,8 @@ const AttendanceManager = ({
       type: recordType,
       date,
       present,
-      studentIds:
-        role === "teacher" && recordType === "student"
-          ? selectedStudentIds
-          : undefined,
-      studentId:
-        role !== "teacher" && recordType === "student"
-          ? selectedStudentId
-          : undefined,
-      teacherId: recordType === "teacher" ? selectedTeacherId : undefined,
+      studentIds: recordType === "student" ? selectedStudentIds : undefined,
+      teacherIds: recordType === "teacher" ? selectedTeacherIds : undefined,
     };
 
     startTransition(() => {
@@ -327,136 +315,182 @@ const AttendanceManager = ({
             </div>
 
             {recordType === "student" && (
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">
-                    Student
-                  </label>
-                  <select
-                    name={role === "teacher" ? "studentIds" : "studentId"}
-                    value={role === "teacher" ? selectedStudentIds : selectedStudentId}
-                    onChange={(event) => {
-                      if (role === "teacher") {
-                        const values = Array.from(
-                          event.target.selectedOptions,
-                          (option) => option.value
-                        );
-                        setSelectedStudentIds(values);
-                      } else {
-                        setSelectedStudentId(event.target.value);
-                      }
-                    }}
-                    multiple={role === "teacher"}
-                    className={`min-h-[180px] w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-sky-300 focus:ring-sky-500/10 ${
-                      role === "teacher" ? "resize-none" : ""
-                    }`}
-                  >
-                    {role !== "teacher" && <option value="">Select student</option>}
-                    {studentOptions.map((student) => (
-                      <option key={student.id} value={student.id}>
-                        {student.name} {student.surname}
-                        {student.className ? ` — ${student.className}` : ""}
-                      </option>
-                    ))}
-                  </select>
-                  {role === "teacher" && (
-                    <p className="text-xs text-slate-500">
-                      {selectedStudentIds.length === 0
-                        ? "Choose one or more students to mark attendance."
-                        : `${selectedStudentIds.length} student${
-                            selectedStudentIds.length > 1 ? "s" : ""
-                          } selected.`}
+              <div className="grid gap-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-slate-700">
+                      Students
+                    </label>
+                    <p className="text-sm text-slate-500">
+                      Select one or more students to record attendance.
                     </p>
+                  </div>
+                  <p className="text-sm text-slate-500">
+                    {selectedStudentIds.length} selected
+                  </p>
+                </div>
+
+                <div className="grid gap-3 rounded-3xl border border-slate-200 bg-slate-50 p-4 max-h-[340px] overflow-y-auto">
+                  {allStudentOptions.length === 0 ? (
+                    <div className="rounded-3xl bg-white p-4 text-sm text-slate-500">
+                      No students available for attendance.
+                    </div>
+                  ) : (
+                    allStudentOptions.map((student) => {
+                      const checked = selectedStudentIds.includes(student.id);
+                      return (
+                        <label
+                          key={student.id}
+                          className="flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 transition hover:border-sky-300"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => {
+                              setSelectedStudentIds((prev) =>
+                                prev.includes(student.id)
+                                  ? prev.filter((id) => id !== student.id)
+                                  : [...prev, student.id]
+                              );
+                            }}
+                            className="mt-1 h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                          />
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-slate-900 truncate">
+                              {student.name} {student.surname}
+                            </p>
+                            <p className="mt-1 text-xs text-slate-500 truncate">
+                              {student.className ?? "No class assigned"}
+                            </p>
+                          </div>
+                        </label>
+                      );
+                    })
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">
-                    Attendance
-                  </label>
-                  <div className="inline-flex rounded-full bg-slate-100 p-1">
-                    <button
-                      type="button"
-                      onClick={() => setPresent("true")}
-                      className={`px-4 py-2 rounded-full text-sm font-medium transition ${
-                        present === "true"
-                          ? "bg-emerald-600 text-white shadow"
-                          : "text-slate-700"
-                      }`}
-                    >
-                      Present
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPresent("false")}
-                      className={`ml-1 px-4 py-2 rounded-full text-sm font-medium transition ${
-                        present === "false"
-                          ? "bg-rose-600 text-white shadow"
-                          : "text-slate-700"
-                      }`}
-                    >
-                      Absent
-                    </button>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">
+                      Attendance
+                    </label>
+                    <div className="inline-flex rounded-full bg-slate-100 p-1">
+                      <button
+                        type="button"
+                        onClick={() => setPresent("true")}
+                        className={`px-4 py-2 rounded-full text-sm font-medium transition ${
+                          present === "true"
+                            ? "bg-emerald-600 text-white shadow"
+                            : "text-slate-700"
+                        }`}
+                      >
+                        Present
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPresent("false")}
+                        className={`ml-1 px-4 py-2 rounded-full text-sm font-medium transition ${
+                          present === "false"
+                            ? "bg-rose-600 text-white shadow"
+                            : "text-slate-700"
+                        }`}
+                      >
+                        Absent
+                      </button>
+                    </div>
                   </div>
-                </div>
 
-                <div className="sm:col-span-1" />
+                  <div className="sm:col-span-1" />
+                </div>
               </div>
             )}
 
             {recordType === "teacher" && (
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">
-                    Teacher
-                  </label>
-                  <select
-                    name="teacherId"
-                    value={selectedTeacherId}
-                    onChange={(event) => setSelectedTeacherId(event.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-sky-300 focus:ring-sky-500/10"
-                  >
-                    <option value="">Select teacher</option>
-                    {teacherOptions.map((teacher) => (
-                      <option key={teacher.id} value={teacher.id}>
-                        {teacher.name} {teacher.surname}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">
-                    Attendance
-                  </label>
-                  <div className="inline-flex rounded-full bg-slate-100 p-1">
-                    <button
-                      type="button"
-                      onClick={() => setPresent("true")}
-                      className={`px-4 py-2 rounded-full text-sm font-medium transition ${
-                        present === "true"
-                          ? "bg-emerald-600 text-white shadow"
-                          : "text-slate-700"
-                      }`}
-                    >
-                      Present
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPresent("false")}
-                      className={`ml-1 px-4 py-2 rounded-full text-sm font-medium transition ${
-                        present === "false"
-                          ? "bg-rose-600 text-white shadow"
-                          : "text-slate-700"
-                      }`}
-                    >
-                      Absent
-                    </button>
+              <div className="grid gap-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-slate-700">
+                      Teachers
+                    </label>
+                    <p className="text-sm text-slate-500">
+                      Select one or more teachers to mark attendance.
+                    </p>
                   </div>
-                  <input type="hidden" name="present" value={present} />
+                  <p className="text-sm text-slate-500">
+                    {selectedTeacherIds.length} selected
+                  </p>
                 </div>
 
-                <div className="sm:col-span-1" />
+                <div className="grid gap-3 rounded-3xl border border-slate-200 bg-slate-50 p-4 max-h-[340px] overflow-y-auto">
+                  {allTeacherOptions.length === 0 ? (
+                    <div className="rounded-3xl bg-white p-4 text-sm text-slate-500">
+                      No teachers available for attendance.
+                    </div>
+                  ) : (
+                    allTeacherOptions.map((teacher) => {
+                      const checked = selectedTeacherIds.includes(teacher.id);
+                      return (
+                        <label
+                          key={teacher.id}
+                          className="flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 transition hover:border-sky-300"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => {
+                              setSelectedTeacherIds((prev) =>
+                                prev.includes(teacher.id)
+                                  ? prev.filter((id) => id !== teacher.id)
+                                  : [...prev, teacher.id]
+                              );
+                            }}
+                            className="mt-1 h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                          />
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-slate-900 truncate">
+                              {teacher.name} {teacher.surname}
+                            </p>
+                          </div>
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">
+                      Attendance
+                    </label>
+                    <div className="inline-flex rounded-full bg-slate-100 p-1">
+                      <button
+                        type="button"
+                        onClick={() => setPresent("true")}
+                        className={`px-4 py-2 rounded-full text-sm font-medium transition ${
+                          present === "true"
+                            ? "bg-emerald-600 text-white shadow"
+                            : "text-slate-700"
+                        }`}
+                      >
+                        Present
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPresent("false")}
+                        className={`ml-1 px-4 py-2 rounded-full text-sm font-medium transition ${
+                          present === "false"
+                            ? "bg-rose-600 text-white shadow"
+                            : "text-slate-700"
+                        }`}
+                      >
+                        Absent
+                      </button>
+                    </div>
+                    <input type="hidden" name="present" value={present} />
+                  </div>
+
+                  <div className="sm:col-span-1" />
+                </div>
               </div>
             )}
 
@@ -464,11 +498,8 @@ const AttendanceManager = ({
               <button
                 type="submit"
                 disabled={
-                  (recordType === "student" &&
-                    (role === "teacher"
-                      ? selectedStudentIds.length === 0
-                      : !selectedStudentId)) ||
-                  (recordType === "teacher" && !selectedTeacherId)
+                  (recordType === "student" && selectedStudentIds.length === 0) ||
+                  (recordType === "teacher" && selectedTeacherIds.length === 0)
                 }
                 className="inline-flex items-center gap-2 justify-center rounded-2xl bg-sky-600 px-5 py-3 text-sm font-semibold text-white transition transform hover:-translate-y-0.5 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-300 disabled:cursor-not-allowed disabled:bg-slate-300"
               >

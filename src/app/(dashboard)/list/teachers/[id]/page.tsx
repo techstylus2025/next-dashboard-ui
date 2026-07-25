@@ -1,4 +1,5 @@
 import Announcements from "@/components/Announcements";
+import Avatar from "@/components/Avatar";
 import BigCalendarContainer from "@/components/BigCalendarContainer";
 import BigCalendar from "@/components/BigCalender";
 import FormContainer from "@/components/FormContainer";
@@ -6,7 +7,6 @@ import Performance from "@/components/Performance";
 import prisma from "@/lib/prisma";
 import { auth } from "@clerk/nextjs/server";
 import { Teacher } from "@prisma/client";
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -48,12 +48,12 @@ const SingleTeacherPage = async ({
           {/* USER INFO CARD */}
           <div className="bg-lamaSky py-6 px-4 rounded-md flex-1 flex flex-col gap-4 lg:flex-row">
             <div className="w-full lg:w-1/3 flex-shrink-0">
-              <Image
-                src={teacher.img || "/user.svg"}
-                alt=""
-                width={144}
-                height={144}
-                className="w-36 h-36 rounded-full object-cover"
+              <Avatar
+                src={teacher.img ?? undefined}
+                name={`${teacher.name} ${teacher.surname}`}
+                alt={`${teacher.name} ${teacher.surname}`}
+                size={144}
+                className="w-36 h-36"
               />
             </div>
             <div className="w-full lg:w-2/3 flex-1 min-w-0 flex flex-col justify-between gap-2">

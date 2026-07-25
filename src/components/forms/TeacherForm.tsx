@@ -47,7 +47,7 @@ const TeacherForm = ({
     formState: { errors },
     reset,
   } = useForm<TeacherSchema>({
-    resolver: zodResolver(teacherSchema),
+    resolver: zodResolver(teacherSchema) as any,
     defaultValues: data
       ? {
           ...data,
@@ -225,8 +225,8 @@ const TeacherForm = ({
           label="Subjects"
           name="subjects"
           register={register}
-          error={errors.subjects}
-          defaultValue={data?.subjects}
+          error={errors.subjects as any}
+          defaultValue={data?.subjects as any}
           multiple
           options={subjects.map((subject: { id: number; name: string }) => ({
             value: subject.id,

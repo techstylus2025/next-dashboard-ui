@@ -164,8 +164,8 @@ model PasswordChangeRequest {
 }
 
 model Grade {
-  id    Int @id @default(autoincrement())
-  level Int @unique
+  id    Int          @id @default(autoincrement())
+  level GradingLevel @unique
 
   classess Class[]
   students Student[]
@@ -208,13 +208,14 @@ model Book {
 }
 
 model BookOrder {
-  id        Int             @id @default(autoincrement())
-  parentId  String
-  parent    Parent          @relation(fields: [parentId], references: [id], onDelete: Cascade)
-  status    BookOrderStatus @default(PENDING)
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
-  items     BookOrderItem[]
+  id         Int             @id @default(autoincrement())
+  parentId   String
+  parent     Parent          @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  status     BookOrderStatus @default(PENDING)
+  pickupCode String?         @unique
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  items      BookOrderItem[]
 }
 
 model BookOrderItem {
@@ -321,6 +322,7 @@ enum Department {
 
 enum GradingLevel {
   CRECHE
+  NURSERY
   KINDERGARTEN
   PRIMARY
   JHS

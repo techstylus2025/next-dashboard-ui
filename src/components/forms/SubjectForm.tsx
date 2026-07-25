@@ -31,7 +31,7 @@ const SubjectForm = ({
     handleSubmit,
     formState: { errors },
   } = useForm<SubjectSchema>({
-    resolver: zodResolver(subjectSchema),
+    resolver: zodResolver(subjectSchema) as any,
   });
 
   const [state, formAction] = useActionState(
@@ -45,7 +45,7 @@ const SubjectForm = ({
   const onSubmit = handleSubmit((data) => {
     console.log(data);
     startTransition(() => {
-      formAction(data);
+      formAction(data as any);
     });
   });
 

@@ -11,7 +11,11 @@ function formatDate(iso: string | null) {
 
 export async function exportTermlyReportPdf(report: TermlyReportRow) {
   const { jsPDF } = await import("jspdf");
-  const autoTable = (await import("jspdf-autotable")).default;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const autoTable = ((await import("jspdf-autotable")).default as any) as (
+    doc: any,
+    options: any
+  ) => void;
 
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const margin = 14;

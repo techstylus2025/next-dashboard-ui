@@ -22,6 +22,38 @@ export default function ChartsSummary({
     return row;
   });
 
+  const formatSubjectTooltip: any = (
+    value: any,
+    name?: any,
+    payload?: any,
+    index?: any,
+    payloadArray?: any
+  ) => {
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value.toFixed(1);
+    }
+    if (Array.isArray(value)) {
+      return value.map((item) => (typeof item === "number" ? item.toFixed(1) : item)).join(", ");
+    }
+    return value;
+  };
+
+  const formatTopStudentTooltip: any = (
+    value: any,
+    name?: any,
+    payload?: any,
+    index?: any,
+    payloadArray?: any
+  ) => {
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return `${value.toFixed(1)}%`;
+    }
+    if (Array.isArray(value)) {
+      return value.map((item) => (typeof item === "number" ? `${item.toFixed(1)}%` : item)).join(", ");
+    }
+    return value;
+  };
+
   return (
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
       <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
@@ -46,7 +78,7 @@ export default function ChartsSummary({
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="subjectName" angle={-20} textAnchor="end" height={60} interval={0} />
               <YAxis />
-              <Tooltip formatter={(value: number) => (Number.isFinite(value) ? value.toFixed(1) : value)} />
+              <Tooltip formatter={formatSubjectTooltip} />
               <Bar dataKey="averageMarks" fill="#f59e0b" name="Avg Marks" />
               <Bar dataKey="lowPerformanceCount" fill="#ef4444" name="Low Performers" />
             </BarChart>
@@ -67,7 +99,7 @@ export default function ChartsSummary({
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="className" />
               <YAxis />
-              <Tooltip formatter={(value: number) => (Number.isFinite(value) ? `${value.toFixed(1)}%` : value)} />
+              <Tooltip formatter={formatTopStudentTooltip} />
               <Bar dataKey="student1" fill="#22c55e" name="Top 1" />
               <Bar dataKey="student2" fill="#38bdf8" name="Top 2" />
               <Bar dataKey="student3" fill="#a855f7" name="Top 3" />

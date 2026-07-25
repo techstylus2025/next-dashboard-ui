@@ -141,8 +141,22 @@ export async function getProfilePageData(
       prisma.passwordChangeRequest.count({ where: { status: "PENDING" } }),
     ]);
 
-    const profile = admin
-      ? admin
+    const profile: {
+      id: string;
+      username: string;
+      email: string | null;
+      phone: string | null;
+      img: string | null;
+      birthday: Date | null;
+    } = admin
+      ? {
+          id: admin.id,
+          username: admin.username,
+          email: null,
+          phone: null,
+          img: null,
+          birthday: null,
+        }
       : {
           id: userId,
           username: userId,
@@ -212,10 +226,10 @@ export async function getPendingPasswordChangeRequests() {
   ]);
 
   const typeMap = new Map<string, string>([
-    ...students.map((item) => [item.id, `${item.name} ${item.surname}`]),
-    ...teachers.map((item) => [item.id, `${item.name} ${item.surname}`]),
-    ...parents.map((item) => [item.id, `${item.name} ${item.surname}`]),
-    ...admins.map((item) => [item.id, item.username]),
+    ...students.map((item) => [item.id, `${item.name} ${item.surname}`] as [string, string]),
+    ...teachers.map((item) => [item.id, `${item.name} ${item.surname}`] as [string, string]),
+    ...parents.map((item) => [item.id, `${item.name} ${item.surname}`] as [string, string]),
+    ...admins.map((item) => [item.id, item.username] as [string, string]),
   ]);
 
   return requests.map((request) => ({
@@ -241,9 +255,15 @@ export async function approvePasswordChangeRequest(
     throw new Error("Password change request not found or already handled.");
   }
 
-  await clerkClient.users.updateUser(request.requestedById, {
-    password: request.newPassword,
-  });
+  const client = await clerkClient();
+  try {
+    await client.users.updateUser(request.requestedById, {
+      password: request.newPassword,
+    });
+  } catch (clerkErr: any) {
+    console.error('Clerk updateUser (approve) error:', clerkErr);
+    throw new Error(`Failed to update Clerk user: ${clerkErr?.message ?? 'unknown'}`);
+  }
 
   await prisma.passwordChangeRequest.update({
     where: { id: requestId },
@@ -255,14 +275,14 @@ export async function approvePasswordChangeRequest(
     },
   });
 
-  await createMessage({
-    senderId: "admin",
-    senderRole: "admin",
-    recipientId: request.requestedById,
-    recipientRole: request.requestedByRole,
-    text: "Your password change request has been approved by the administrator.",
-    type: "message",
-  });
+    await createMessage({
+      senderId: "admin",
+      senderRole: "admin",
+      recipientId: request.requestedById,
+      recipientRole: request.requestedByRole.toLowerCase() as UserRoleSlug,
+      text: "Your password change request has been approved by the administrator.",
+      type: "message",
+    });
 }
 
 export async function rejectPasswordChangeRequest(
@@ -292,7 +312,7 @@ export async function rejectPasswordChangeRequest(
     senderId: "admin",
     senderRole: "admin",
     recipientId: request.requestedById,
-    recipientRole: request.requestedByRole,
+    recipientRole: request.requestedByRole.toLowerCase() as UserRoleSlug,
     text: "Your password change request has been rejected by the administrator.",
     type: "message",
   });

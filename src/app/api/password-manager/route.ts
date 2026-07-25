@@ -49,8 +49,10 @@ export async function POST(request: NextRequest) {
     // Update Clerk username/password and keep user role metadata up to date.
     let clerkUserId = id;
 
+    const client = await clerkClient();
+
     const findClerkUserId = async (fallbackUsername: string) => {
-      const getUserList = (clerkClient.users as any).getUserList;
+      const getUserList = (client.users as any).getUserList;
       const listArgs = [];
       if (typeof getUserList === "function") {
         try {
@@ -75,7 +77,7 @@ export async function POST(request: NextRequest) {
     };
 
     const updateClerk = async (clerkId: string) => {
-      return clerkClient.users.updateUser(clerkId, {
+      return client.users.updateUser(clerkId, {
         username,
         ...(password ? { password } : {}),
         publicMetadata: { role },

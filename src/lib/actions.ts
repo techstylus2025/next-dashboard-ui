@@ -25,7 +25,8 @@ const getUserRole = async (
 
   if (!role && userId) {
     try {
-      const user = await clerkClient.users.getUser(userId);
+      const client = await clerkClient();
+      const user = await client.users.getUser(userId);
       role = user.publicMetadata?.role as string | undefined;
     } catch (err) {
       console.log("Unable to read user role from Clerk metadata", err);
@@ -45,6 +46,7 @@ type AttendanceActionData = {
   studentId?: string;
   studentIds?: string[];
   teacherId?: string;
+  teacherIds?: string[];
 };
 
 export const createSubject = async (
@@ -119,8 +121,20 @@ export const createClass = async (
   data: ClassSchema
 ) => {
   try {
+    // Get the grade to determine gradingLevel
+    const grade = await prisma.grade.findUnique({
+      where: { id: data.gradeId },
+    });
+
+    if (!grade) {
+      return { success: false, error: true };
+    }
+
     await prisma.class.create({
-      data,
+      data: {
+        ...data,
+        gradingLevel: grade.level,
+      },
     });
 
     // revalidatePath("/list/class");
@@ -136,11 +150,23 @@ export const updateClass = async (
   data: ClassSchema
 ) => {
   try {
+    // Get the grade to determine gradingLevel
+    const grade = await prisma.grade.findUnique({
+      where: { id: data.gradeId },
+    });
+
+    if (!grade) {
+      return { success: false, error: true };
+    }
+
     await prisma.class.update({
       where: {
         id: data.id,
       },
-      data,
+      data: {
+        ...data,
+        gradingLevel: grade.level,
+      },
     });
 
     // revalidatePath("/list/class");
@@ -333,6 +359,7 @@ export const createStudent = async (
         birthday: data.birthday,
         department: data.department,
         classId: data.classId,
+        gradeId: classItem?.gradeId ?? 0,
         parentId: data.parentId,
         previousSchoolName: data.previousSchoolName,
         previousClass: data.previousClass,
@@ -598,8 +625,8 @@ export const createAttendance = async (
   const type = data.type;
   const dateValue = data.date || "";
   const present = data.present === "true" || data.present === true;
-  const studentId = data.studentId || null;
-  const teacherId = data.teacherId || null;
+  const studentId = data.studentId ?? undefined;
+  const teacherId = data.teacherId ?? undefined;
 
   const { userId, sessionClaims } = await auth();
   const role = await getUserRole(userId, sessionClaims as any);
@@ -619,19 +646,36 @@ export const createAttendance = async (
         return { success: false, error: true };
       }
 
-      if (!teacherId) {
+      const selectedTeacherIds =
+        data.teacherIds && data.teacherIds.length > 0
+          ? data.teacherIds
+          : teacherId
+          ? [teacherId]
+          : [];
+
+      if (selectedTeacherIds.length === 0) {
         return { success: false, error: true };
       }
 
-      await prisma.attendance.create({
-        data: {
-          date: parsedDate,
-          present,
-          teacher: {
-            connect: { id: teacherId },
+      if (selectedTeacherIds.length === 1) {
+        await prisma.attendance.create({
+          data: {
+            date: parsedDate,
+            present,
+            teacher: {
+              connect: { id: selectedTeacherIds[0] },
+            },
           },
-        },
-      });
+        });
+      } else {
+        await prisma.attendance.createMany({
+          data: selectedTeacherIds.map((selectedTeacherId) => ({
+            date: parsedDate,
+            present,
+            teacherId: selectedTeacherId,
+          })),
+        });
+      }
     } else {
       const selectedStudentIds =
         data.studentIds && data.studentIds.length > 0
@@ -698,8 +742,8 @@ export const updateAttendance = async (
   const type = data.type;
   const dateValue = data.date || "";
   const present = data.present === "true" || data.present === true;
-  const studentId = data.studentId || null;
-  const teacherId = data.teacherId || null;
+  const studentId = data.studentId ?? undefined;
+  const teacherId = data.teacherId ?? undefined;
 
   const { userId, sessionClaims } = await auth();
   const role = await getUserRole(userId, sessionClaims as any);
@@ -913,7 +957,7 @@ export const createExamTimetable = async (
   }
 ) => {
   const { userId, sessionClaims } = await auth();
-  const role = await getUserRole(userId, sessionClaims);
+  const role = await getUserRole(userId, sessionClaims as any);
 
   if (role !== "admin") {
     return { success: false, error: true };
@@ -1006,7 +1050,7 @@ export const uploadExamQuestion = async (data: {
   }
 
   const { userId, sessionClaims } = await auth();
-  const role = await getUserRole(userId, sessionClaims);
+  const role = await getUserRole(userId, sessionClaims as any);
 
   if (role !== "teacher") {
     return {
@@ -1103,7 +1147,7 @@ export const uploadLessonDocument = async (data: {
   }
 
   const { userId, sessionClaims } = await auth();
-  const role = await getUserRole(userId, sessionClaims);
+  const role = await getUserRole(userId, sessionClaims as any);
 
   if (role !== "teacher") {
     return {
@@ -1204,7 +1248,7 @@ export const updateLessonDocument = async (
   }
 
   const { userId, sessionClaims } = await auth();
-  const role = await getUserRole(userId, sessionClaims);
+  const role = await getUserRole(userId, sessionClaims as any);
 
   const existingUpload = await prisma.examQuestionUpload.findUnique({
     where: { id: uploadId },
@@ -1274,7 +1318,7 @@ export const approveLessonDocument = async (
   data: { id: number }
 ) => {
   const { userId, sessionClaims } = await auth();
-  const role = await getUserRole(userId, sessionClaims);
+  const role = await getUserRole(userId, sessionClaims as any);
 
   if (role !== "admin") {
     return { success: false, error: true };
@@ -1303,7 +1347,7 @@ export const deleteLessonDocumentUpload = async (
   data: { id: number }
 ) => {
   const { userId, sessionClaims } = await auth();
-  const role = await getUserRole(userId, sessionClaims);
+  const role = await getUserRole(userId, sessionClaims as any);
 
   try {
     const existingUpload = await prisma.examQuestionUpload.findUnique({
@@ -1352,7 +1396,7 @@ export const approveExamQuestion = async (
   data: { id: number }
 ) => {
   const { userId, sessionClaims } = await auth();
-  const role = await getUserRole(userId, sessionClaims);
+  const role = await getUserRole(userId, sessionClaims as any);
 
   if (role !== "admin") {
     return { success: false, error: true };
@@ -1380,7 +1424,7 @@ export const deleteExamQuestionUpload = async (
   data: { id: number }
 ) => {
   const { userId, sessionClaims } = await auth();
-  const role = await getUserRole(userId, sessionClaims);
+  const role = await getUserRole(userId, sessionClaims as any);
 
   if (role !== "admin") {
     return { success: false, error: true };

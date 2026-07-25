@@ -32,6 +32,7 @@ export function computeSubjectPercentage(
 
 export const GRADING_LEVEL_LABELS: Record<GradingLevel, string> = {
   CRECHE: "Creche",
+  NURSERY: "Nursery",
   KINDERGARTEN: "Kindergarten",
   PRIMARY: "Primary",
   JHS: "JHS",

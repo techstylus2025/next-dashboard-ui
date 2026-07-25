@@ -139,6 +139,3 @@ export async function loadAnalyticsData() {
 }
 
 export type AnalyticsData = Awaited<ReturnType<typeof loadAnalyticsData>>;
-
-
-export type AnalyticsData = Awaited<ReturnType<typeof loadAnalyticsData>>;

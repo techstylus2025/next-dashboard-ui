@@ -4,6 +4,7 @@ import {
   generateTermlyReportsBulk,
   generateTermlyReportsForSupervisorClass,
   generateTermlyReportForSingleStudent,
+  getAllStudentsInClass,
 } from "@/lib/termlyReportActions";
 import type { ResultsPageContext, TermlyReportRow } from "@/lib/resultsData";
 import { useRouter } from "next/navigation";
@@ -92,6 +93,13 @@ export default function ResultsManagement(ctx: ResultsPageContext) {
     Array<{ id: string; name: string; surname: string }>
   >([]);
   const [loadingStudents, setLoadingStudents] = useState(false);
+  const [studentSearch, setStudentSearch] = useState("");
+  const [autoOpenReportFor, setAutoOpenReportFor] = useState<{
+    studentId: string;
+    classId: number;
+    termNumber: number;
+    academicYearId: number;
+  } | null>(null);
 
   const activeYearLabel = useMemo(() => {
     const y = ctx.academicYears.find((a) => a.id === ctx.activeYearId);
@@ -99,6 +107,17 @@ export default function ResultsManagement(ctx: ResultsPageContext) {
   }, [ctx.academicYears, ctx.activeYearId]);
 
   const shouldGroupRecords = ctx.role === "student" || ctx.role === "parent";
+
+  // Filter students for the dropdown based on search
+  const filteredClassStudents = useMemo(() => {
+    if (!studentSearch) return classStudents;
+    const search = studentSearch.toLowerCase();
+    return classStudents.filter(
+      (s) =>
+        s.name.toLowerCase().includes(search) ||
+        s.surname.toLowerCase().includes(search)
+    );
+  }, [classStudents, studentSearch]);
 
   const filteredReports = useMemo(() => {
     return ctx.reports.filter((r) => {
@@ -237,27 +256,44 @@ export default function ResultsManagement(ctx: ResultsPageContext) {
     setPage(1);
   }, [search, filterClass, filterYear, filterTerm, sortKey, sortDirection, viewMode]);
 
+  // Auto-open report after generation
   useEffect(() => {
-    // Fetch students for the selected class
+    if (autoOpenReportFor) {
+      const report = ctx.reports.find(
+        (r) =>
+          r.studentId === autoOpenReportFor.studentId &&
+          r.classId === autoOpenReportFor.classId &&
+          r.termNumber === autoOpenReportFor.termNumber &&
+          r.academicYearId === autoOpenReportFor.academicYearId
+      );
+      if (report) {
+        setPreviewReport(report);
+        setTab("reports");
+        setAutoOpenReportFor(null);
+      }
+    }
+  }, [autoOpenReportFor, ctx.reports]);
+
+  useEffect(() => {
+    // Fetch all students for the selected class
     if (genClassId && ctx.isAdmin) {
       setLoadingStudents(true);
       setGenStudentId(""); // Reset student selection when class changes
-      
-      // Get students from the reports and class info
-      const students = ctx.reports
-        .filter(r => String(r.classId) === genClassId)
-        .map(r => ({
-          id: r.studentId,
-          name: r.studentName.split(" ").slice(0, -1).join(" "),
-          surname: r.studentName.split(" ").pop() || "",
-        }))
-        .filter((v, i, a) => a.findIndex(t => t.id === v.id) === i)
-        .sort((a, b) => a.surname.localeCompare(b.surname) || a.name.localeCompare(b.name));
-      
-      setClassStudents(students);
-      setLoadingStudents(false);
+      setStudentSearch(""); // Reset search
+
+      void (async () => {
+        try {
+          const students = await getAllStudentsInClass(parseInt(genClassId, 10));
+          setClassStudents(students);
+        } catch (error) {
+          console.error("Failed to load students:", error);
+          toast.error("Failed to load students for this class.");
+        } finally {
+          setLoadingStudents(false);
+        }
+      })();
     }
-  }, [genClassId, ctx.isAdmin, ctx.reports]);
+  }, [genClassId, ctx.isAdmin]);
 
   const refresh = () => router.refresh();
 
@@ -377,12 +413,21 @@ export default function ResultsManagement(ctx: ResultsPageContext) {
         });
         if (res.success) {
           if (res.alreadyExists) {
-            toast.info("Report already exists for this student.");
+            toast.info("Report exists. Opening for editing...");
           } else {
-            toast.success("Report created successfully for the student.");
+            toast.success("Report created. Opening for editing...");
           }
+          
+          // Set which report to auto-open after refresh
+          setAutoOpenReportFor({
+            studentId: genStudentId,
+            classId,
+            termNumber: params.termNumber,
+            academicYearId: params.academicYearId || ctx.activeYearId || 1,
+          });
+          
+          // Refresh to get the latest reports
           refresh();
-          setTab("reports");
         } else {
           toast.error(res.error || "Generation failed.");
         }
@@ -555,12 +600,30 @@ export default function ResultsManagement(ctx: ResultsPageContext) {
 
               {genClassId && classStudents.length > 0 && (
                 <div className="border-t border-slate-200 pt-6">
-                  <h3 className="text-sm font-semibold text-slate-900 mb-4">
-                    Or generate for a single student
+                  <h3 className="text-sm font-semibold text-slate-900 mb-2">
+                    Fetch & Fill Individual Student Report
                   </h3>
+                  <p className="text-xs text-slate-500 mb-4">
+                    Search and select an individual student to create or edit their termly report.
+                  </p>
                   <div className="flex flex-col gap-3">
+                    <div className="flex flex-col gap-2">
+                      <label className="flex flex-col gap-2 text-sm">
+                        <span className="font-medium text-slate-700">Search student</span>
+                        <input
+                          type="text"
+                          placeholder="Type name to search..."
+                          value={studentSearch}
+                          onChange={(e) => setStudentSearch(e.target.value)}
+                          disabled={loadingStudents}
+                          className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                        />
+                      </label>
+                    </div>
                     <label className="flex flex-col gap-2 text-sm">
-                      <span className="font-medium text-slate-700">Student</span>
+                      <span className="font-medium text-slate-700">
+                        Select student ({filteredClassStudents.length} available)
+                      </span>
                       <select
                         className="rounded-lg border border-slate-300 px-3 py-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
                         value={genStudentId}
@@ -568,9 +631,9 @@ export default function ResultsManagement(ctx: ResultsPageContext) {
                         disabled={loadingStudents}
                       >
                         <option value="">Select a student</option>
-                        {classStudents.map((student) => (
+                        {filteredClassStudents.map((student) => (
                           <option key={student.id} value={student.id}>
-                            {student.surname} {student.name}
+                            {student.surname}, {student.name}
                           </option>
                         ))}
                       </select>
@@ -581,7 +644,7 @@ export default function ResultsManagement(ctx: ResultsPageContext) {
                       onClick={handleGenerateSingleStudent}
                       className="w-full rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-800 px-4 py-3 text-sm font-medium text-white disabled:opacity-50 hover:shadow-lg transition-shadow"
                     >
-                      Generate report for this student
+                      {pending ? "Processing..." : "Generate & Edit Report"}
                     </button>
                   </div>
                 </div>

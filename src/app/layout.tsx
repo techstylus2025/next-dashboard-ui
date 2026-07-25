@@ -1,17 +1,12 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
 
 import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-
-const plusJakartaSans = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  variable: "--font-sans",
-  display: "swap",
-  weight: ["300", "400", "500", "600", "700", "800"],
-});
+import OfflineIndicator from "@/components/OfflineIndicator";
+import SyncStatusDashboard from "@/components/SyncStatusDashboard";
+import OfflineSyncInitializer from "@/components/OfflineSyncInitializer";
 
 export const metadata: Metadata = {
   title: "KING'S HEART MONTESSORI SCHOOL",
@@ -26,7 +21,10 @@ export default function RootLayout({
   return (
     <ClerkProvider>
       <html lang="en">
-        <body className={`${plusJakartaSans.variable} font-sans`}>
+        <body className="font-sans">
+          <OfflineSyncInitializer />
+          <OfflineIndicator />
+          <SyncStatusDashboard />
           {children} <ToastContainer position="bottom-right" theme="light" />
         </body>
       </html>

@@ -38,7 +38,7 @@ const AttendanceForm = ({
     watch,
     formState: { errors },
   } = useForm<AttendanceSchema>({
-    resolver: zodResolver(attendanceSchema),
+    resolver: zodResolver(attendanceSchema) as any,
     defaultValues: {
       type: defaultType,
       date: defaultDate,

@@ -1,5 +1,7 @@
 import prisma from "@/lib/prisma";
 import { Prisma, PrismaClient } from "@prisma/client";
+import { getCachedResultsData, cacheResultsData } from "@/lib/offlineSync";
+import { shouldUseOfflineCache } from "@/lib/offlineStatus";
 
 const db = prisma as unknown as PrismaClient;
 
@@ -261,7 +263,7 @@ export async function loadResultsPageData(
       : null,
   }));
 
-  return {
+  const ctx: ResultsPageContext = {
     role,
     userId,
     isAdmin,
@@ -291,4 +293,13 @@ export async function loadResultsPageData(
       : null,
     assignedSubjects,
   };
+
+  // Cache the data for offline access (fire and forget)
+  try {
+    void cacheResultsData(ctx);
+  } catch (error) {
+    console.error("Failed to cache results data:", error);
+  }
+
+  return ctx;
 }

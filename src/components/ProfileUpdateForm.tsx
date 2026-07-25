@@ -108,7 +108,9 @@ const ProfileUpdateForm = ({ initialData, pendingRequest }: ProfileUpdateFormPro
               <CldUploadWidget
                 uploadPreset="school"
                 onSuccess={(result, { widget }) => {
-                  setImg(result.info.secure_url);
+                  if (typeof result !== "string" && (result as any).info?.secure_url) {
+                    setImg((result as any).info.secure_url);
+                  }
                   widget.close();
                 }}
               >

@@ -45,33 +45,60 @@ const deleteActionMap = {
 // import TeacherForm from "./forms/TeacherForm";
 // import StudentForm from "./forms/StudentForm";
 
-const TeacherForm = dynamic(() => import("./forms/TeacherForm.js"), {
-  loading: () => <h1>Loading...</h1>,
-}) as any;
-const StudentForm = dynamic(() => import("./forms/StudentForm.js"), {
-  loading: () => <h1>Loading...</h1>,
-}) as any;
-const SubjectForm = dynamic(() => import("./forms/SubjectForm.js"), {
-  loading: () => <h1>Loading...</h1>,
-}) as any;
-const ClassForm = dynamic(() => import("./forms/ClassForm.js"), {
-  loading: () => <h1>Loading...</h1>,
-}) as any;
-const ExamForm = dynamic(() => import("./forms/ExamForm.js"), {
-  loading: () => <h1>Loading...</h1>,
-}) as any;
-const AttendanceForm = dynamic(() => import("./forms/AttendanceForm.js"), {
-  loading: () => <h1>Loading...</h1>,
-}) as any;
-const ParentForm = dynamic(() => import("./forms/ParentForm.js"), {
-  loading: () => <h1>Loading...</h1>,
-}) as any;
-const EventForm = dynamic(() => import("./forms/EventForm.js"), {
-  loading: () => <h1>Loading...</h1>,
-}) as any;
-const AssignmentForm = dynamic(() => import("./forms/AssignmentForm"), {
-  loading: () => <h1>Loading...</h1>,
-}) as any;
+const TeacherForm = dynamic(
+  () => import("./forms/TeacherForm.js").then((mod) => mod.default as any),
+  {
+    loading: () => <h1>Loading...</h1>,
+  }
+) as any;
+const StudentForm = dynamic(
+  () => import("./forms/StudentForm.js").then((mod) => mod.default as any),
+  {
+    loading: () => <h1>Loading...</h1>,
+  }
+) as any;
+const SubjectForm = dynamic(
+  () => import("./forms/SubjectForm.js").then((mod) => mod.default as any),
+  {
+    loading: () => <h1>Loading...</h1>,
+  }
+) as any;
+const ClassForm = dynamic(
+  () => import("./forms/ClassForm.js").then((mod) => mod.default as any),
+  {
+    loading: () => <h1>Loading...</h1>,
+  }
+) as any;
+const ExamForm = dynamic(
+  () => import("./forms/ExamForm.js").then((mod) => mod.default as any),
+  {
+    loading: () => <h1>Loading...</h1>,
+  }
+) as any;
+const AttendanceForm = dynamic(
+  () => import("./forms/AttendanceForm.js").then((mod) => mod.default as any),
+  {
+    loading: () => <h1>Loading...</h1>,
+  }
+) as any;
+const ParentForm = dynamic(
+  () => import("./forms/ParentForm.js").then((mod) => mod.default as any),
+  {
+    loading: () => <h1>Loading...</h1>,
+  }
+) as any;
+const EventForm = dynamic(
+  () => import("./forms/EventForm.js").then((mod) => mod.default as any),
+  {
+    loading: () => <h1>Loading...</h1>,
+  }
+) as any;
+const AssignmentForm = dynamic(
+  () => import("./forms/AssignmentForm.js").then((mod) => mod.default as any),
+  {
+    loading: () => <h1>Loading...</h1>,
+  }
+) as any;
 
 const forms: {
   [key: string]: (
@@ -158,7 +185,7 @@ const FormModal = ({
   const [open, setOpen] = useState(false);
 
   const Form = () => {
-    const [state, formAction] = useActionState(deleteActionMap[table], {
+    const [state, formAction] = useActionState(deleteActionMap[table] as any, {
       success: false,
       error: false,
     });
@@ -174,7 +201,7 @@ const FormModal = ({
     }, [state, router]);
 
     return type === "delete" && id ? (
-      <form action={formAction} className="p-4 flex flex-col gap-4">
+      <form action={formAction as any} className="p-4 flex flex-col gap-4">
         <input type="text | number" name="id" value={id} hidden />
         <span className="text-center font-medium">
           All data will be lost. Are you sure you want to delete this {table}?

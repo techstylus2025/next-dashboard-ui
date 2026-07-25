@@ -31,7 +31,7 @@ const AttendancePage = async ({
   };
 
   if (role === "admin") {
-    const [students, teachers, records] = await prisma.$transaction([
+    const [students, teachers, records] = await Promise.all([
       prisma.student.findMany({
         where: { isArchived: false },
         include: { class: true },
@@ -153,7 +153,7 @@ const AttendancePage = async ({
       personName: `${item.student?.name} ${item.student?.surname}`,
       className: item.student?.class?.name ?? "",
     }));
-  } else {
+  } else if (role === "parent") {
     const students = await prisma.student.findMany({
       where: { parentId: currentUserId },
       include: { class: true },
@@ -177,6 +177,14 @@ const AttendancePage = async ({
       },
     });
 
+    attendanceData.students = students.map((student) => ({
+      id: student.id,
+      name: student.name,
+      surname: student.surname,
+      classId: student.classId,
+      className: student.class.name,
+    }));
+
     attendanceData.records = records.map((item) => ({
       id: item.id,
       date: item.date.toISOString().slice(0, 10),
@@ -185,6 +193,8 @@ const AttendancePage = async ({
       personName: `${item.student?.name} ${item.student?.surname}`,
       className: item.student?.class?.name ?? "",
     }));
+  } else {
+    // Fallback: no data for other roles
   }
 
   return (

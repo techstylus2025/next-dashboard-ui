@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Avatar from "@/components/Avatar";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -77,7 +78,7 @@ const StudentsByClass = ({ groups, allClasses }: { groups: ClassGroup[]; allClas
       return;
     }
 
-    const result = await promoteAction({ studentIds: [student.id], toClassId });
+    const result = (await promoteAction({ studentIds: [student.id], toClassId })) as any;
     if (!result?.success) return;
 
     pushPromotionHistory({
@@ -99,7 +100,7 @@ const StudentsByClass = ({ groups, allClasses }: { groups: ClassGroup[]; allClas
       return;
     }
 
-    const result = await promoteAction({ promoteAll: true, fromClassId: group.id, toClassId });
+    const result = (await promoteAction({ promoteAll: true, fromClassId: group.id, toClassId })) as any;
     if (!result?.success) return;
 
     pushPromotionHistory({
@@ -119,7 +120,7 @@ const StudentsByClass = ({ groups, allClasses }: { groups: ClassGroup[]; allClas
       return;
     }
 
-    const result = await promoteAction({ studentIds: last.studentIds, toClassId: last.fromClassId });
+    const result = (await promoteAction({ studentIds: last.studentIds, toClassId: last.fromClassId })) as any;
     if (!result?.success) return;
 
     setPromotionHistory((current) => current.slice(1));
@@ -221,7 +222,13 @@ const StudentsByClass = ({ groups, allClasses }: { groups: ClassGroup[]; allClas
                     <tr key={s.id} className="hover:bg-slate-50">
                       <td className="px-3 py-3">
                         <div className="flex items-center gap-3">
-                          <Image src={s.img || "/user.svg"} alt="" width={36} height={36} className="rounded-full object-cover" />
+                          <Avatar
+                            src={s.img ?? undefined}
+                            name={`${s.name} ${s.surname ?? ""}`}
+                            alt={`${s.name} ${s.surname ?? ""}`}
+                            size={36}
+                            className="rounded-full"
+                          />
                           <div>
                             <div className="font-medium">{s.name} {s.surname ?? ""}</div>
                           </div>

@@ -13,10 +13,7 @@ exports.classSchema = zod_1.z.object({
     capacity: zod_1.z.coerce.number().min(1, { message: "Capacity name is required!" }),
     gradeId: zod_1.z.coerce.number().min(1, { message: "Grade name is required!" }),
     supervisorId: zod_1.z.coerce.string().optional(),
-    gradingLevel: zod_1.z
-        .enum(["CRECHE", "KINDERGARTEN", "PRIMARY", "JHS"])
-        .optional()
-        .default("PRIMARY"),
+
 });
 exports.teacherSchema = zod_1.z.object({
     id: zod_1.z.string().optional(),
@@ -81,7 +78,7 @@ exports.examSchema = zod_1.z.object({
 });
 exports.examTimetableSchema = zod_1.z.object({
     gradingLevel: zod_1.z
-        .enum(["CRECHE", "KINDERGARTEN", "PRIMARY", "JHS"], {
+        .enum(["CRECHE", "NURSERY", "KINDERGARTEN", "PRIMARY", "JHS"], {
         errorMap: function () { return ({ message: "Grading level is required!" }); },
     })
         .optional()

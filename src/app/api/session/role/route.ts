@@ -7,7 +7,8 @@ export async function GET() {
   // If role not present in sessionClaims, try fetching the user public metadata
   if (!role && userId) {
     try {
-      const user = await clerkClient.users.getUser(userId);
+      const client = await clerkClient();
+    const user = await client.users.getUser(userId);
       role = (user?.publicMetadata as { role?: string })?.role ?? null;
       const publicMetadata = user?.publicMetadata ?? null;
 

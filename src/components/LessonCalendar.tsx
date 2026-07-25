@@ -100,17 +100,26 @@ const LessonCalendar = ({
   const [groupMode, setGroupMode] = useState<"all" | "subject" | "class">("all");
   const [selectedSubjectId, setSelectedSubjectId] = useState<number | "all">("all");
   const [selectedClassId, setSelectedClassId] = useState<number | "all">("all");
+  const [selectedLesson, setSelectedLesson] = useState<CalendarEvent | null>(null);
 
   const eventData = useMemo(() => {
-    const normalized = lessons.map((lesson) => ({
-      id: lesson.id,
-      title: `${lesson.name} · ${lesson.subject.name} · ${lesson.class.name}`,
-      start: parseDate(lesson.startTime),
-      end: parseDate(lesson.endTime),
-      subjectName: lesson.subject.name,
-      className: lesson.class.name,
-      teacherName: `${lesson.teacher.name} ${lesson.teacher.surname}`,
-    }));
+    const normalized = lessons
+      .map((lesson) => {
+        const subjectName = lesson.subject?.name ?? "Unknown subject";
+        const className = lesson.class?.name ?? "Unknown class";
+        const teacherName = `${lesson.teacher?.name ?? "Unknown"} ${lesson.teacher?.surname ?? ""}`.trim();
+
+        return {
+          id: lesson.id,
+          title: `${lesson.name ?? "Lesson"} · ${subjectName} · ${className}`,
+          start: parseDate(lesson.startTime),
+          end: parseDate(lesson.endTime),
+          subjectName,
+          className,
+          teacherName: teacherName || "Unknown teacher",
+        };
+      })
+      .filter((event) => event.start instanceof Date && !Number.isNaN(event.start.getTime()));
 
     return adjustEventsToCurrentWeek(normalized);
   }, [lessons]);
@@ -155,6 +164,12 @@ const LessonCalendar = ({
   const handleViewChange = (nextView: View) => {
     setCalendarView(nextView);
   };
+
+  const handleSelectEvent = (event: CalendarEvent) => {
+    setSelectedLesson(event);
+  };
+
+  const closeModal = () => setSelectedLesson(null);
 
   return (
     <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 shadow-sm">
@@ -236,6 +251,7 @@ const LessonCalendar = ({
             view={calendarView}
             views={[Views.WORK_WEEK, Views.DAY]}
             onView={handleViewChange}
+            onSelectEvent={handleSelectEvent}
             style={{ height: "100%" }}
             min={new Date(2025, 1, 0, 8, 0, 0)}
             max={new Date(2025, 1, 0, 17, 0, 0)}
@@ -302,6 +318,60 @@ const LessonCalendar = ({
           </div>
         </div>
       </div>
+
+      {selectedLesson && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4 py-6 backdrop-blur-sm fade-in"
+          onClick={closeModal}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="lesson-modal-title"
+        >
+          <div
+            className="relative w-full max-w-2xl overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-sky-100 via-slate-50 to-emerald-100 shadow-2xl shadow-slate-900/20 transition-all duration-300 ease-out transform fade-in"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={closeModal}
+              className="absolute right-4 top-4 rounded-full bg-white/90 p-2 text-slate-700 shadow-sm transition hover:bg-white"
+            >
+              ✕
+            </button>
+            <div className="rounded-b-3xl bg-white/90 p-8">
+              <div className="rounded-3xl bg-gradient-to-r from-sky-500 via-fuchsia-500 to-amber-400 p-6 text-white shadow-lg shadow-sky-500/20">
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-100/90">Lesson detail</p>
+                <h3 id="lesson-modal-title" className="mt-3 text-2xl font-semibold">{selectedLesson.title}</h3>
+                <p className="mt-2 text-sm text-slate-100/90">Tap outside the card or press close to dismiss this quick lesson summary.</p>
+              </div>
+              <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                <div className="rounded-3xl bg-sky-50 p-4 ring-1 ring-sky-200">
+                  <p className="text-xs uppercase tracking-[0.2em] text-sky-500">Subject</p>
+                  <p className="mt-2 text-lg font-semibold text-slate-900">{selectedLesson.subjectName}</p>
+                </div>
+                <div className="rounded-3xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
+                  <p className="text-xs uppercase tracking-[0.2em] text-emerald-500">Class</p>
+                  <p className="mt-2 text-lg font-semibold text-slate-900">{selectedLesson.className}</p>
+                </div>
+                <div className="rounded-3xl bg-fuchsia-50 p-4 ring-1 ring-fuchsia-200">
+                  <p className="text-xs uppercase tracking-[0.2em] text-fuchsia-500">Teacher</p>
+                  <p className="mt-2 text-lg font-semibold text-slate-900">{selectedLesson.teacherName}</p>
+                </div>
+                <div className="rounded-3xl bg-amber-50 p-4 ring-1 ring-amber-200">
+                  <p className="text-xs uppercase tracking-[0.2em] text-amber-500">Time</p>
+                  <p className="mt-2 text-lg font-semibold text-slate-900">
+                    {selectedLesson.start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} - {selectedLesson.end.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-6 rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                <p className="font-semibold text-slate-800">Details</p>
+                <p className="mt-2">Click anywhere outside the modal or the close button to dismiss.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -32,7 +32,7 @@ export default async function PasswordManagerPage({
   const direction = params.direction === 'desc' ? 'desc' : 'asc';
   const page = params.page ? parseInt(params.page, 10) || 1 : 1;
 
-  const [admins, teachers, parents, students] = await prisma.$transaction([
+  const [admins, teachers, parents, students] = await Promise.all([
     prisma.admin.findMany({ select: { id: true, username: true } }),
     prisma.teacher.findMany({ where: { isArchived: false }, select: { id: true, username: true, name: true, surname: true, email: true } }),
     prisma.parent.findMany({ where: { isArchived: false }, select: { id: true, username: true, name: true, surname: true, email: true } }),

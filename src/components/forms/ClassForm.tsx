@@ -24,6 +24,7 @@ import {
 } from "@/lib/actions";
 import { toast } from "react-toastify";
 import { useRouter } from "next/navigation";
+import { GRADING_LEVEL_LABELS } from "@/lib/gradingUtils";
 
 const ClassForm = ({
   type,
@@ -69,7 +70,7 @@ const ClassForm = ({
     }
   }, [state, router, type, setOpen]);
 
-  const { teachers, grades } = relatedData;
+  const { teachers = [], grades = [] } = relatedData ?? {};
 
   return (
     <form className="flex flex-col gap-8" onSubmit={onSubmit}>
@@ -107,9 +108,9 @@ const ClassForm = ({
           <select
             className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
             {...register("supervisorId")}
-            defaultValue={data?.teachers}
+            defaultValue={data?.supervisorId ?? ""}
           >
-            {teachers.map(
+            {(teachers as Array<{ id: string; name: string; surname: string }>).map(
               (teacher: { id: string; name: string; surname: string }) => (
                 <option
                   value={teacher.id}
@@ -128,19 +129,19 @@ const ClassForm = ({
           )}
         </div>
         <div className="flex flex-col gap-2 w-full md:w-1/4">
-          <label className="input-label">Grade</label>
+          <label className="input-label">Grading Level</label>
           <select
             className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
             {...register("gradeId")}
             defaultValue={data?.gradeId}
           >
-            {grades.map((grade: { id: number; level: number }) => (
+            {(grades as Array<{ id: number; level: string }>).map((grade) => (
               <option
                 value={grade.id}
                 key={grade.id}
                 selected={data && grade.id === data.gradeId}
               >
-                {grade.level}
+                {GRADING_LEVEL_LABELS[grade.level as keyof typeof GRADING_LEVEL_LABELS]}
               </option>
             ))}
           </select>
@@ -149,19 +150,6 @@ const ClassForm = ({
               {errors.gradeId.message.toString()}
             </p>
           )}
-        </div>
-        <div className="flex flex-col gap-2 w-full md:w-1/4">
-          <label className="input-label">Grading level</label>
-          <select
-            className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
-            {...register("gradingLevel")}
-            defaultValue={data?.gradingLevel ?? "PRIMARY"}
-          >
-            <option value="CRECHE">Creche</option>
-            <option value="KINDERGARTEN">Kindergarten</option>
-            <option value="PRIMARY">Primary</option>
-            <option value="JHS">JHS</option>
-          </select>
         </div>
       </div>
       {state.error && (

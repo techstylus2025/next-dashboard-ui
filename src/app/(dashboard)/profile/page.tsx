@@ -1,5 +1,5 @@
 import { currentUser } from "@clerk/nextjs/server";
-import Image from "next/image";
+import Avatar from "@/components/Avatar";
 import ProfileUpdateForm from "@/components/ProfileUpdateForm";
 import { getProfilePageData, getUserPendingPasswordRequest } from "@/lib/profileActions";
 import type { UserRoleSlug } from "@/lib/messageActions";
@@ -146,15 +146,13 @@ const ProfilePage = async () => {
                     Core account details and the most relevant profile information for your role.
                   </p>
                 </div>
-                {profile.img ? (
-                  <div className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-100">
-                    <Image src={profile.img} alt="Profile avatar" width={120} height={120} className="h-28 w-28 object-cover" />
-                  </div>
-                ) : (
-                  <div className="flex h-28 w-28 items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-slate-50 text-sm text-slate-400">
-                    No profile photo
-                  </div>
-                )}
+                <Avatar
+                  src={profile.img ?? undefined}
+                  name={displayName}
+                  alt={`${displayName} avatar`}
+                  size={112}
+                  className="rounded-3xl border border-slate-200 bg-slate-100"
+                />
               </div>
 
               <div className="mt-6 grid gap-4 sm:grid-cols-2">

@@ -1,11 +1,7 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { useState } from "react";
-
-const StudentForm = dynamic(() => import("@/components/forms/StudentForm"), {
-  ssr: false,
-}) as any;
+import StudentForm from "../../../components/forms/StudentForm";
 
 export default function TestStudentFormPage() {
   const [open, setOpen] = useState(true);

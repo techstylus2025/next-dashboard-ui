@@ -63,6 +63,7 @@ export async function loadPurchaseBooksPageData(
     id: o.id,
     parentName: `${o.parent.name} ${o.parent.surname}`,
     status: o.status,
+    pickupCode: o.pickupCode || `BK-${String(o.id).padStart(4, "0")}`,
     createdAt: o.createdAt.toISOString(),
     items: o.items.map((item) => ({
       id: item.id,

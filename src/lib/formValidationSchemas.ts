@@ -12,12 +12,8 @@ export const classSchema = z.object({
   id: z.coerce.number().optional(),
   name: z.string().min(1, { message: "Subject name is required!" }),
   capacity: z.coerce.number().min(1, { message: "Capacity name is required!" }),
-  gradeId: z.coerce.number().min(1, { message: "Grade name is required!" }),
+  gradeId: z.coerce.number().min(1, { message: "Grading level is required!" }),
   supervisorId: z.coerce.string().optional(),
-  gradingLevel: z
-    .enum(["CRECHE", "KINDERGARTEN", "PRIMARY", "JHS"])
-    .optional()
-    .default("PRIMARY"),
 });
 
 export type ClassSchema = z.infer<typeof classSchema>;
@@ -113,8 +109,8 @@ export type ExamSchema = z.infer<typeof examSchema>;
 
 export const examTimetableSchema = z.object({
   gradingLevel: z
-    .enum(["CRECHE", "KINDERGARTEN", "PRIMARY", "JHS"], {
-      errorMap: () => ({ message: "Grading level is required!" }),
+    .enum(["CRECHE", "NURSERY", "KINDERGARTEN", "PRIMARY", "JHS"] as const, {
+      error: "Grading level is required!",
     })
     .optional()
     .default("PRIMARY"),

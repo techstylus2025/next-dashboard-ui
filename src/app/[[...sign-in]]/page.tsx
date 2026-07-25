@@ -18,7 +18,7 @@ const LoginPage = () => {
   useEffect(() => {
     if (!isLoaded) return;
     if (isSignedIn && user && !isRedirecting) {
-      const clientRole = user?.publicMetadata?.role as string | undefined;
+      const clientRole = (user as any)?.publicMetadata?.role as string | undefined;
       setIsRedirecting(true);
 
       const pollInterval = 400;
@@ -92,25 +92,25 @@ const LoginPage = () => {
 
     try {
       if (isSignedIn && user) {
-        const clientRole = user?.publicMetadata?.role as string | undefined;
+        const clientRole = (user as any)?.publicMetadata?.role as string | undefined;
         window.location.replace(clientRole ? `/${clientRole}` : "/admin");
         return;
       }
 
-      const result = await signIn.create({
+      const result = await (signIn as any).create({
         identifier,
         password,
       });
 
-      if (result.errors && result.errors.length > 0) {
-        setError(result.errors[0]?.message || "Invalid credentials");
+      if (result?.error) {
+        setError(result.error?.message || "Invalid credentials");
         return;
       }
 
-      if (result.status === "complete") {
+      if (result?.status === "complete") {
         setError(null);
       } else {
-        setError(`Sign-in failed with status: ${result.status}`);
+        setError(`Sign-in failed with status: ${result?.status ?? "unknown"}`);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Invalid username or password.";

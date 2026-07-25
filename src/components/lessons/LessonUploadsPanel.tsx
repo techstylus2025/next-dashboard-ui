@@ -253,8 +253,8 @@ const LessonUploadsPanel = ({
               setOpen={setOpen}
               relatedData={{
                 lessons,
-                activeAcademicYear,
-                activeTermBadge,
+                activeAcademicYear: activeAcademicYear ?? null,
+                activeTermBadge: activeTermBadge ?? null,
               }}
               editingUpload={editingUpload}
               onCompleted={() => {
