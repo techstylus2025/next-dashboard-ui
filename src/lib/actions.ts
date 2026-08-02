@@ -13,6 +13,7 @@ import {
   StudentSchema,
   SubjectSchema,
   TeacherSchema,
+  teacherSchema,
 } from "./formValidationSchemas";
 import prisma from "./prisma";
 import { clerkClient, auth } from "@clerk/nextjs/server";
@@ -36,7 +37,60 @@ const getUserRole = async (
   return role;
 };
 
-type CurrentState = { success: boolean; error: boolean };
+type CurrentState = { success: boolean; error: boolean; message?: string };
+
+const parseDateValue = (value: unknown) => {
+  if (!value) return undefined;
+  if (value instanceof Date) return value;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return undefined;
+    const parsed = new Date(trimmed);
+    return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+  }
+  return undefined;
+};
+
+const getErrorMessage = (err: unknown) => {
+  if (typeof err === "object" && err !== null) {
+    const maybeError = err as {
+      message?: string;
+      errors?: Array<{ message?: string }>;
+      status?: number;
+      statusText?: string;
+    };
+
+    if (Array.isArray(maybeError.errors) && maybeError.errors.length > 0) {
+      const messages = maybeError.errors
+        .map((error) => error.message)
+        .filter((message): message is string => Boolean(message));
+      if (messages.length > 0) {
+        return messages.join(" \n");
+      }
+    }
+
+    if (typeof maybeError.message === "string" && maybeError.message.trim()) {
+      return maybeError.message;
+    }
+
+    if (typeof maybeError.statusText === "string" && maybeError.statusText.trim()) {
+      return maybeError.statusText;
+    }
+  }
+
+  return "Something went wrong while saving the teacher.";
+};
+
+const buildClerkEmailAddresses = (email?: string, username?: string) => {
+  const normalizedEmail = email?.trim();
+  const normalizedUsername = username?.trim();
+
+  if (normalizedEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+    return [normalizedEmail];
+  }
+
+  return [`${normalizedUsername || "user"}@school.local`];
+};
 
 type AttendanceActionData = {
   id?: number;
@@ -201,42 +255,59 @@ export const createTeacher = async (
   currentState: CurrentState,
   data: TeacherSchema
 ) => {
+  const parsedTeacherData = teacherSchema.safeParse(data);
+  if (!parsedTeacherData.success) {
+    return {
+      success: false,
+      error: true,
+      message: parsedTeacherData.error.issues[0]?.message ?? "Invalid teacher data.",
+    };
+  }
+
+  const validTeacherData = parsedTeacherData.data;
+
   try {
     const client = await clerkClient();
+    const emailAddresses = buildClerkEmailAddresses(validTeacherData.email, validTeacherData.username);
+
     const user = await client.users.createUser({
-      username: data.username,
-      password: data.password,
-      firstName: data.name,
-      lastName: data.surname,
-      publicMetadata:{role:"teacher"}
+      username: validTeacherData.username,
+      emailAddress: emailAddresses,
+      password: validTeacherData.password,
+      firstName: validTeacherData.name,
+      lastName: validTeacherData.surname,
+      publicMetadata: { role: "teacher" },
     });
 
     await prisma.teacher.create({
       data: {
         id: user.id,
-        username: data.username,
-        name: data.name,
-        surname: data.surname,
-        email: data.email || null,
-        phone: data.phone || null,
-        address: data.address,
-        img: data.img || null,
-        bloodType: data.bloodType,
-        sex: data.sex,
-        birthday: data.birthday,
+        username: validTeacherData.username,
+        name: validTeacherData.name,
+        surname: validTeacherData.surname,
+        email: validTeacherData.email || null,
+        phone: validTeacherData.phone || null,
+        address: validTeacherData.address,
+        img: validTeacherData.img || null,
+        bloodType: validTeacherData.bloodType,
+        sex: validTeacherData.sex,
+        birthday: parseDateValue(validTeacherData.birthday) ?? new Date(),
         subjects: {
-          connect: data.subjects?.map((subjectId: string) => ({
+          connect: validTeacherData.subjects?.map((subjectId: string) => ({
             id: parseInt(subjectId),
           })),
         },
       },
     });
 
-    // revalidatePath("/list/teachers");
     return { success: true, error: false };
   } catch (err) {
     console.log(err);
-    return { success: false, error: true };
+    return {
+      success: false,
+      error: true,
+      message: getErrorMessage(err),
+    };
   }
 };
 
@@ -244,46 +315,63 @@ export const updateTeacher = async (
   currentState: CurrentState,
   data: TeacherSchema
 ) => {
-  if (!data.id) {
-    return { success: false, error: true };
+  const parsedTeacherData = teacherSchema.safeParse(data);
+  if (!parsedTeacherData.success) {
+    return {
+      success: false,
+      error: true,
+      message: parsedTeacherData.error.issues[0]?.message ?? "Invalid teacher data.",
+    };
+  }
+
+  const validTeacherData = parsedTeacherData.data;
+
+  if (!validTeacherData.id) {
+    return { success: false, error: true, message: "Teacher id is required." };
   }
   try {
     const client = await clerkClient();
-    await client.users.updateUser(data.id, {
-      username: data.username,
-      ...(data.password !== "" && { password: data.password }),
-      firstName: data.name,
-      lastName: data.surname,
+    const primaryEmail = validTeacherData.email?.trim() || undefined;
+
+    await client.users.updateUser(validTeacherData.id, {
+      username: validTeacherData.username,
+      ...(primaryEmail ? { emailAddress: primaryEmail } : {}),
+      ...(validTeacherData.password !== "" && { password: validTeacherData.password }),
+      firstName: validTeacherData.name,
+      lastName: validTeacherData.surname,
     });
 
     await prisma.teacher.update({
       where: {
-        id: data.id,
+        id: validTeacherData.id,
       },
       data: {
-        ...(data.password !== "" && { password: data.password }),
-        username: data.username,
-        name: data.name,
-        surname: data.surname,
-        email: data.email || null,
-        phone: data.phone || null,
-        address: data.address,
-        img: data.img || null,
-        bloodType: data.bloodType,
-        sex: data.sex,
-        birthday: data.birthday,
+        ...(validTeacherData.password !== "" && { password: validTeacherData.password }),
+        username: validTeacherData.username,
+        name: validTeacherData.name,
+        surname: validTeacherData.surname,
+        email: validTeacherData.email || null,
+        phone: validTeacherData.phone || null,
+        address: validTeacherData.address,
+        img: validTeacherData.img || null,
+        bloodType: validTeacherData.bloodType,
+        sex: validTeacherData.sex,
+        birthday: parseDateValue(validTeacherData.birthday) ?? new Date(),
         subjects: {
-          set: data.subjects?.map((subjectId: string) => ({
+          set: validTeacherData.subjects?.map((subjectId: string) => ({
             id: parseInt(subjectId),
           })),
         },
       },
     });
-    // revalidatePath("/list/teachers");
     return { success: true, error: false };
   } catch (err) {
     console.log(err);
-    return { success: false, error: true };
+    return {
+      success: false,
+      error: true,
+      message: getErrorMessage(err),
+    };
   }
 };
 

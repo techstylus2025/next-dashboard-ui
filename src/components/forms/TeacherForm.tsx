@@ -239,7 +239,7 @@ const TeacherForm = ({
       </FormSection>
 
       {state.error ? (
-        <FormErrorBanner message="Something went wrong. Please check the form and try again." />
+        <FormErrorBanner message={state.message ?? "Something went wrong. Please check the form and try again."} />
       ) : null}
 
       <div className="border-t border-slate-100 pt-4">
