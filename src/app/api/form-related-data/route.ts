@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import prisma from "@/lib/prisma";
+import { loadGradingLevels } from "@/lib/gradingData";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -30,10 +31,7 @@ export async function GET(request: Request) {
       break;
     }
     case "class": {
-      const classGrades = await prisma.grade.findMany({
-        select: { id: true, level: true },
-        orderBy: { id: "asc" },
-      });
+      const classGrades = await loadGradingLevels();
       const classTeachers = await prisma.teacher.findMany({
         where: { isArchived: false },
         select: { id: true, name: true, surname: true },

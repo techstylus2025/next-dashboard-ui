@@ -12,6 +12,32 @@ export type GradingEntryRow = {
   remark: string;
 };
 
+export type GradingLevelRow = {
+  id: number;
+  level: GradingLevel;
+  label: string | null;
+};
+
+const DEFAULT_GRADING_LEVELS: GradingLevel[] = [
+  "CRECHE",
+  "NURSERY",
+  "KINDERGARTEN",
+  "PRIMARY",
+  "JHS",
+];
+
+async function ensureDefaultGradingLevels() {
+  const existing = await db.grade.findMany({ select: { level: true } });
+  const existingLevels = new Set(existing.map((row) => row.level));
+  const missingLevels = DEFAULT_GRADING_LEVELS.filter((level) => !existingLevels.has(level));
+
+  if (missingLevels.length > 0) {
+    await db.grade.createMany({
+      data: missingLevels.map((level) => ({ level })),
+    });
+  }
+}
+
 export async function loadGradingScaleEntries(): Promise<GradingEntryRow[]> {
   const rows = await db.gradingScaleEntry.findMany({
     orderBy: [{ level: "asc" }, { minScore: "asc" }],
@@ -23,5 +49,19 @@ export async function loadGradingScaleEntries(): Promise<GradingEntryRow[]> {
     maxScore: r.maxScore,
     grade: r.grade,
     remark: r.remark,
+  }));
+}
+
+export async function loadGradingLevels(): Promise<GradingLevelRow[]> {
+  await ensureDefaultGradingLevels();
+
+  const rows = await db.grade.findMany({
+    orderBy: { id: "asc" },
+  });
+
+  return rows.map((row) => ({
+    id: row.id,
+    level: row.level,
+    label: row.label ?? null,
   }));
 }

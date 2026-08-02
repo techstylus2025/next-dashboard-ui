@@ -1,5 +1,5 @@
 import SettingsManagement from "@/components/settings/SettingsManagement";
-import { loadGradingScaleEntries } from "@/lib/gradingData";
+import { loadGradingLevels, loadGradingScaleEntries } from "@/lib/gradingData";
 import { loadSettingsPageData } from "@/lib/settingsData";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
@@ -12,9 +12,10 @@ export default async function SettingsPage() {
     redirect(`/${role || "sign-in"}`);
   }
 
-  const [settingsData, gradingEntries] = await Promise.all([
+  const [settingsData, gradingEntries, gradingLevels] = await Promise.all([
     loadSettingsPageData(),
     loadGradingScaleEntries(),
+    loadGradingLevels(),
   ]);
 
   const academicYears = settingsData.academicYears;
@@ -24,6 +25,7 @@ export default async function SettingsPage() {
       <SettingsManagement
         academicYears={academicYears}
         gradingEntries={gradingEntries}
+        gradingLevels={gradingLevels}
         teachers={settingsData.teachers}
         students={settingsData.students}
         parents={settingsData.parents}

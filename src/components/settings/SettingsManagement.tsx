@@ -79,11 +79,12 @@ const emptyTerm = (): TermRow => ({
 });
 
 import GradingSystemSection from "./GradingSystemSection";
-import type { GradingEntryRow } from "@/lib/gradingData";
+import type { GradingEntryRow, GradingLevelRow } from "@/lib/gradingData";
 
 export default function SettingsManagement({
   academicYears,
   gradingEntries,
+  gradingLevels,
   teachers,
   students,
   parents,
@@ -92,6 +93,7 @@ export default function SettingsManagement({
 }: {
   academicYears: AcademicYearRow[];
   gradingEntries: GradingEntryRow[];
+  gradingLevels: GradingLevelRow[];
   teachers?: { id: string; name: string; surname: string }[];
   students?: { id: string; name: string; surname: string }[];
   parents?: { id: string; name: string; surname: string }[];
@@ -458,7 +460,7 @@ export default function SettingsManagement({
       </header>
 
       {settingsTab === "grading" ? (
-        <GradingSystemSection entries={gradingEntries} />
+        <GradingSystemSection entries={gradingEntries} levels={gradingLevels} />
       ) : settingsTab === "school" ? (
         <section className="rounded-2xl border border-white/60 bg-white/95 backdrop-blur-sm p-5 md:p-6 shadow-sm ring-1 ring-slate-200/80">
           <h2 className="text-lg font-medium text-slate-800 mb-4">School details</h2>

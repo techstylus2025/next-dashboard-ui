@@ -166,6 +166,7 @@ model PasswordChangeRequest {
 model Grade {
   id    Int          @id @default(autoincrement())
   level GradingLevel @unique
+  label String?
 
   classess Class[]
   students Student[]
