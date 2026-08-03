@@ -30,11 +30,11 @@ export default function MenuPanel({ sections }: { sections: MenuSection[] }) {
 
   return (
     <nav
-      className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain py-2 px-2 lg:px-3 [scrollbar-width:thin] text-slate-200"
+      className="h-full min-h-0 overflow-y-auto overscroll-y-contain py-1.5 px-1.5 lg:px-2.5 [scrollbar-width:thin] text-slate-200"
       aria-label="Main navigation"
       style={{ touchAction: "pan-y" }}
     >
-      <div className="flex flex-col gap-0.5 text-sm">
+      <div className="flex flex-col gap-1 text-sm">
         {sections.map((section, sectionIndex) => (
           <div key={sectionIndex} className="flex flex-col gap-0.5">
             {sectionIndex > 0 && (
@@ -45,7 +45,7 @@ export default function MenuPanel({ sections }: { sections: MenuSection[] }) {
             )}
             {section.items.map((item) => {
               const active = isActivePath(pathname, item.href);
-              const itemClasses = `group flex items-center gap-2 rounded-2xl py-1.5 px-2 transition-all duration-200 ${
+              const itemClasses = `group flex items-center gap-2 rounded-xl py-2 px-2.5 transition-all duration-200 ${
                 active
                   ? "bg-slate-800 shadow-sm ring-1 ring-slate-700/80"
                   : "hover:bg-slate-800 hover:shadow-sm hover:ring-1 hover:ring-slate-700/70"
@@ -54,7 +54,7 @@ export default function MenuPanel({ sections }: { sections: MenuSection[] }) {
               const renderContent = (
                 <>
                   <span
-                    className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ring-2 transition-transform duration-200 ${
+                    className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ring-2 transition-transform duration-200 ${
                       active
                         ? "ring-slate-500/70 scale-105 shadow"
                         : "ring-slate-700/70 group-hover:scale-105"

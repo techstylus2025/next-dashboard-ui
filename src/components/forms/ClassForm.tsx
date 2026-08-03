@@ -133,15 +133,11 @@ const ClassForm = ({
           <select
             className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
             {...register("gradeId")}
-            defaultValue={data?.gradeId}
+            defaultValue={data?.gradeId ?? ""}
           >
-            {(grades as Array<{ id: number; level: string }>).map((grade) => (
-              <option
-                value={grade.id}
-                key={grade.id}
-                selected={data && grade.id === data.gradeId}
-              >
-                {GRADING_LEVEL_LABELS[grade.level as keyof typeof GRADING_LEVEL_LABELS]}
+            {(grades as Array<{ id: number; level: string; label?: string | null }>).map((grade) => (
+              <option value={grade.id} key={grade.id}>
+                {grade.label || GRADING_LEVEL_LABELS[grade.level as keyof typeof GRADING_LEVEL_LABELS] || grade.level}
               </option>
             ))}
           </select>

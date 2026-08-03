@@ -29,6 +29,25 @@ export default function DashboardShell({
     setMenuOpen(false);
   }, [pathname]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const isMobile = window.innerWidth < 768;
+    if (!isMobile || !menuOpen) {
+      document.body.style.overflow = "";
+      document.body.style.touchAction = "";
+      return;
+    }
+
+    document.body.style.overflow = "hidden";
+    document.body.style.touchAction = "none";
+
+    return () => {
+      document.body.style.overflow = "";
+      document.body.style.touchAction = "";
+    };
+  }, [menuOpen]);
+
   const bottomNavItems = [
     {
       icon: "/more.svg",
@@ -64,9 +83,9 @@ export default function DashboardShell({
   ];
 
   return (
-    <div className="h-screen flex overflow-hidden bg-slate-100">
+    <div className="flex h-screen overflow-hidden bg-slate-100">
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 border-r border-slate-800/60 bg-slate-950 shadow-xl transition-transform duration-300 ease-out md:static md:translate-x-0 flex flex-col ${
+        className={`fixed inset-y-0 left-0 z-50 h-screen w-64 border-r border-slate-800/60 bg-slate-950 shadow-xl transition-transform duration-300 ease-out md:static md:h-auto md:translate-x-0 flex flex-col ${
           menuOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -84,24 +103,26 @@ export default function DashboardShell({
             ✕
           </button>
         </div>
-        <div className="flex-1 min-h-0 overflow-y-auto">
-          <Menu />
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <div className="h-full overflow-y-auto overscroll-contain [scrollbar-width:thin]" style={{ WebkitOverflowScrolling: "touch" }}>
+            <Menu />
+          </div>
         </div>
       </aside>
 
-      <div className="flex flex-1 min-w-0 flex-col md:pl-0 lg:pl-0">
-        <div className="sticky top-0 z-40 flex items-center justify-center border-b border-slate-200 bg-white/90 px-0 py-3 backdrop-blur-md shadow-sm md:hidden">
+      <div className="flex min-h-0 flex-1 min-w-0 flex-col md:pl-0 lg:pl-0">
+        <div className="sticky top-0 z-40 flex items-center justify-center border-b border-slate-200 bg-white/90 px-2 py-2.5 backdrop-blur-md shadow-sm md:hidden">
           <Link href={homeHref} className="flex items-center gap-2">
             <Image src="/logo.png" alt="logo" width={28} height={28} />
-            <span className="font-semibold text-slate-900">KINGS HEART SCHOOL</span>
+            <span className="text-sm font-semibold text-slate-900">KINGS HEART SCHOOL</span>
           </Link>
         </div>
 
         <div className="sticky top-0 z-30 border-b border-slate-200 bg-slate-50/95 backdrop-blur-md px-0 py-0 shadow-sm">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
               {supervisorClassName ? (
-                <div className="rounded-full bg-sky-600/10 px-3 py-2 text-sm font-medium text-sky-900 ring-1 ring-sky-200">
+                <div className="rounded-full bg-sky-600/10 px-2.5 py-1.5 text-xs font-medium text-sky-900 ring-1 ring-sky-200">
                   Supervisor of {supervisorClassName}
                 </div>
               ) : null}
@@ -110,8 +131,8 @@ export default function DashboardShell({
           </div>
         </div>
 
-        <main className="flex-1 min-h-0 overflow-y-auto px-4 py-4 pb-24 sm:px-5 lg:px-6">
-          {children}
+        <main className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-slate-100/70 px-2.5 py-2 pb-24 sm:px-3 lg:px-4" style={{ WebkitOverflowScrolling: "touch" }}>
+          <div className="page-shell">{children}</div>
         </main>
       </div>
 

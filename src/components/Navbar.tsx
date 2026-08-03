@@ -265,17 +265,16 @@ const Navbar = ({ onMessagesOpen }: { onMessagesOpen?: () => void }) => {
 
   return (
     <header className="sticky top-0 z-40 inset-x-0 w-screen bg-slate-950">
-      <div className="w-full min-w-full flex flex-nowrap items-center justify-between gap-3 overflow-visible rounded-none bg-slate-950 text-white px-4 py-2 sm:px-6 sm:py-3 shadow-[0_24px_55px_rgba(0,0,0,0.22)] ring-1 ring-slate-800/50 backdrop-blur-xl">
+      <div className="w-full min-w-full flex flex-nowrap items-center justify-between gap-2 overflow-visible rounded-none bg-slate-950 text-white px-3 py-2 sm:px-4 sm:py-3 shadow-[0_24px_55px_rgba(0,0,0,0.22)] ring-1 ring-slate-800/50 backdrop-blur-xl">
         {/* Left: logo + title + date/academic info (admin only) */}
         <div className="flex items-center gap-3">
-          <Link href={"/"} className="flex items-center gap-3">
-              
-                  <div className="hidden sm:flex flex-col leading-tight">
-                    <span className="text-md sm:text-sm font-semibold text-amber-400">School Management</span>
-                    <span className="text-xs sm:text-xs text-slate-300">
-                    {role === "admin" ? "Admin Dashboard" : role === "teacher" ? "Teacher Dashboard" : role === "parent" ? "Parent Dashboard" : role === "student" ? "Student Dashboard" : "Dashboard"}
-                  </span>
-                </div>
+          <Link href={"/"} className="flex items-center gap-2">
+            <div className="hidden sm:flex flex-col leading-tight">
+              <span className="text-sm font-semibold text-amber-400">School Management</span>
+              <span className="text-[11px] text-slate-300">
+                {role === "admin" ? "Admin Dashboard" : role === "teacher" ? "Teacher Dashboard" : role === "parent" ? "Parent Dashboard" : role === "student" ? "Student Dashboard" : "Dashboard"}
+              </span>
+            </div>
           </Link>
 
           {/* Admin: Date/Time and Academic Period (hidden on mobile) */}
@@ -561,7 +560,7 @@ const Navbar = ({ onMessagesOpen }: { onMessagesOpen?: () => void }) => {
 
             <div
               id="mobile-navigation"
-              className={`absolute right-0 top-12 z-40 w-52 overflow-hidden rounded-2xl bg-slate-950 shadow-lg ring-1 ring-slate-700 transition-all duration-200 ${
+              className={`absolute right-0 top-12 z-40 w-52 overflow-hidden rounded-xl bg-slate-950 shadow-lg ring-1 ring-slate-700 transition-all duration-200 ${
                 mobileOpen ? "scale-100 opacity-100" : "scale-95 opacity-0 pointer-events-none"
               }`}
             >
