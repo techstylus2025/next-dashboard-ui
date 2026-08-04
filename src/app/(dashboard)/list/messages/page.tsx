@@ -39,9 +39,9 @@ const MessagesPage = async () => {
       : "Reply to admin messages or send feedback and complaints through the same inbox.";
 
   return (
-    <div className="p-4 md:p-6 lg:p-8">
-      <div className="space-y-6 w-full">
-        <header className="rounded-[2rem] border border-slate-200/80 bg-slate-950/95 px-6 py-8 text-white shadow-xl shadow-slate-900/20">
+    <div className="p-3 sm:p-4 md:p-6 lg:p-8">
+      <div className="w-full space-y-4 sm:space-y-6">
+        <header className="rounded-[1.75rem] border border-slate-200/80 bg-slate-950/95 px-4 py-5 text-white shadow-xl shadow-slate-900/20 sm:px-6 sm:py-8">
           <p className="text-sm uppercase tracking-[0.3em] text-sky-300">
             Messages
           </p>

@@ -208,7 +208,7 @@ textarea {
 
 /* Chat / Messages UI */
 .chat-thread-item {
-  @apply flex w-full flex-col gap-1 rounded-2xl px-4 py-3 text-left transition duration-150 ease-out;
+  @apply flex w-full flex-col gap-1 rounded-2xl px-3 py-3 text-left transition duration-150 ease-out sm:px-4;
 }
 .chat-thread-item-default {
   @apply border rounded-2xl;
@@ -222,21 +222,21 @@ textarea {
   @apply text-sm font-semibold text-slate-900 truncate;
 }
 .chat-thread-sub {
-  @apply text-xs text-slate-500 truncate;
+  @apply truncate text-[11px] text-slate-500 sm:text-xs;
 }
 .chat-thread-snippet {
-  @apply text-xs leading-5 text-slate-500 truncate;
+  @apply truncate text-xs leading-5 text-slate-500;
 }
 .chat-unread-badge {
   @apply rounded-full bg-sky-600 px-2 py-0.5 text-[11px] font-semibold text-white;
 }
 
 .chat-messages {
-  @apply min-h-[44vh] max-h-[58vh] space-y-4 overflow-y-auto p-4;
+  @apply min-h-[34vh] max-h-[50vh] space-y-4 overflow-y-auto p-3 sm:min-h-[44vh] sm:max-h-[58vh] sm:p-4;
 }
 
 .chat-bubble {
-  @apply max-w-[84%] rounded-[1.75rem] px-4 py-4 text-sm leading-6 shadow-sm;
+  @apply max-w-[90%] rounded-[1.25rem] px-3 py-3 text-sm leading-6 shadow-sm sm:max-w-[84%] sm:rounded-[1.75rem] sm:px-4 sm:py-4;
 }
 .chat-bubble--me {
   @apply text-white border border-sky-500/20;

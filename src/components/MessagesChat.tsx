@@ -52,6 +52,27 @@ const MessagesChat = ({
       !threads.some((th) => th.counterpartId === t.id)
   );
 
+  const getInitials = (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return "U";
+    const parts = trimmed.split(/\s+/).filter(Boolean);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+  };
+
+  const avatarColor = (name: string) => {
+    const code = name.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const colors = [
+      "bg-sky-600",
+      "bg-indigo-600",
+      "bg-emerald-600",
+      "bg-violet-600",
+      "bg-amber-600",
+      "bg-rose-600",
+    ];
+    return colors[code % colors.length];
+  };
+
   const handleSelectThread = (threadId: string) => {
     setActiveThreadId(threadId);
     const thread = threads.find((t) => t.id === threadId);
@@ -120,8 +141,8 @@ const MessagesChat = ({
   };
 
   return (
-    <div className="grid h-[76vh] gap-4 lg:grid-cols-[320px_minmax(0,1fr)_300px]">
-      <section className="space-y-4 rounded-[1.75rem] border border-slate-200/80 bg-white p-4 shadow-sm">
+    <div className="grid gap-4 md:h-[76vh] md:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)_290px]">
+      <section className="space-y-4 rounded-[1.75rem] border border-slate-200/80 bg-slate-50/80 p-3 shadow-sm sm:p-4">
         <div>
           <div className="flex items-center justify-between gap-3">
             <div>
@@ -248,7 +269,7 @@ const MessagesChat = ({
           {isAdmin && !showSearch && threads.length === 0 && (
             <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-4 text-center">
               <p className="text-xs text-slate-500">No unread messages</p>
-              <p className="mt-2 text-xs text-slate-400">Click "New Message" to start a conversation</p>
+              <p className="mt-2 text-xs text-slate-400">Click &quot;New Message&quot; to start a conversation</p>
             </div>
           )}
           {isAdmin && !showSearch && parentThreads.length > 0 && (
@@ -268,18 +289,23 @@ const MessagesChat = ({
                         : 'chat-thread-item-default'
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="chat-thread-title">{thread.title}</p>
-                        <p className="chat-thread-sub">{thread.subtitle}</p>
+                    <div className="flex items-start gap-3">
+                      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white ${avatarColor(thread.title)}`}>
+                        {getInitials(thread.title)}
                       </div>
-                      {thread.unread > 0 && (
-                        <span className="chat-unread-badge">{thread.unread}</span>
-                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="chat-thread-title">{thread.title}</p>
+                          {thread.unread > 0 && (
+                            <span className="chat-unread-badge">{thread.unread}</span>
+                          )}
+                        </div>
+                        <p className="chat-thread-sub">{thread.subtitle}</p>
+                        <p className="chat-thread-snippet">
+                          {thread.messages[thread.messages.length - 1]?.text}
+                        </p>
+                      </div>
                     </div>
-                    <p className="chat-thread-snippet">
-                      {thread.messages[thread.messages.length - 1]?.text}
-                    </p>
                   </button>
                 ))}
               </div>
@@ -303,18 +329,23 @@ const MessagesChat = ({
                         : 'chat-thread-item-default'
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="chat-thread-title">{thread.title}</p>
-                        <p className="chat-thread-sub">{thread.subtitle}</p>
+                    <div className="flex items-start gap-3">
+                      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white ${avatarColor(thread.title)}`}>
+                        {getInitials(thread.title)}
                       </div>
-                      {thread.unread > 0 && (
-                        <span className="chat-unread-badge">{thread.unread}</span>
-                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="chat-thread-title">{thread.title}</p>
+                          {thread.unread > 0 && (
+                            <span className="chat-unread-badge">{thread.unread}</span>
+                          )}
+                        </div>
+                        <p className="chat-thread-sub">{thread.subtitle}</p>
+                        <p className="chat-thread-snippet">
+                          {thread.messages[thread.messages.length - 1]?.text}
+                        </p>
+                      </div>
                     </div>
-                    <p className="chat-thread-snippet">
-                      {thread.messages[thread.messages.length - 1]?.text}
-                    </p>
                   </button>
                 ))}
               </div>
@@ -334,18 +365,23 @@ const MessagesChat = ({
                       : 'chat-thread-item-default'
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="chat-thread-title">{thread.title}</p>
-                      <p className="chat-thread-sub">{thread.subtitle}</p>
+                  <div className="flex items-start gap-3">
+                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white ${avatarColor(thread.title)}`}>
+                      {getInitials(thread.title)}
                     </div>
-                    {thread.unread > 0 && (
-                      <span className="chat-unread-badge">{thread.unread}</span>
-                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="chat-thread-title">{thread.title}</p>
+                        {thread.unread > 0 && (
+                          <span className="chat-unread-badge">{thread.unread}</span>
+                        )}
+                      </div>
+                      <p className="chat-thread-sub">{thread.subtitle}</p>
+                      <p className="chat-thread-snippet">
+                        {thread.messages[thread.messages.length - 1]?.text}
+                      </p>
+                    </div>
                   </div>
-                  <p className="chat-thread-snippet">
-                    {thread.messages[thread.messages.length - 1]?.text}
-                  </p>
                 </button>
               ))}
             </div>
@@ -353,15 +389,20 @@ const MessagesChat = ({
         </div>
       </section>
 
-      <section className="flex flex-col overflow-hidden rounded-[1.75rem] border border-slate-200/80 bg-white shadow-sm">
-        <div className="flex items-center justify-between gap-4 border-b border-slate-200/80 px-5 py-5">
-          <div>
-            <p className="text-lg font-semibold text-slate-900">
-              {activeThread?.title}
-            </p>
-            <p className="mt-1 text-sm text-slate-500">
-              {activeThread?.subtitle}
-            </p>
+      <section className="flex min-h-[60vh] flex-col overflow-hidden rounded-[1.75rem] border border-slate-200/80 bg-white shadow-sm">
+        <div className="flex items-center justify-between gap-4 border-b border-slate-200/80 px-4 py-4 sm:px-5 sm:py-5">
+          <div className="flex items-center gap-3">
+            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white ${avatarColor(activeThread?.title ?? currentName)}`}>
+              {getInitials(activeThread?.title ?? currentName)}
+            </div>
+            <div>
+              <p className="text-base font-semibold text-slate-900">
+                {activeThread?.title}
+              </p>
+              <p className="mt-1 text-sm text-slate-500">
+                {activeThread?.subtitle}
+              </p>
+            </div>
           </div>
           <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
             {activeThread?.messages.length} messages
@@ -397,11 +438,11 @@ const MessagesChat = ({
           })}
         </div>
 
-        <div className="border-t border-slate-200 px-4 py-4">
+        <div className="border-t border-slate-200 bg-white px-3 py-3 sm:px-4 sm:py-4">
           {error ? (
             <p className="mb-3 text-sm text-rose-600">{error}</p>
           ) : null}
-          <div className="flex gap-3 items-center">
+          <div className="flex items-end gap-2 sm:gap-3">
             <textarea
               rows={2}
               value={draft}
@@ -440,7 +481,7 @@ const MessagesChat = ({
         </div>
       </section>
 
-      <aside className="space-y-4 rounded-[1.75rem] border border-slate-200/80 bg-white p-5 shadow-sm">
+      <aside className="hidden space-y-4 rounded-[1.75rem] border border-slate-200/80 bg-white p-5 shadow-sm xl:block">
         <div className="rounded-3xl bg-slate-50 p-4">
           <p className="text-sm font-semibold text-slate-900">Quick overview</p>
           <dl className="mt-4 grid gap-3">
