@@ -182,11 +182,11 @@ const LessonCalendar = ({
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
           <button
             type="button"
             onClick={() => setCalendarView(Views.WORK_WEEK)}
-            className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+            className={`shrink-0 rounded-full px-3 py-2 text-xs font-semibold transition sm:px-4 sm:py-2 sm:text-sm ${
               calendarView === Views.WORK_WEEK
                 ? "bg-slate-900 text-white"
                 : "bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100"
@@ -197,7 +197,7 @@ const LessonCalendar = ({
           <button
             type="button"
             onClick={() => setCalendarView(Views.DAY)}
-            className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+            className={`shrink-0 rounded-full px-3 py-2 text-xs font-semibold transition sm:px-4 sm:py-2 sm:text-sm ${
               calendarView === Views.DAY
                 ? "bg-slate-900 text-white"
                 : "bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100"
@@ -208,7 +208,7 @@ const LessonCalendar = ({
           <button
             type="button"
             onClick={() => setGroupMode("all")}
-            className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+            className={`shrink-0 rounded-full px-3 py-2 text-xs font-semibold transition sm:px-4 sm:py-2 sm:text-sm ${
               groupMode === "all"
                 ? "bg-slate-900 text-white"
                 : "bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100"
@@ -219,7 +219,7 @@ const LessonCalendar = ({
           <button
             type="button"
             onClick={() => setGroupMode("subject")}
-            className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+            className={`shrink-0 rounded-full px-3 py-2 text-xs font-semibold transition sm:px-4 sm:py-2 sm:text-sm ${
               groupMode === "subject"
                 ? "bg-slate-900 text-white"
                 : "bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100"
@@ -230,7 +230,7 @@ const LessonCalendar = ({
           <button
             type="button"
             onClick={() => setGroupMode("class")}
-            className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+            className={`shrink-0 rounded-full px-3 py-2 text-xs font-semibold transition sm:px-4 sm:py-2 sm:text-sm ${
               groupMode === "class"
                 ? "bg-slate-900 text-white"
                 : "bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100"

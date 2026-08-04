@@ -177,11 +177,11 @@ const LessonUploadsPanel = ({
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
           <select
             value={statusValue}
             onChange={(event) => updateQuery("status", event.target.value)}
-            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+            className="shrink-0 rounded-md border border-slate-300 bg-white px-2 py-2 text-xs sm:px-3 sm:text-sm"
           >
             <option value="all">All statuses</option>
             <option value="PENDING">Pending review</option>
@@ -190,7 +190,7 @@ const LessonUploadsPanel = ({
           <select
             value={sortByValue}
             onChange={(event) => updateQuery("sortBy", event.target.value)}
-            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+            className="shrink-0 rounded-md border border-slate-300 bg-white px-2 py-2 text-xs sm:px-3 sm:text-sm"
           >
             <option value="default">Sort by latest</option>
             <option value="year">Academic year</option>
@@ -203,7 +203,7 @@ const LessonUploadsPanel = ({
             <select
               value={classValue}
               onChange={(event) => updateQuery("classId", event.target.value)}
-              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+              className="shrink-0 rounded-md border border-slate-300 bg-white px-2 py-2 text-xs sm:px-3 sm:text-sm"
             >
               <option value="all">All classes</option>
               {classFilters.map((classItem) => (
@@ -217,7 +217,7 @@ const LessonUploadsPanel = ({
             <select
               value={subjectValue}
               onChange={(event) => updateQuery("subjectId", event.target.value)}
-              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+              className="shrink-0 rounded-md border border-slate-300 bg-white px-2 py-2 text-xs sm:px-3 sm:text-sm"
             >
               <option value="all">All subjects</option>
               {subjectFilters.map((subject) => (
@@ -230,7 +230,7 @@ const LessonUploadsPanel = ({
           {showTeacherUploadButton && (
             <button
               type="button"
-              className="rounded-md bg-lamaYellow px-4 py-2 text-sm font-medium"
+              className="shrink-0 rounded-md bg-lamaYellow px-2 py-2 text-xs font-medium sm:px-4 sm:text-sm"
               onClick={() => setOpen(true)}
             >
               + Add lesson uploads
