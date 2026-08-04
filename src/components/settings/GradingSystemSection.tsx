@@ -175,7 +175,7 @@ export default function GradingSystemSection({
 
   return (
     <section className="rounded-2xl border border-white/60 bg-white/95 backdrop-blur-sm p-5 md:p-6 shadow-sm ring-1 ring-slate-200/80">
-      <h2 className="text-lg font-medium text-slate-800 mb-2">Grading system</h2>
+      <h2 className="mb-2 text-base font-semibold text-slate-800 sm:text-lg">Grading system</h2>
       <p className="text-sm text-slate-500 mb-4">
         Define score ranges, grades, and remarks for each school level. Used when
         computing termly report grades.

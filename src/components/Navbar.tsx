@@ -246,7 +246,7 @@ const Navbar = ({ onMessagesOpen }: { onMessagesOpen?: () => void }) => {
 
   return (
     <header className="sticky top-0 z-40 inset-x-0 w-screen bg-slate-950">
-      <div className="w-full min-w-full flex flex-nowrap items-center justify-between gap-2 overflow-visible rounded-none bg-slate-950 text-white px-3 py-2 sm:px-4 sm:py-3 ring-1 ring-slate-800/50 backdrop-blur-xl">
+      <div className="w-full min-w-full flex flex-nowrap items-center justify-between gap-2 overflow-visible rounded-none bg-slate-950 text-white px-3 py-2 pr-5 sm:px-4 sm:py-3 sm:pr-6 ring-1 ring-slate-800/50 backdrop-blur-xl">
         {/* Left: logo + title + date/academic info (admin only) */}
         <div className="flex items-center gap-3">
           <Link href={"/"} className="flex items-center gap-2">

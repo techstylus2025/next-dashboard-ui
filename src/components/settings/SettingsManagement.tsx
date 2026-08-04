@@ -385,10 +385,10 @@ export default function SettingsManagement({
 
   return (
     <div className="flex flex-col gap-8 p-4 md:p-6 w-full">
-      <header className="flex items-start justify-between gap-4">
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h1 className="text-3xl font-semibold text-slate-800">Settings</h1>
-          <p className="text-sm text-slate-500 mt-1 max-w-2xl">
+          <h1 className="text-2xl font-semibold text-slate-800 sm:text-3xl">Settings</h1>
+          <p className="mt-1 max-w-2xl text-sm text-slate-500">
             Manage school information, academic years, grading scales, and archival operations. Administrator access only.
           </p>
           {activeYear && settingsTab === "academic" && (
@@ -398,72 +398,72 @@ export default function SettingsManagement({
             </p>
           )}
         </div>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <nav className="bg-white rounded-md shadow-sm p-1 flex gap-2 flex-wrap">
-          <button
-            type="button"
-            onClick={() => setSettingsTab("school")}
-            className={`px-4 py-2 rounded-md text-sm font-medium ${settingsTab === "school" ? "bg-sky-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}
-          >
-            School
-          </button>
-          <button
-            type="button"
-            onClick={() => setSettingsTab("academic")}
-            className={`px-4 py-2 rounded-md text-sm font-medium ${settingsTab === "academic" ? "bg-sky-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}
-          >
-            Academic
-          </button>
-          <button
-            type="button"
-            onClick={() => setSettingsTab("grading")}
-            className={`px-4 py-2 rounded-md text-sm font-medium ${settingsTab === "grading" ? "bg-sky-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}
-          >
-            Grading
-          </button>
-          <button
-            type="button"
-            onClick={() => setSettingsTab("archives")}
-            className={`px-4 py-2 rounded-md text-sm font-medium ${settingsTab === "archives" ? "bg-sky-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}
-          >
-            Archives
-          </button>
-        </nav>
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 lg:justify-end">
+          <nav className="flex flex-nowrap items-center gap-1.5 overflow-x-auto rounded-md bg-white p-1 shadow-sm sm:gap-2">
+            <button
+              type="button"
+              onClick={() => setSettingsTab("school")}
+              className={`shrink-0 rounded-md px-3 py-2 text-sm font-medium whitespace-nowrap ${settingsTab === "school" ? "bg-sky-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}
+            >
+              School
+            </button>
+            <button
+              type="button"
+              onClick={() => setSettingsTab("academic")}
+              className={`shrink-0 rounded-md px-3 py-2 text-sm font-medium whitespace-nowrap ${settingsTab === "academic" ? "bg-sky-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}
+            >
+              Academic
+            </button>
+            <button
+              type="button"
+              onClick={() => setSettingsTab("grading")}
+              className={`shrink-0 rounded-md px-3 py-2 text-sm font-medium whitespace-nowrap ${settingsTab === "grading" ? "bg-sky-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}
+            >
+              Grading
+            </button>
+            <button
+              type="button"
+              onClick={() => setSettingsTab("archives")}
+              className={`shrink-0 rounded-md px-3 py-2 text-sm font-medium whitespace-nowrap ${settingsTab === "archives" ? "bg-sky-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}
+            >
+              Archives
+            </button>
+          </nav>
 
-        <button
-          type="button"
-          disabled={pending}
-          onClick={async () => {
-            if (
-              !confirm(
-                "Resetting the app will permanently clear all application data, including archives. Continue?"
-              )
-            ) {
-              return;
-            }
-
-            startTransition(async () => {
-              const res = await resetAppData();
-              if (res.success) {
-                toast.success("All application data has been reset.");
-                router.refresh();
-              } else {
-                toast.error(res.error || "Could not reset application data.");
+          <button
+            type="button"
+            disabled={pending}
+            onClick={async () => {
+              if (
+                !confirm(
+                  "Resetting the app will permanently clear all application data, including archives. Continue?"
+                )
+              ) {
+                return;
               }
-            });
-          }}
-          className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-rose-700 disabled:opacity-50"
-        >
-          Reset app data
-        </button>
-      </div>
+
+              startTransition(async () => {
+                const res = await resetAppData();
+                if (res.success) {
+                  toast.success("All application data has been reset.");
+                  router.refresh();
+                } else {
+                  toast.error(res.error || "Could not reset application data.");
+                }
+              });
+            }}
+            className="shrink-0 rounded-xl bg-rose-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-rose-700 disabled:opacity-50"
+          >
+            Reset app data
+          </button>
+        </div>
       </header>
 
       {settingsTab === "grading" ? (
         <GradingSystemSection entries={gradingEntries} levels={gradingLevels} />
       ) : settingsTab === "school" ? (
         <section className="rounded-2xl border border-white/60 bg-white/95 backdrop-blur-sm p-5 md:p-6 shadow-sm ring-1 ring-slate-200/80">
-          <h2 className="text-lg font-medium text-slate-800 mb-4">School details</h2>
+          <h2 className="mb-4 text-base font-semibold text-slate-800 sm:text-lg">School details</h2>
           <div className="grid gap-4 md:grid-cols-2">
             <label className="flex flex-col gap-1 text-sm">
               <span className="text-slate-600">School name</span>
@@ -544,7 +544,7 @@ export default function SettingsManagement({
       ) : settingsTab === "academic" ? (
         <>
       <section className="rounded-2xl border bg-white p-5 md:p-6 shadow-sm ring-1 ring-slate-200/60">
-        <h2 className="text-lg font-medium text-slate-800 mb-4">
+        <h2 className="mb-4 text-base font-semibold text-slate-800 sm:text-lg">
           Create academic year
         </h2>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -669,7 +669,7 @@ export default function SettingsManagement({
       </section>
 
       <section className="rounded-2xl border bg-white p-5 md:p-6 shadow-sm ring-1 ring-slate-200/60">
-        <h2 className="text-lg font-medium text-slate-800 mb-4">Academic years</h2>
+        <h2 className="mb-4 text-base font-semibold text-slate-800 sm:text-lg">Academic years</h2>
         {academicYears.length === 0 ? (
           <p className="text-sm text-slate-500">No academic years configured yet.</p>
         ) : (
@@ -763,7 +763,7 @@ export default function SettingsManagement({
       ) : (
         <>
       <section className="rounded-2xl border bg-white p-5 md:p-6 shadow-sm ring-1 ring-slate-200/60">
-        <h2 className="text-lg font-medium text-slate-800 mb-4">Archive individuals</h2>
+        <h2 className="mb-4 text-base font-semibold text-slate-800 sm:text-lg">Archive individuals</h2>
         <p className="text-sm text-slate-600 mb-4">Archive records for a teacher who has left or a student who has completed/left.</p>
 
         <div className="grid gap-4 sm:grid-cols-3">
@@ -935,7 +935,7 @@ export default function SettingsManagement({
       </section>
 
       <section className="rounded-2xl border bg-white p-5 md:p-6 shadow-sm ring-1 ring-slate-200/60">
-        <h2 className="text-lg font-medium text-slate-800 mb-4">Currently archived records</h2>
+        <h2 className="mb-4 text-base font-semibold text-slate-800 sm:text-lg">Currently archived records</h2>
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
             <p className="text-xs uppercase text-slate-500">Fee schedules</p>
@@ -971,7 +971,7 @@ export default function SettingsManagement({
       <section className="rounded-2xl border bg-white p-5 md:p-6 shadow-sm ring-1 ring-slate-200/60">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h2 className="text-lg font-medium text-slate-800 mb-1">Archived academic years</h2>
+            <h2 className="mb-1 text-base font-semibold text-slate-800 sm:text-lg">Archived academic years</h2>
             <p className="text-sm text-slate-600">View academic years that are archived and unarchive them when needed.</p>
           </div>
         </div>
@@ -1021,7 +1021,7 @@ export default function SettingsManagement({
         <section className="rounded-2xl border border-sky-200 bg-sky-50/80 p-5 md:p-6 shadow-sm ring-1 ring-slate-200/80">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-lg font-medium text-slate-800">Archive options</h2>
+              <h2 className="text-base font-semibold text-slate-800 sm:text-lg">Archive options</h2>
               <p className="text-sm text-slate-600">
                 Choose which record types to archive for {archiveYearLabel}.
               </p>

@@ -119,7 +119,7 @@ export default async function HelpPage() {
       <div className="mx-auto max-w-6xl space-y-8">
         <div className="rounded-[2rem] bg-slate-950 px-8 py-10 text-white shadow-2xl shadow-slate-950/20 sm:px-12">
           <p className="text-sm uppercase tracking-[0.35em] text-sky-300">Help Center</p>
-          <h1 className="mt-4 text-4xl font-semibold tracking-tight">Everything you need to use the School Management System.</h1>
+          <h1 className="mt-4 text-2xl font-semibold tracking-tight sm:text-3xl lg:text-4xl">Everything you need to use the School Management System.</h1>
           <p className="mt-4 max-w-3xl text-base leading-8 text-slate-300">
             Find answers and guidance for your role, whether you’re an administrator, teacher, parent, or student. This page is designed to help you access common tasks quickly and confidently.
           </p>
@@ -159,7 +159,7 @@ export default async function HelpPage() {
               <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                   <p className="text-sm font-semibold uppercase tracking-[0.35em] text-slate-500">Your access</p>
-                  <h2 className="mt-3 text-3xl font-semibold text-slate-900">{displayRole} help</h2>
+                  <h2 className="mt-3 text-2xl font-semibold text-slate-900 sm:text-3xl">{displayRole} help</h2>
                 </div>
                 <div className="rounded-3xl bg-slate-100 px-4 py-3 text-sm font-medium text-slate-800">
                   Available to all users
@@ -172,7 +172,7 @@ export default async function HelpPage() {
 
             <div className="space-y-4">
               <div className="rounded-[2rem] bg-white p-6 shadow-sm ring-1 ring-slate-200">
-                <h3 className="text-xl font-semibold text-slate-900">Frequently Asked Questions</h3>
+                <h3 className="text-lg font-semibold text-slate-900 sm:text-xl">Frequently Asked Questions</h3>
                 <p className="mt-2 text-sm text-slate-600">
                   Expand any question to see step-by-step guidance and links to the most important pages.
                 </p>
@@ -185,7 +185,7 @@ export default async function HelpPage() {
 
               {roleFaqs.length > 0 ? (
                 <div className="rounded-[2rem] bg-white p-6 shadow-sm ring-1 ring-slate-200">
-                  <h3 className="text-xl font-semibold text-slate-900">{displayRole} FAQs</h3>
+                  <h3 className="text-lg font-semibold text-slate-900 sm:text-xl">{displayRole} FAQs</h3>
                   <div className="mt-6 space-y-4">
                     {roleFaqs.map((item) => (
                       <AccordionItem key={item.question} question={item.question} answer={item.answer} />
@@ -199,7 +199,7 @@ export default async function HelpPage() {
           <aside className="space-y-6">
             <div className="rounded-[2rem] bg-slate-900 px-6 py-8 text-white shadow-2xl shadow-slate-950/10">
               <p className="text-sm uppercase tracking-[0.35em] text-sky-300">Need help fast?</p>
-              <h3 className="mt-4 text-2xl font-semibold">Contact support</h3>
+              <h3 className="mt-4 text-xl font-semibold sm:text-2xl">Contact support</h3>
               <p className="mt-3 text-sm leading-7 text-slate-300">
                 Use the messages page to raise a support request with the school administrator. Your message is sent directly within the system.
               </p>
@@ -212,7 +212,7 @@ export default async function HelpPage() {
             </div>
 
             <div className="rounded-[2rem] bg-white p-6 shadow-sm ring-1 ring-slate-200">
-              <h3 className="text-lg font-semibold text-slate-900">Quick tips</h3>
+              <h3 className="text-base font-semibold text-slate-900 sm:text-lg">Quick tips</h3>
               <ul className="mt-4 space-y-3 text-sm text-slate-600">
                 <li>• Bookmark this page for quick access to commonly asked questions.</li>
                 <li>• Use the search bar in your dashboard to find classes, reports, and announcements.</li>
@@ -221,7 +221,7 @@ export default async function HelpPage() {
             </div>
 
             <div className="rounded-[2rem] bg-white p-6 shadow-sm ring-1 ring-slate-200">
-              <h3 className="text-lg font-semibold text-slate-900">Getting started</h3>
+              <h3 className="text-base font-semibold text-slate-900 sm:text-lg">Getting started</h3>
               <p className="mt-3 text-sm leading-7 text-slate-600">
                 If you are new to the system, sign in and explore your role-specific dashboard to find tools for managing classes, attendance, fees, and communication.
               </p>
