@@ -79,31 +79,33 @@ const columns = [
     : []),
 ];
 
-const renderRow = (item: ExamList) => (
-  <tr
-    key={item.id}
-    className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-lamaPurpleLight"
-  >
-    <td className="flex items-center gap-4 p-4">{item.lesson.subject.name}</td>
-    <td>{item.lesson.class.name}</td>
-    <td className="hidden md:table-cell">
-      {item.lesson.teacher.name + " " + item.lesson.teacher.surname}
-    </td>
-    <td className="hidden md:table-cell">
-      {new Intl.DateTimeFormat("en-US").format(item.startTime)}
-    </td>
-    <td>
-      <div className="flex items-center gap-2">
-        {(role === "admin" || role === "teacher") && (
-          <>
+const renderRow = (item: ExamList) => {
+  const teacherName = item.lesson?.teacher
+    ? `${item.lesson.teacher.name ?? ""} ${item.lesson.teacher.surname ?? ""}`.trim() || "Unknown teacher"
+    : "Unknown teacher";
+
+  return (
+    <tr
+      key={item.id}
+      className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-lamaPurpleLight"
+    >
+      <td className="p-4">{item.lesson?.subject?.name ?? "Unknown subject"}</td>
+      <td className="p-4">{item.lesson?.class?.name ?? "Unknown class"}</td>
+      <td className="hidden p-4 md:table-cell">{teacherName}</td>
+      <td className="hidden p-4 md:table-cell">
+        {new Intl.DateTimeFormat("en-US").format(item.startTime)}
+      </td>
+      {(role === "admin" || role === "teacher") && (
+        <td className="p-4">
+          <div className="flex items-center gap-2">
             <FormContainer table="exam" type="update" data={item} />
             <FormContainer table="exam" type="delete" id={item.id} />
-          </>
-        )}
-      </div>
-    </td>
-  </tr>
-);
+          </div>
+        </td>
+      )}
+    </tr>
+  );
+};
 
   const { page, ...queryParams } = await searchParams;
 

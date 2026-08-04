@@ -277,7 +277,7 @@ const LessonListPage = async ({
   }));
 
   return (
-    <div className="bg-white p-4 rounded-md flex-1 m-4 mt-0 space-y-6">
+    <div className="flex-1 space-y-6">
       {role === "admin" && (
         <>
           <LessonCalendar lessons={lessonRows} subjects={subjectOptions} classes={classOptions} />
