@@ -30,7 +30,7 @@ export default function MenuPanel({ sections }: { sections: MenuSection[] }) {
 
   return (
     <nav
-      className="h-full min-h-0 overflow-y-auto overscroll-y-contain py-1.5 px-1.5 lg:px-2.5 [scrollbar-width:thin] text-slate-200"
+      className="h-full min-h-0 overflow-y-auto py-1.5 px-1.5 lg:px-2.5 [scrollbar-width:thin] text-slate-200"
       aria-label="Main navigation"
       style={{ touchAction: "pan-y" }}
     >

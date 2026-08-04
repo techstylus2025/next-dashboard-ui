@@ -130,12 +130,14 @@ const TimetableManagement = ({
             </button>
           </div>
           <LessonForm
-            lesson={editingLesson ? {
-              ...editingLesson,
-              subjectId: editingLesson.subject.id,
-              classId: editingLesson.class.id,
-              teacherId: editingLesson.teacher.id,
-            } : undefined}
+            lesson={editingLesson
+              ? {
+                  ...editingLesson,
+                  subjectId: editingLesson.subject?.id ?? 0,
+                  classId: editingLesson.class?.id ?? 0,
+                  teacherId: editingLesson.teacher?.id ?? "",
+                }
+              : undefined}
             teachers={teachers}
             subjects={subjects}
             classes={classes}

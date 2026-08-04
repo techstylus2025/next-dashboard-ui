@@ -20,10 +20,15 @@ const AdminPage = async ({
     loadAdminDashboardSummary(),
   ]);
 
+  const fridayEventDetail = summary.currentFridayEvent
+    ? `${summary.currentFridayEvent.className ?? "General"} · ${summary.currentFridayEvent.startTime} - ${summary.currentFridayEvent.endTime}`
+    : undefined;
+  const fridayEventValue = summary.currentFridayEvent?.title ?? "No Friday event scheduled for this week.";
+
   return (
     <div className="p-4 grid gap-8 xl:grid-cols-[2fr_1fr]">
       <div className="flex flex-col gap-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <UserCard type="admin" />
           <UserCard type="student" />
           <UserCard type="teacher" />
@@ -36,13 +41,9 @@ const AdminPage = async ({
           />
           <DashboardStatCard
             label="Friday event"
-            value={summary.currentFridayEvent?.title ?? "No Friday event"}
-            badge="Friday"
-            detail={
-              summary.currentFridayEvent
-                ? `${summary.currentFridayEvent.className ?? "General"} · ${summary.currentFridayEvent.startTime} - ${summary.currentFridayEvent.endTime}`
-                : "No Friday event scheduled for this week"
-            }
+            value={fridayEventValue}
+            detail={fridayEventDetail}
+            detailClassName="mt-3 text-[11px] leading-5 text-white/90"
             className="bg-gradient-to-br from-indigo-500 to-violet-600 shadow-md shadow-indigo-500/35 ring-2 ring-white/20 text-white"
           />
         </div>

@@ -5,9 +5,9 @@ import { UserButton, useUser } from "@clerk/nextjs";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import Fuse from 'fuse.js';
 import { useRouter } from "next/navigation";
 import { usePathname } from "next/navigation";
+import { buildSuggestionGroups, flattenSuggestionGroups } from "@/lib/searchSuggestions";
 
 const Navbar = ({ onMessagesOpen }: { onMessagesOpen?: () => void }) => {
   const { user } = useUser();
@@ -210,38 +210,19 @@ const Navbar = ({ onMessagesOpen }: { onMessagesOpen?: () => void }) => {
         const res = await fetch(`/api/search?${params.toString()}`, { cache: "no-store" });
         if (!res.ok) return setSuggestions(null);
         const data = await res.json();
-        setSuggestions(data);
-        // small client-side fuzzy re-ranking/fallback using Fuse
-        const flat: Array<{ type: string; item: any }> = [];
-        if (data?.students) data.students.forEach((s: any) => flat.push({ type: 'students', item: s }));
-        if (data?.teachers) data.teachers.forEach((t: any) => flat.push({ type: 'teachers', item: t }));
-        if (data?.parents) data.parents.forEach((p: any) => flat.push({ type: 'parents', item: p }));
-        // if server returned some but not many, use Fuse to produce stronger matches
-        if (flat.length > 0) {
-          const fuse = new Fuse(flat, { keys: ['item.name', 'item.surname', 'item.username', 'item.email'], threshold: 0.4 });
-          const fuzzResults = fuse.search(searchQuery.trim(), { limit: Math.min(12, flat.length) });
-          if (fuzzResults && fuzzResults.length > 0) {
-            // reconstruct suggestions grouped
-            const grouped: any = { students: [], teachers: [], parents: [] };
-            fuzzResults.forEach((r: any) => grouped[r.item.type as string].push(r.item.item));
-            setSuggestions(grouped);
-            // rebuild flatSuggestions for keyboard nav
-            const rebuilt: Array<{ type: string; item: any }> = [];
-            if (grouped.students) grouped.students.forEach((s: any) => rebuilt.push({ type: 'students', item: s }));
-            if (grouped.teachers) grouped.teachers.forEach((t: any) => rebuilt.push({ type: 'teachers', item: t }));
-            if (grouped.parents) grouped.parents.forEach((p: any) => rebuilt.push({ type: 'parents', item: p }));
-            flatSuggestions.current = rebuilt;
-            setFocusedIndex(rebuilt.length > 0 ? 0 : -1);
-            return;
-          }
-        }
-        // build flat suggestions for keyboard nav
-        const flat2: Array<{ type: string; item: any }> = [];
-        if (data?.students) data.students.forEach((s: any) => flat2.push({ type: 'students', item: s }));
-        if (data?.teachers) data.teachers.forEach((t: any) => flat2.push({ type: 'teachers', item: t }));
-        if (data?.parents) data.parents.forEach((p: any) => flat2.push({ type: 'parents', item: p }));
-        flatSuggestions.current = flat2;
-        setFocusedIndex(flat2.length > 0 ? 0 : -1);
+        const grouped = buildSuggestionGroups(
+          {
+            students: data?.students ?? [],
+            teachers: data?.teachers ?? [],
+            parents: data?.parents ?? [],
+          },
+          searchQuery.trim(),
+          role,
+        );
+        setSuggestions(grouped);
+        const flat = flattenSuggestionGroups(grouped);
+        flatSuggestions.current = flat;
+        setFocusedIndex(flat.length > 0 ? 0 : -1);
       } catch {
         setSuggestions(null);
       }

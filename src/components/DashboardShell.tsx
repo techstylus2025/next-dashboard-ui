@@ -104,7 +104,7 @@ export default function DashboardShell({
           </button>
         </div>
         <div className="flex-1 min-h-0 overflow-hidden">
-          <div className="h-full overflow-y-auto overscroll-contain [scrollbar-width:thin]" style={{ WebkitOverflowScrolling: "touch" }}>
+          <div className="h-full overflow-hidden">
             <Menu />
           </div>
         </div>
