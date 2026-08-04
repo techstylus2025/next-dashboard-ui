@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 import { createAttendance } from "@/lib/actions";
 import AttendanceCalendar from "./AttendanceCalendar";
+import AttendanceFiltersModal from "./AttendanceFiltersModal";
 
 export type AttendancePerson = {
   id: string;
@@ -534,7 +535,26 @@ const AttendanceManager = ({
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
                 placeholder="Search name, class, date, type"
-                className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-900 outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                className="hidden rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-900 outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-100 md:block"
+              />
+              <AttendanceFiltersModal
+                searchTerm={searchTerm}
+                filterType={filterType}
+                filterStatus={filterStatus}
+                sortKey={sortKey}
+                sortDirection={sortDirection}
+                onSearchChange={setSearchTerm}
+                onFilterTypeChange={setFilterType}
+                onFilterStatusChange={setFilterStatus}
+                onSortKeyChange={setSortKey}
+                onSortDirectionChange={setSortDirection}
+                onClear={() => {
+                  setSearchTerm("");
+                  setFilterType("all");
+                  setFilterStatus("all");
+                  setSortKey("date");
+                  setSortDirection("desc");
+                }}
               />
               <button
                 type="button"
@@ -546,7 +566,7 @@ const AttendanceManager = ({
                     setSortDirection("desc");
                   }
                 }}
-                className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+                className={`hidden rounded-full border px-4 py-2 text-sm font-medium transition md:inline-flex ${
                   sortKey === "date"
                     ? "border-sky-500 bg-sky-50 text-sky-700"
                     : "border-slate-200 bg-white text-slate-700"
@@ -564,7 +584,7 @@ const AttendanceManager = ({
                     setSortDirection("asc");
                   }
                 }}
-                className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+                className={`hidden rounded-full border px-4 py-2 text-sm font-medium transition md:inline-flex ${
                   sortKey === "person"
                     ? "border-sky-500 bg-sky-50 text-sky-700"
                     : "border-slate-200 bg-white text-slate-700"
@@ -575,7 +595,7 @@ const AttendanceManager = ({
             </div>
           </div>
 
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="hidden gap-2 sm:grid-cols-2 xl:grid-cols-4 md:grid">
             <div className="flex flex-wrap items-center gap-2">
               {(["all", "student", "teacher"] as const).map((typeOption) => (
                 <button
