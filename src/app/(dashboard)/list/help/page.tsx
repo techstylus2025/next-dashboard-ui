@@ -117,9 +117,9 @@ export default async function HelpPage() {
   return (
     <div className="p-6">
       <div className="mx-auto max-w-6xl space-y-8">
-        <div className="rounded-[2rem] bg-slate-950 px-8 py-10 text-white shadow-2xl shadow-slate-950/20 sm:px-12">
+        <div className="rounded-[1rem] bg-slate-950 px-8 py-10 text-white shadow-2xl shadow-slate-950/20 sm:px-12">
           <p className="text-sm uppercase tracking-[0.35em] text-sky-300">Help Center</p>
-          <h1 className="mt-4 text-2xl font-semibold tracking-tight sm:text-3xl lg:text-4xl">Everything you need to use the School Management System.</h1>
+          <h1 className="mt-4 text-2xl font-semibold tracking-tight sm:text-2xl lg:text-3xl">Everything you need to use the School Management System.</h1>
           <p className="mt-4 max-w-3xl text-base leading-8 text-slate-300">
             Find answers and guidance for your role, whether you’re an administrator, teacher, parent, or student. This page is designed to help you access common tasks quickly and confidently.
           </p>
@@ -155,7 +155,7 @@ export default async function HelpPage() {
 
         <div className="grid gap-6 xl:grid-cols-[0.9fr_0.7fr]">
           <section className="space-y-6">
-            <div className="rounded-[2rem] bg-white p-8 shadow-sm ring-1 ring-slate-200">
+            <div className="rounded-[1rem] bg-white p-8 shadow-sm ring-1 ring-slate-200">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                   <p className="text-sm font-semibold uppercase tracking-[0.35em] text-slate-500">Your access</p>
@@ -171,7 +171,7 @@ export default async function HelpPage() {
             </div>
 
             <div className="space-y-4">
-              <div className="rounded-[2rem] bg-white p-6 shadow-sm ring-1 ring-slate-200">
+              <div className="rounded-[1rem] bg-white p-6 shadow-sm ring-1 ring-slate-200">
                 <h3 className="text-lg font-semibold text-slate-900 sm:text-xl">Frequently Asked Questions</h3>
                 <p className="mt-2 text-sm text-slate-600">
                   Expand any question to see step-by-step guidance and links to the most important pages.
@@ -184,7 +184,7 @@ export default async function HelpPage() {
               </div>
 
               {roleFaqs.length > 0 ? (
-                <div className="rounded-[2rem] bg-white p-6 shadow-sm ring-1 ring-slate-200">
+                <div className="rounded-[1rem] bg-white p-6 shadow-sm ring-1 ring-slate-200">
                   <h3 className="text-lg font-semibold text-slate-900 sm:text-xl">{displayRole} FAQs</h3>
                   <div className="mt-6 space-y-4">
                     {roleFaqs.map((item) => (
@@ -197,7 +197,7 @@ export default async function HelpPage() {
           </section>
 
           <aside className="space-y-6">
-            <div className="rounded-[2rem] bg-slate-900 px-6 py-8 text-white shadow-2xl shadow-slate-950/10">
+            <div className="rounded-[1rem] bg-slate-900 px-6 py-8 text-white shadow-2xl shadow-slate-950/10">
               <p className="text-sm uppercase tracking-[0.35em] text-sky-300">Need help fast?</p>
               <h3 className="mt-4 text-xl font-semibold sm:text-2xl">Contact support</h3>
               <p className="mt-3 text-sm leading-7 text-slate-300">
@@ -211,7 +211,7 @@ export default async function HelpPage() {
               </Link>
             </div>
 
-            <div className="rounded-[2rem] bg-white p-6 shadow-sm ring-1 ring-slate-200">
+            <div className="rounded-[1rem] bg-white p-6 shadow-sm ring-1 ring-slate-200">
               <h3 className="text-base font-semibold text-slate-900 sm:text-lg">Quick tips</h3>
               <ul className="mt-4 space-y-3 text-sm text-slate-600">
                 <li>• Bookmark this page for quick access to commonly asked questions.</li>
@@ -220,7 +220,7 @@ export default async function HelpPage() {
               </ul>
             </div>
 
-            <div className="rounded-[2rem] bg-white p-6 shadow-sm ring-1 ring-slate-200">
+            <div className="rounded-[1rem] bg-white p-6 shadow-sm ring-1 ring-slate-200">
               <h3 className="text-base font-semibold text-slate-900 sm:text-lg">Getting started</h3>
               <p className="mt-3 text-sm leading-7 text-slate-600">
                 If you are new to the system, sign in and explore your role-specific dashboard to find tools for managing classes, attendance, fees, and communication.
