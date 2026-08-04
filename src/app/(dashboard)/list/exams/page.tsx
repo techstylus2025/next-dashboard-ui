@@ -1,3 +1,4 @@
+import ExamFiltersModal from "@/components/exams/ExamFiltersModal";
 import ExamQuestionUploadsPanel from "@/components/exams/ExamQuestionUploadsPanel";
 import ExamTimetableModal from "@/components/exams/ExamTimetableModal";
 import FormContainer from "@/components/FormContainer";
@@ -49,6 +50,11 @@ const ExamListPage = async ({
           orderBy: { name: "asc" },
         })
       : [];
+
+  const teacherOptions = await prisma.teacher.findMany({
+    select: { id: true, name: true, surname: true },
+    orderBy: { name: "asc" },
+  });
 
 const columns = [
   {
@@ -110,6 +116,8 @@ const renderRow = (item: ExamList) => {
   const { page, ...queryParams } = await searchParams;
 
   const p = page ? parseInt(page) : 1;
+  const sortBy = queryParams.sortBy ?? "date";
+  const sortOrder = (queryParams.sortOrder as "asc" | "desc") ?? "desc";
   const activePeriod = await getActiveAcademicPeriod();
   const activeTermBadge =
     activePeriod.yearLabel && activePeriod.termNumber !== null
@@ -242,6 +250,22 @@ const renderRow = (item: ExamList) => {
     }),
   ]);
 
+  const sortedData = [...data].sort((a, b) => {
+    const direction = sortOrder === "asc" ? 1 : -1;
+
+    switch (sortBy) {
+      case "subject":
+        return direction * ((a.lesson?.subject?.name ?? "").localeCompare(b.lesson?.subject?.name ?? ""));
+      case "class":
+        return direction * ((a.lesson?.class?.name ?? "").localeCompare(b.lesson?.class?.name ?? ""));
+      case "teacher":
+        return direction * ((a.lesson?.teacher?.name ?? "").localeCompare(b.lesson?.teacher?.name ?? ""));
+      case "date":
+      default:
+        return direction * (a.startTime.getTime() - b.startTime.getTime());
+    }
+  });
+
   const lessonOptions =
     role === "teacher"
       ? await prisma.lesson.findMany({
@@ -291,12 +315,15 @@ const renderRow = (item: ExamList) => {
         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
           <TableSearch />
           <div className="flex items-center gap-4 self-end">
-            <button className="icon-action w-8 h-8">
-              <Image src="/filter.svg" alt="" width={14} height={14} />
-            </button>
-            <button className="icon-action w-8 h-8">
-              <Image src="/sort.svg" alt="" width={14} height={14} />
-            </button>
+            <ExamFiltersModal
+              classes={adminClasses}
+              teachers={teacherOptions}
+              initialSearch={queryParams.search ?? ""}
+              initialClassId={queryParams.classId ?? ""}
+              initialTeacherId={queryParams.teacherId ?? ""}
+              initialSortBy={sortBy}
+              initialSortOrder={sortOrder}
+            />
             {role === "admin" && (
               <ExamTimetableModal classes={adminClasses} lessons={adminLessons} />
             )}
@@ -307,7 +334,7 @@ const renderRow = (item: ExamList) => {
         </div>
       </div>
       {/* LIST */}
-      <Table columns={columns} renderRow={renderRow} data={data} />
+      <Table columns={columns} renderRow={renderRow} data={sortedData} />
       {/* PAGINATION */}
       <Pagination page={p} count={count} />
       {(role === "admin" || role === "teacher") && (

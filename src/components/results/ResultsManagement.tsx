@@ -12,6 +12,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "react-toastify";
 import ReportEditorCard from "./ReportEditorCard";
 import ReportPreviewModal from "./ReportPreviewModal";
+import ResultsFiltersModal from "./ResultsFiltersModal";
 import { ITEM_PER_PAGE } from "@/lib/settings";
 
 type SortKey =
@@ -688,14 +689,41 @@ export default function ResultsManagement(ctx: ResultsPageContext) {
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           {/* Filter section */}
           <div className="mb-6">
-            <h3 className="text-sm font-semibold text-slate-900 mb-4">
-              Filters & search
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-medium text-slate-700">Search</label>
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-slate-900">
+                Filters & search
+              </h3>
+              <ResultsFiltersModal
+                search={search}
+                filterClass={filterClass}
+                filterYear={filterYear}
+                filterTerm={filterTerm}
+                sortKey={sortKey}
+                sortDirection={sortDirection}
+                classes={ctx.classes}
+                academicYears={ctx.academicYears}
+                viewMode={viewMode}
+                onSearchChange={setSearch}
+                onFilterClassChange={setFilterClass}
+                onFilterYearChange={setFilterYear}
+                onFilterTermChange={setFilterTerm}
+                onSortKeyChange={(value) => setSortKey(value as SortKey)}
+                onSortDirectionChange={setSortDirection}
+                onClear={() => {
+                  setSearch("");
+                  setFilterClass("");
+                  setFilterYear("");
+                  setFilterTerm("");
+                  setSortKey(ctx.isAdmin ? "name" : "student");
+                  setSortDirection("asc");
+                }}
+              />
+            </div>
+            <div className="hidden xl:flex xl:flex-wrap xl:items-end xl:gap-3">
+              <div className="flex flex-col gap-1.5 min-w-[120px] flex-1 xl:max-w-[150px]">
+                <label className="text-[11px] font-medium text-slate-700">Search</label>
                 <input
-                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                  className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
                   placeholder={
                     ctx.isAdmin && viewMode === "class-progress"
                       ? "Search class..."
@@ -705,10 +733,10 @@ export default function ResultsManagement(ctx: ResultsPageContext) {
                   onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-medium text-slate-700">Class</label>
+              <div className="flex flex-col gap-1.5 min-w-[100px] flex-1 xl:max-w-[120px]">
+                <label className="text-[11px] font-medium text-slate-700">Class</label>
                 <select
-                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                  className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
                   value={filterClass}
                   onChange={(e) => setFilterClass(e.target.value)}
                 >
@@ -720,10 +748,10 @@ export default function ResultsManagement(ctx: ResultsPageContext) {
                   ))}
                 </select>
               </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-medium text-slate-700">Year</label>
+              <div className="flex flex-col gap-1.5 min-w-[90px] flex-1 xl:max-w-[110px]">
+                <label className="text-[11px] font-medium text-slate-700">Year</label>
                 <select
-                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                  className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
                   value={filterYear}
                   onChange={(e) => setFilterYear(e.target.value)}
                 >
@@ -735,10 +763,10 @@ export default function ResultsManagement(ctx: ResultsPageContext) {
                   ))}
                 </select>
               </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-medium text-slate-700">Term</label>
+              <div className="flex flex-col gap-1.5 min-w-[85px] flex-1 xl:max-w-[100px]">
+                <label className="text-[11px] font-medium text-slate-700">Term</label>
                 <select
-                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                  className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
                   value={filterTerm}
                   onChange={(e) => setFilterTerm(e.target.value)}
                 >
@@ -749,42 +777,44 @@ export default function ResultsManagement(ctx: ResultsPageContext) {
                   <option value="4">Term 4</option>
                 </select>
               </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-medium text-slate-700">Sort by</label>
-                <select
-                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
-                  value={sortKey}
-                  onChange={(e) => setSortKey(e.target.value as SortKey)}
-                >
-                  {viewMode === "class-progress" ? (
-                    <>
-                      <option value="name">Class name</option>
-                      <option value="students">Student count</option>
-                      <option value="generated">Reports generated</option>
-                      <option value="completion">Completion %</option>
-                    </>
-                  ) : (
-                    <>
-                      <option value="student">Student</option>
-                      <option value="class">Class</option>
-                      <option value="percentage">Completion %</option>
-                    </>
-                  )}
-                </select>
+              <div className="flex flex-wrap items-end gap-2 xl:flex-nowrap">
+                <div className="flex flex-col gap-1.5 min-w-[100px] flex-1 xl:max-w-[120px]">
+                  <label className="text-[11px] font-medium text-slate-700">Sort by</label>
+                  <select
+                    className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                    value={sortKey}
+                    onChange={(e) => setSortKey(e.target.value as SortKey)}
+                  >
+                    {viewMode === "class-progress" ? (
+                      <>
+                        <option value="name">Class name</option>
+                        <option value="students">Student count</option>
+                        <option value="generated">Reports generated</option>
+                        <option value="completion">Completion %</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="student">Student</option>
+                        <option value="class">Class</option>
+                        <option value="percentage">Completion %</option>
+                      </>
+                    )}
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1.5 min-w-[90px] flex-1 xl:max-w-[110px]">
+                  <label className="text-[11px] font-medium text-slate-700">Order</label>
+                  <select
+                    className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                    value={sortDirection}
+                    onChange={(e) =>
+                      setSortDirection(e.target.value as "asc" | "desc")
+                    }
+                  >
+                    <option value="asc">Ascending</option>
+                    <option value="desc">Descending</option>
+                  </select>
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-2 mt-4">
-              <select
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
-                value={sortDirection}
-                onChange={(e) =>
-                  setSortDirection(e.target.value as "asc" | "desc")
-                }
-              >
-                <option value="asc">Ascending</option>
-                <option value="desc">Descending</option>
-              </select>
-              <span className="text-xs text-slate-500">Sort order</span>
             </div>
           </div>
 
@@ -898,15 +928,15 @@ export default function ResultsManagement(ctx: ResultsPageContext) {
                     <div className="space-y-6">
                       {yearGroup.classes.map((classGroup) => (
                         <div key={classGroup.className} className="space-y-4">
-                          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                            <h4 className="text-base font-semibold text-slate-800">
+                          <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+                            <h4 className="text-sm font-semibold text-slate-800 whitespace-nowrap">
                               {classGroup.className}
                             </h4>
                           </div>
                           <div className="space-y-6">
                             {classGroup.terms.map((termGroup) => (
                               <div key={termGroup.termNumber} className="space-y-4">
-                                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                                   <h5 className="text-sm font-semibold text-slate-800">
                                     Term {termGroup.termNumber}
                                   </h5>

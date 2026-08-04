@@ -64,19 +64,26 @@ const AssignmentListPage = async ({
       : []),
   ];
   
-  const renderRow = (item: AssignmentList) => (
+  const renderRow = (item: AssignmentList) => {
+    const subjectName = item.lesson?.subject?.name ?? "Unknown subject";
+    const className = item.lesson?.class?.name ?? "Unknown class";
+    const teacherName = item.lesson?.teacher
+      ? `${item.lesson.teacher.name ?? ""} ${item.lesson.teacher.surname ?? ""}`.trim() || "Unknown teacher"
+      : "Unknown teacher";
+
+    return (
     <tr
       key={item.id}
       className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-lamaPurpleLight"
     >
       <td className="flex flex-col gap-2 p-4">
-        <div className="font-medium">{item.lesson.subject.name}</div>
+        <div className="font-medium">{subjectName}</div>
         <div className="flex flex-wrap gap-2 text-xs text-slate-500 md:hidden">
-          <span>{item.lesson.class.name}</span>
+          <span>{className}</span>
           <span>•</span>
           <span>{new Intl.DateTimeFormat("en-US").format(item.dueDate)}</span>
           <span>•</span>
-          <span>{item.lesson.teacher.name} {item.lesson.teacher.surname}</span>
+          <span>{teacherName}</span>
         </div>
         {item.questions && (
           <div className="text-xs text-slate-500 truncate max-w-full">{item.questions.slice(0, 120)}</div>
@@ -87,10 +94,8 @@ const AssignmentListPage = async ({
           </div>
         )}
       </td>
-      <td className="hidden md:table-cell">{item.lesson.class.name}</td>
-      <td className="hidden md:table-cell">
-        {item.lesson.teacher.name + " " + item.lesson.teacher.surname}
-      </td>
+      <td className="hidden md:table-cell">{className}</td>
+      <td className="hidden md:table-cell">{teacherName}</td>
       <td className="hidden md:table-cell">
         {new Intl.DateTimeFormat("en-US").format(item.dueDate)}
       </td>
@@ -113,7 +118,8 @@ const AssignmentListPage = async ({
         </div>
       </td>
     </tr>
-  );
+    );
+  };
 
   const { page, ...queryParams } = await searchParams;
 
@@ -241,7 +247,7 @@ const AssignmentListPage = async ({
   const renderSubjectCounts = (assigns: AssignmentList[]) => {
     const map = new Map<string, number>();
     assigns.forEach((a) => {
-      const name = a.lesson.subject.name;
+      const name = a.lesson?.subject?.name ?? "Unknown subject";
       map.set(name, (map.get(name) || 0) + 1);
     });
     return (
@@ -287,20 +293,27 @@ const AssignmentListPage = async ({
         <div className="space-y-6">
           {Array.from(
             data.reduce((m, a) => {
-              const key = a.lesson.class.name;
+              const key = a.lesson?.class?.name ?? "Unknown class";
               if (!m.has(key)) m.set(key, [] as AssignmentList[]);
               m.get(key)!.push(a);
               return m;
             }, new Map<string, AssignmentList[]>()).entries()
           ).map(([className, assigns]) => (
-            <div key={className} className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Class: {className}</h2>
-                <div className="text-sm text-slate-600">Total: {assigns.length}</div>
+            <details key={className} className="rounded-xl border border-slate-200 bg-white shadow-sm">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-xl p-4 hover:bg-slate-50">
+                <div>
+                  <h2 className="text-lg font-semibold">Class: {className}</h2>
+                  <div className="text-sm text-slate-600">Total: {assigns.length}</div>
+                </div>
+                <div className="text-sm text-slate-500">Click to toggle</div>
+              </summary>
+              <div className="border-t border-slate-200 p-4 pt-3">
+                {renderSubjectCounts(assigns)}
+                <div className="mt-3">
+                  <Table columns={columns} renderRow={renderRow} data={assigns} />
+                </div>
               </div>
-              {renderSubjectCounts(assigns)}
-              <Table columns={columns} renderRow={renderRow} data={assigns} />
-            </div>
+            </details>
           ))}
         </div>
       )}
@@ -309,7 +322,7 @@ const AssignmentListPage = async ({
         <div className="space-y-6">
           {Array.from(
             data.reduce((m, a) => {
-              const key = a.lesson.subject.name;
+              const key = a.lesson?.subject?.name ?? "Unknown subject";
               if (!m.has(key)) m.set(key, [] as AssignmentList[]);
               m.get(key)!.push(a);
               return m;
@@ -320,7 +333,7 @@ const AssignmentListPage = async ({
                 <h2 className="text-lg font-semibold">Subject: {subjectName}</h2>
                 <div className="text-sm text-slate-600">Total: {assigns.length}</div>
               </div>
-              <div className="text-sm text-slate-600">Classes included: {Array.from(new Set(assigns.map(a=>a.lesson.class.name))).join(', ')}</div>
+              <div className="text-sm text-slate-600">Classes included: {Array.from(new Set(assigns.map((a) => a.lesson?.class?.name ?? "Unknown class"))).join(", ")}</div>
               <Table columns={columns} renderRow={renderRow} data={assigns} />
             </div>
           ))}
@@ -331,7 +344,8 @@ const AssignmentListPage = async ({
         <div className="space-y-6">
           {Array.from(
             data.reduce((m, a) => {
-              const key = a.lesson.teacher.id + "::" + a.lesson.teacher.name + " " + a.lesson.teacher.surname;
+              const teacher = a.lesson?.teacher;
+              const key = `${teacher?.id ?? "unknown"}::${teacher ? `${teacher.name ?? ""} ${teacher.surname ?? ""}`.trim() || "Unknown teacher" : "Unknown teacher"}`;
               if (!m.has(key)) m.set(key, [] as AssignmentList[]);
               m.get(key)!.push(a);
               return m;
