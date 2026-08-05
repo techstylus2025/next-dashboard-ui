@@ -4,6 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import { PrismaClient } from "@prisma/client";
+import { calculateTermDays } from "@/lib/academicYearUtils";
 
 const SETTINGS_PATH = "/list/settings";
 const db = prisma as unknown as PrismaClient;
@@ -23,6 +24,7 @@ export type TermInput = {
   weeks: number;
   startDate: string;
   endDate: string;
+  holidays: number;
 };
 
 type ArchiveCategory =
@@ -64,11 +66,20 @@ export async function createAcademicYear(input: {
     };
   }
 
-  for (const term of input.terms) {
-    if (term.days < 1 || term.weeks < 1) {
+  const normalizedTerms = input.terms.map((term) => {
+    const computedDays = calculateTermDays(term.startDate, term.endDate, term.holidays ?? 0);
+    return {
+      ...term,
+      days: computedDays,
+      holidays: term.holidays ?? 0,
+    };
+  });
+
+  for (const term of normalizedTerms) {
+    if (term.days < 1 || term.weeks < 1 || term.holidays < 0) {
       return {
         success: false,
-        error: `Term ${term.termNumber}: days and weeks must be at least 1.`,
+        error: `Term ${term.termNumber}: days, weeks, and holidays must be valid.`,
       };
     }
     const start = new Date(term.startDate + "T00:00:00");
@@ -99,10 +110,11 @@ export async function createAcademicYear(input: {
           numberOfTerms: input.numberOfTerms,
           isActive: Boolean(input.setAsActive),
           terms: {
-            create: input.terms.map((t) => ({
+            create: normalizedTerms.map((t) => ({
               termNumber: t.termNumber,
               days: t.days,
               weeks: t.weeks,
+              holidays: t.holidays ?? 0,
               startDate: new Date(t.startDate + "T00:00:00"),
               endDate: new Date(t.endDate + "T23:59:59"),
             })),
@@ -119,6 +131,121 @@ export async function createAcademicYear(input: {
     }
     console.error(e);
     return { success: false, error: "Could not create academic year." };
+  }
+}
+
+export async function updateAcademicYear(input: {
+  academicYearId: number;
+  label: string;
+  numberOfTerms: number;
+  terms: TermInput[];
+  setAsActive?: boolean;
+}): Promise<{ success: boolean; error: string | null }> {
+  const authCheck = await requireAdmin();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
+  const label = input.label.trim();
+  if (!label) return { success: false, error: "Academic year label is required." };
+  if (input.numberOfTerms < 1 || input.numberOfTerms > 4) {
+    return { success: false, error: "Number of terms must be between 1 and 4." };
+  }
+  if (input.terms.length !== input.numberOfTerms) {
+    return { success: false, error: "Provide days, weeks, and dates for each term." };
+  }
+
+  const normalizedTerms = input.terms.map((term) => {
+    const computedDays = calculateTermDays(term.startDate, term.endDate, term.holidays ?? 0);
+    return {
+      ...term,
+      days: computedDays,
+      holidays: term.holidays ?? 0,
+    };
+  });
+
+  for (const term of normalizedTerms) {
+    if (term.days < 1 || term.weeks < 1 || term.holidays < 0) {
+      return {
+        success: false,
+        error: `Term ${term.termNumber}: days, weeks, and holidays must be valid.`,
+      };
+    }
+    const start = new Date(term.startDate + "T00:00:00");
+    const end = new Date(term.endDate + "T23:59:59");
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      return { success: false, error: "Invalid term dates." };
+    }
+    if (end <= start) {
+      return {
+        success: false,
+        error: `Term ${term.termNumber} end date must be after start date.`,
+      };
+    }
+  }
+
+  try {
+    await db.$transaction(async (tx) => {
+      const year = await tx.academicYear.findUnique({ where: { id: input.academicYearId } });
+      if (!year) throw new Error("NOT_FOUND");
+
+      if (input.setAsActive) {
+        await tx.academicYear.updateMany({
+          where: { isActive: true },
+          data: { isActive: false },
+        });
+      }
+
+      await tx.academicYear.update({
+        where: { id: input.academicYearId },
+        data: {
+          label,
+          numberOfTerms: input.numberOfTerms,
+          isActive: Boolean(input.setAsActive) || year.isActive,
+        },
+      });
+
+      await tx.academicTerm.deleteMany({ where: { academicYearId: input.academicYearId } });
+      await tx.academicTerm.createMany({
+        data: normalizedTerms.map((t) => ({
+          academicYearId: input.academicYearId,
+          termNumber: t.termNumber,
+          days: t.days,
+          weeks: t.weeks,
+          holidays: t.holidays ?? 0,
+          startDate: new Date(t.startDate + "T00:00:00"),
+          endDate: new Date(t.endDate + "T23:59:59"),
+        })),
+      });
+    });
+
+    revalidatePath(SETTINGS_PATH);
+    return { success: true, error: null };
+  } catch (e: unknown) {
+    if (e instanceof Error && e.message === "NOT_FOUND") {
+      return { success: false, error: "Academic year not found." };
+    }
+    console.error(e);
+    return { success: false, error: "Could not update academic year." };
+  }
+}
+
+export async function deleteAcademicYear(
+  academicYearId: number
+): Promise<{ success: boolean; error: string | null }> {
+  const authCheck = await requireAdmin();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
+  try {
+    const year = await db.academicYear.findUnique({ where: { id: academicYearId } });
+    if (!year) return { success: false, error: "Academic year not found." };
+    if (year.isActive) {
+      await db.academicYear.updateMany({ where: { isActive: true }, data: { isActive: false } });
+    }
+    await db.academicYear.delete({ where: { id: academicYearId } });
+    revalidatePath(SETTINGS_PATH);
+    return { success: true, error: null };
+  } catch (e) {
+    console.error(e);
+    return { success: false, error: "Could not delete academic year." };
   }
 }
 

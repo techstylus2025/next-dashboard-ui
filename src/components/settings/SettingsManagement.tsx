@@ -4,6 +4,8 @@ import {
   archiveAcademicYearWithSelection,
   unarchiveAcademicYear,
   createAcademicYear,
+  updateAcademicYear,
+  deleteAcademicYear,
   setActiveAcademicYear,
   archiveTeacherRecordsWithSelection,
   archiveStudentRecordsWithSelection,
@@ -15,11 +17,13 @@ import { archiveParentRecords } from "@/lib/parentArchiveActions";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "react-toastify";
+import { calculateTermDays } from "@/lib/academicYearUtils";
 
 export type TermRow = {
   termNumber: number;
   days: number;
   weeks: number;
+  holidays: number;
   startDate: string;
   endDate: string;
 };
@@ -74,6 +78,7 @@ const emptyTerm = (): TermRow => ({
   termNumber: 0,
   days: 90,
   weeks: 12,
+  holidays: 0,
   startDate: "",
   endDate: "",
 });
@@ -114,6 +119,7 @@ export default function SettingsManagement({
   const [label, setLabel] = useState("");
   const [numberOfTerms, setNumberOfTerms] = useState(3);
   const [setAsActive, setSetAsActive] = useState(true);
+  const [editingAcademicYearId, setEditingAcademicYearId] = useState<number | null>(null);
   const [terms, setTerms] = useState<TermRow[]>([
     { ...emptyTerm(), termNumber: 1 },
     { ...emptyTerm(), termNumber: 2 },
@@ -210,9 +216,52 @@ export default function SettingsManagement({
   ) => {
     setTerms((prev) => {
       const next = [...prev];
-      next[index] = { ...next[index], [field]: value };
+      const current = next[index] ?? emptyTerm();
+      const updated = {
+        ...current,
+        [field]: value,
+      } as TermRow;
+
+      if (field === "holidays" || field === "startDate" || field === "endDate") {
+        updated.days = calculateTermDays(
+          String(updated.startDate),
+          String(updated.endDate),
+          Number(updated.holidays) || 0
+        );
+      }
+
+      next[index] = updated;
       return next;
     });
+  };
+
+  const refreshAcademicYearForm = () => {
+    setLabel("");
+    setEditingAcademicYearId(null);
+    setNumberOfTerms(3);
+    syncTermRows(3);
+    setTerms([
+      { ...emptyTerm(), termNumber: 1 },
+      { ...emptyTerm(), termNumber: 2 },
+      { ...emptyTerm(), termNumber: 3 },
+    ]);
+  };
+
+  const startEditingAcademicYear = (year: AcademicYearRow) => {
+    setEditingAcademicYearId(year.id);
+    setLabel(year.label);
+    setNumberOfTerms(year.numberOfTerms);
+    setSetAsActive(year.isActive);
+    setTerms(
+      year.terms.map((term, index) => ({
+        termNumber: index + 1,
+        days: term.days,
+        weeks: term.weeks,
+        holidays: term.holidays ?? 0,
+        startDate: term.startDate.slice(0, 10),
+        endDate: term.endDate.slice(0, 10),
+      }))
+    );
   };
 
   const handleCreate = () => {
@@ -220,29 +269,32 @@ export default function SettingsManagement({
       termNumber: i + 1,
       days: Number(t.days) || 0,
       weeks: Number(t.weeks) || 0,
+      holidays: Number(t.holidays) || 0,
       startDate: t.startDate,
       endDate: t.endDate,
     }));
 
     startTransition(async () => {
-      const res = await createAcademicYear({
-        label,
-        numberOfTerms,
-        terms: termPayload,
-        setAsActive,
-      });
+      const res = editingAcademicYearId
+        ? await updateAcademicYear({
+            academicYearId: editingAcademicYearId,
+            label,
+            numberOfTerms,
+            terms: termPayload,
+            setAsActive,
+          })
+        : await createAcademicYear({
+            label,
+            numberOfTerms,
+            terms: termPayload,
+            setAsActive,
+          });
       if (res.success) {
-        toast.success("Academic year created.");
-        setLabel("");
-        syncTermRows(3);
-        setTerms([
-          { ...emptyTerm(), termNumber: 1 },
-          { ...emptyTerm(), termNumber: 2 },
-          { ...emptyTerm(), termNumber: 3 },
-        ]);
+        toast.success(editingAcademicYearId ? "Academic year updated." : "Academic year created.");
+        refreshAcademicYearForm();
         router.refresh();
       } else {
-        toast.error(res.error || "Failed to create academic year.");
+        toast.error(res.error || "Failed to save academic year.");
       }
     });
   };
@@ -379,6 +431,22 @@ export default function SettingsManagement({
         router.refresh();
       } else {
         toast.error(res.error || "Could not set active year.");
+      }
+    });
+  };
+
+  const handleDeleteAcademicYear = (id: number) => {
+    if (!confirm("Delete this academic year and all its terms?")) return;
+    startTransition(async () => {
+      const res = await deleteAcademicYear(id);
+      if (res.success) {
+        toast.success("Academic year deleted.");
+        if (editingAcademicYearId === id) {
+          refreshAcademicYearForm();
+        }
+        router.refresh();
+      } else {
+        toast.error(res.error || "Could not delete academic year.");
       }
     });
   };
@@ -545,7 +613,7 @@ export default function SettingsManagement({
         <>
       <section className="rounded-2xl border bg-white p-5 md:p-6 shadow-sm ring-1 ring-slate-200/60">
         <h2 className="mb-4 text-base font-semibold text-slate-800 sm:text-lg">
-          Create academic year
+          {editingAcademicYearId ? "Edit academic year" : "Create academic year"}
         </h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="flex flex-col gap-1 text-sm">
@@ -574,9 +642,9 @@ export default function SettingsManagement({
 
         <div className="mt-6">
           <h3 className="text-sm font-medium text-slate-700 mb-3">
-            Terms (days, weeks & dates per term)
+            Terms (working days, holidays & dates)
           </h3>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 xl:grid-cols-3 lg:grid-cols-2 sm:grid-cols-2">
             {terms.map((term, index) => (
               <div
                 key={index}
@@ -587,19 +655,13 @@ export default function SettingsManagement({
                 </p>
                 <div className="grid grid-cols-2 gap-3 mb-3">
                   <label className="flex flex-col gap-1 text-xs text-slate-500">
-                    Days
+                    Working days
                     <input
                       type="number"
                       min={1}
-                      className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
+                      readOnly
+                      className="rounded-lg border border-slate-200 bg-slate-100 px-2 py-1.5 text-sm"
                       value={term.days}
-                      onChange={(e) =>
-                        updateTerm(
-                          index,
-                          "days",
-                          parseInt(e.target.value, 10) || 1
-                        )
-                      }
                     />
                   </label>
                   <label className="flex flex-col gap-1 text-xs text-slate-500">
@@ -619,7 +681,30 @@ export default function SettingsManagement({
                     />
                   </label>
                 </div>
-                <div className="flex flex-col gap-2">
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <label className="flex flex-col gap-1 text-xs text-slate-500">
+                    Holidays
+                    <input
+                      type="number"
+                      min={0}
+                      className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
+                      value={term.holidays}
+                      onChange={(e) =>
+                        updateTerm(
+                          index,
+                          "holidays",
+                          parseInt(e.target.value, 10) || 0
+                        )
+                      }
+                    />
+                  </label>
+                  <div className="flex items-end text-[11px] text-slate-500">
+                    <span className="rounded-lg border border-dashed border-slate-200 bg-white px-2 py-1.5">
+                      {calculateTermDays(term.startDate, term.endDate, Number(term.holidays) || 0)} days
+                    </span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
                   <label className="text-xs text-slate-500">
                     Start date
                     <input
@@ -658,14 +743,26 @@ export default function SettingsManagement({
           Set as active academic year
         </label>
 
-        <button
-          type="button"
-          disabled={pending}
-          onClick={handleCreate}
-          className="mt-4 rounded-xl bg-gradient-to-r from-slate-700 to-slate-900 px-5 py-2.5 text-sm font-medium text-white shadow-md hover:from-slate-800 hover:to-black disabled:opacity-50"
-        >
-          Save academic year
-        </button>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <button
+            type="button"
+            disabled={pending}
+            onClick={handleCreate}
+            className="rounded-xl bg-gradient-to-r from-slate-700 to-slate-900 px-5 py-2.5 text-sm font-medium text-white shadow-md hover:from-slate-800 hover:to-black disabled:opacity-50"
+          >
+            {editingAcademicYearId ? "Save changes" : "Save academic year"}
+          </button>
+          {editingAcademicYearId && (
+            <button
+              type="button"
+              disabled={pending}
+              onClick={refreshAcademicYearForm}
+              className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+            >
+              Cancel edit
+            </button>
+          )}
+        </div>
       </section>
 
       <section className="rounded-2xl border bg-white p-5 md:p-6 shadow-sm ring-1 ring-slate-200/60">
@@ -1123,14 +1220,32 @@ export default function SettingsManagement({
                       </button>
                     )}
                     {!year.isArchived && (
-                      <button
-                        type="button"
-                        disabled={pending}
-                        onClick={() => openArchiveYearOptions(year.id, year.label)}
-                        className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700"
-                      >
-                        Archive records
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          disabled={pending}
+                          onClick={() => startEditingAcademicYear(year)}
+                          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          disabled={pending}
+                          onClick={() => openArchiveYearOptions(year.id, year.label)}
+                          className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700"
+                        >
+                          Archive records
+                        </button>
+                        <button
+                          type="button"
+                          disabled={pending}
+                          onClick={() => handleDeleteAcademicYear(year.id)}
+                          className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-rose-700"
+                        >
+                          Delete
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -1144,7 +1259,7 @@ export default function SettingsManagement({
                         Term {t.termNumber}
                       </span>
                       <span className="block text-slate-500 mt-0.5">
-                        {t.days} days · {t.weeks} weeks
+                        {t.days} working days · {t.holidays ?? 0} holidays · {t.weeks} weeks
                       </span>
                       <span className="block mt-0.5">
                         {new Date(t.startDate).toLocaleDateString()} –{" "}

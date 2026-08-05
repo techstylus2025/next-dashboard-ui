@@ -18,6 +18,7 @@ type AcademicYearWithTerms = {
     termNumber: number;
     days: number;
     weeks: number;
+    holidays?: number;
     startDate: Date;
     endDate: Date;
   }>;
@@ -91,6 +92,7 @@ export async function loadSettingsPageData(): Promise<{
         termNumber: t.termNumber,
         days: t.days,
         weeks: t.weeks,
+        holidays: t.holidays ?? 0,
         startDate: t.startDate.toISOString(),
         endDate: t.endDate.toISOString(),
       })),
