@@ -1,11 +1,13 @@
 "use client";
 
-import { useSignIn, useUser } from "@clerk/nextjs";
+import { useClerk, useSignIn, useUser } from "@clerk/nextjs";
 import Image from "next/image";
 import { FormEvent, useEffect, useState } from "react";
+import { getRoleRedirectPath } from "@/lib/signInRedirect";
 
 const LoginPage = () => {
   const { isSignedIn, user, isLoaded } = useUser();
+  const { setActive } = useClerk();
   const signInSignal = useSignIn();
   const signIn = signInSignal?.signIn;
 
@@ -31,7 +33,7 @@ const LoginPage = () => {
           const data = await res.json();
           const serverRole = data?.role ?? null;
           if (serverRole) {
-            const redirectPath = `/${serverRole || clientRole}`;
+            const redirectPath = getRoleRedirectPath(clientRole, serverRole);
             window.location.replace(redirectPath);
             return;
           }
@@ -43,7 +45,7 @@ const LoginPage = () => {
         if (attempts < maxAttempts) {
           setTimeout(poll, pollInterval);
         } else {
-          window.location.replace(clientRole ? `/${clientRole}` : "/admin");
+          window.location.replace(getRoleRedirectPath(clientRole, null));
         }
       };
 
@@ -93,7 +95,7 @@ const LoginPage = () => {
     try {
       if (isSignedIn && user) {
         const clientRole = (user as any)?.publicMetadata?.role as string | undefined;
-        window.location.replace(clientRole ? `/${clientRole}` : "/admin");
+        window.location.replace(getRoleRedirectPath(clientRole, null));
         return;
       }
 
@@ -108,10 +110,21 @@ const LoginPage = () => {
       }
 
       if (result?.status === "complete") {
+        if (setActive && result.createdSessionId) {
+          await setActive({ session: result.createdSessionId });
+        }
         setError(null);
-      } else {
-        setError(`Sign-in failed with status: ${result?.status ?? "unknown"}`);
+        setIsRedirecting(true);
+        window.location.replace(getRoleRedirectPath((user as any)?.publicMetadata?.role as string | undefined, null));
+        return;
       }
+
+      if (result?.status === "needs_second_factor") {
+        setError("Additional verification is required. Please complete the next step.");
+        return;
+      }
+
+      setError(`Sign-in is still in progress. Please wait a moment and try again. (${result?.status ?? "unknown"})`);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Invalid username or password.";
       setError(message);
@@ -121,114 +134,121 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden flex items-center justify-center px-4 py-10">
-      {/* Background Image with Overlay */}
-      <div 
-        className="absolute inset-0 z-0"
-        style={{
-          backgroundImage: "linear-gradient(rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.55)), url('/school_building.jpg')",
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
-          backgroundAttachment: 'fixed',
-          backgroundBlendMode: 'overlay',
-        }}
-      />
-      
-      {/* Dark gradient overlay for better contrast */}
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-950/65 via-slate-950/35 to-slate-900/70 z-10" />
+    <div className="min-h-screen relative overflow-hidden bg-slate-950">
+      <div className="absolute inset-0 z-0 bg-[linear-gradient(135deg,_rgba(2,6,23,0.96)_0%,_rgba(15,23,42,0.9)_45%,_rgba(30,41,59,0.9)_100%)]" />
+      <div className="absolute inset-0 z-10 bg-[radial-gradient(circle_at_top_left,_rgba(34,211,238,0.16),_transparent_32%),radial-gradient(circle_at_bottom_right,_rgba(59,130,246,0.2),_transparent_35%)]" />
 
-      {/* Content Container */}
-      <div className="relative z-20 w-full max-w-md">
-        {/* Form Card */}
-        <div className="rounded-2xl bg-white/95 backdrop-blur-md p-8 shadow-2xl ring-1 ring-white/20">
-          <div className="text-center">
-            {/* Logo */}
-            <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 shadow-lg">
-              <Image src="/logo.png" alt="Logo" width={70} height={70} className="drop-shadow-lg" />
-            </div>
-
-            {/* Title */}
-            <h1 className="mt-6 text-4xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">
-              KING&apos;S HEART
-            </h1>
-            <p className="mt-2 text-sm font-medium text-slate-600">School Management System</p>
-            <p className="mt-1 text-xs text-slate-500">Sign in to your account</p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="mt-8 space-y-4">
-            {/* Username Input */}
-            <div className="space-y-2">
-              <label htmlFor="identifier" className="block text-sm font-semibold text-slate-700">
-                Username
-              </label>
-              <input
-                id="identifier"
-                name="identifier"
-                type="text"
-                autoComplete="username"
-                value={identifier}
-                onChange={(event) => setIdentifier(event.target.value)}
-                className="w-full rounded-lg border border-slate-300 bg-slate-50/80 px-4 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none transition duration-200 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 focus:bg-white"
-                placeholder="Enter your username"
-                required
-              />
-            </div>
-
-            {/* Password Input */}
-            <div className="space-y-2">
-              <label htmlFor="password" className="block text-sm font-semibold text-slate-700">
-                Password
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                className="w-full rounded-lg border border-slate-300 bg-slate-50/80 px-4 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none transition duration-200 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 focus:bg-white"
-                placeholder="Enter your password"
-                required
-              />
-            </div>
-
-            {/* Error Message */}
-            {error ? (
-              <div className="rounded-lg border border-red-300 bg-red-50/90 px-4 py-3 text-sm font-medium text-red-700 animate-pulse">
-                <span className="inline-block mr-2">⚠️</span>
-                {error}
+      <div className="relative z-20 mx-auto flex min-h-screen w-full max-w-7xl items-center justify-center px-3 py-4 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
+        <div className="grid w-full max-w-6xl gap-4 rounded-[28px] border border-white/15 bg-white/10 p-3 shadow-[0_30px_80px_rgba(2,6,23,0.55)] backdrop-blur-xl lg:grid-cols-[1.05fr_0.95fr] lg:gap-6 lg:p-6">
+          <section className="relative overflow-hidden rounded-[24px] border border-white/10 bg-slate-950/45 p-6 text-white sm:p-8 lg:p-10">
+            <div className="absolute inset-0 bg-[linear-gradient(125deg,rgba(34,211,238,0.18),transparent_40%,rgba(59,130,246,0.16))]" />
+            <div className="relative z-10 flex h-full flex-col justify-between">
+              <div>
+                <div className="inline-flex items-center rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.28em] text-cyan-200">
+                  Secure portal
+                </div>
+                <h2 className="mt-5 text-2xl font-semibold sm:text-3xl">
+                  Welcome back to King&apos;s Heart.
+                </h2>
+                <p className="mt-3 max-w-lg text-sm leading-6 text-slate-300 sm:text-base">
+                  Access attendance, lessons, examinations, and student records through a single, secure dashboard.
+                </p>
+                <div className="mt-5 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-4 text-sm text-cyan-50/90">
+                  <p className="font-medium">Manage daily school operations with confidence.</p>
+                  <p className="mt-1 text-cyan-100/80">From staff coordination to academic records, everything stays organized in one place.</p>
+                </div>
               </div>
-            ) : null}
 
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={!signIn || isSubmitting}
-              className="w-full mt-6 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-lg hover:shadow-xl hover:from-cyan-700 hover:to-blue-700 transition duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:shadow-lg"
-            >
-              {isSubmitting ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                  Signing in...
-                </span>
-              ) : (
-                "Sign In"
-              )}
-            </button>
-          </form>
+              <div className="mt-8 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
+                  <p className="text-2xl font-semibold text-white">24/7</p>
+                  <p className="mt-1 text-sm text-slate-300">Staff access</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
+                  <p className="text-2xl font-semibold text-white">100%</p>
+                  <p className="mt-1 text-sm text-slate-300">Protected data</p>
+                </div>
+              </div>
+            </div>
+          </section>
 
-          {/* Footer Info */}
-          <div className="mt-6 border-t border-slate-200 pt-4">
-            <p className="text-center text-xs text-slate-500">
-              © 2026 King&apos;s Heart School. All rights reserved.
-            </p>
-          </div>
-        </div>
+          <section className="rounded-[24px] bg-white/95 p-5 shadow-inner shadow-slate-200/70 sm:p-7 lg:p-8">
+            <div className="text-center">
+              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl border border-slate-200 bg-white/80 shadow-sm sm:h-24 sm:w-24">
+                <Image src="/logo.png" alt="Logo" width={68} height={68} className="object-contain" />
+              </div>
 
-        {/* Security Info */}
-        <div className="mt-6 text-center text-xs text-white/80">
-          <p>🔒 Your credentials are secure and encrypted</p>
+              <h1 className="mt-5 text-3xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent sm:text-4xl">
+                KING&apos;S HEART
+              </h1>
+              <p className="mt-2 text-sm font-medium text-slate-600">School Management System</p>
+              <p className="mt-1 text-xs text-slate-500">Sign in to your account</p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="mt-7 space-y-4">
+              <div className="space-y-2">
+                <label htmlFor="identifier" className="block text-sm font-semibold text-slate-700">
+                  Username
+                </label>
+                <input
+                  id="identifier"
+                  name="identifier"
+                  type="text"
+                  autoComplete="username"
+                  value={identifier}
+                  onChange={(event) => setIdentifier(event.target.value)}
+                  className="w-full rounded-xl border border-slate-300 bg-slate-50/80 px-4 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none transition duration-200 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 focus:bg-white"
+                  placeholder="Enter your username"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="password" className="block text-sm font-semibold text-slate-700">
+                  Password
+                </label>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  className="w-full rounded-xl border border-slate-300 bg-slate-50/80 px-4 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none transition duration-200 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 focus:bg-white"
+                  placeholder="Enter your password"
+                  required
+                />
+              </div>
+
+              {error ? (
+                <div className="rounded-xl border border-red-300 bg-red-50/90 px-4 py-3 text-sm font-medium text-red-700 animate-pulse">
+                  <span className="mr-2 inline-block">⚠️</span>
+                  {error}
+                </div>
+              ) : null}
+
+              <button
+                type="submit"
+                disabled={!signIn || isSubmitting}
+                className="mt-5 w-full rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-lg transition duration-200 hover:from-cyan-700 hover:to-blue-700 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:shadow-lg"
+              >
+                {isSubmitting ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                    Signing in...
+                  </span>
+                ) : (
+                  "Sign In"
+                )}
+              </button>
+            </form>
+
+            <div className="mt-6 border-t border-slate-200 pt-4 text-center">
+              <p className="text-xs text-slate-500">
+                © 2026 King&apos;s Heart School. All rights reserved.
+              </p>
+            </div>
+          </section>
         </div>
       </div>
     </div>
