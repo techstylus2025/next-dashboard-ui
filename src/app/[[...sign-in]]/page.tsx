@@ -109,14 +109,14 @@ const LoginPage = () => {
         return;
       }
 
-      if (result?.status === "complete") {
-        if (setActive && result.createdSessionId) {
+      if (result?.status === "complete" && result.createdSessionId && setActive) {
+        try {
           await setActive({ session: result.createdSessionId });
+        } catch (activeError) {
+          console.error("Failed to activate Clerk session", activeError);
+          setError("We could not finish signing you in. Please try again.");
+          return;
         }
-        setError(null);
-        setIsRedirecting(true);
-        window.location.replace(getRoleRedirectPath((user as any)?.publicMetadata?.role as string | undefined, null));
-        return;
       }
 
       if (result?.status === "needs_second_factor") {
@@ -124,7 +124,8 @@ const LoginPage = () => {
         return;
       }
 
-      setError(`Sign-in is still in progress. Please wait a moment and try again. (${result?.status ?? "unknown"})`);
+      setError(null);
+      setIsRedirecting(true);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Invalid username or password.";
       setError(message);
