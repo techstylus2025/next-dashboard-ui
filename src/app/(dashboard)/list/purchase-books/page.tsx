@@ -35,7 +35,9 @@ export default async function PurchaseBooksPage() {
       <div className="flex-1 min-h-[40vh] rounded-2xl bg-lamaSkyLight p-8">
         <p className="text-slate-700 font-medium">Could not load purchase books.</p>
         <p className="text-sm text-slate-500 mt-2">
-          Run database migrations: npx prisma migrate deploy
+          {error instanceof Error
+            ? error.message
+            : "Please refresh the page or contact support if the issue persists."}
         </p>
       </div>
     );

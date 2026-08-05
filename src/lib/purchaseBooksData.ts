@@ -4,6 +4,13 @@ import { PrismaClient } from "@prisma/client";
 /** Full client type from generated schema (avoids stale narrowed adapter types). */
 const db = prisma as unknown as PrismaClient;
 
+function safeParentName(parent: { name?: string | null; surname?: string | null } | null) {
+  if (!parent) return "Unknown parent";
+  const name = parent.name?.trim() || "";
+  const surname = parent.surname?.trim() || "";
+  return [name, surname].filter(Boolean).join(" ") || "Unknown parent";
+}
+
 export async function loadPurchaseBooksPageData(
   role: string | undefined,
   userId: string | undefined
@@ -22,12 +29,13 @@ export async function loadPurchaseBooksPageData(
   const isParent = role === "parent";
 
   const books = booksRaw.map((b) => {
+    const className = b.class?.name ?? "Unknown class";
     const base = {
       id: b.id,
       title: b.title,
       publication: b.publication,
       classId: b.classId,
-      className: b.class.name,
+      className,
       price: Number(b.priceCedis),
       quantity: b.quantity,
     };
@@ -61,16 +69,16 @@ export async function loadPurchaseBooksPageData(
 
   const orders = ordersRaw.map((o) => ({
     id: o.id,
-    parentName: `${o.parent.name} ${o.parent.surname}`,
+    parentName: safeParentName(o.parent),
     status: o.status,
     pickupCode: o.pickupCode || `BK-${String(o.id).padStart(4, "0")}`,
     createdAt: o.createdAt.toISOString(),
-    items: o.items.map((item) => ({
+    items: (o.items ?? []).map((item) => ({
       id: item.id,
-      bookTitle: item.book.title,
-      className: item.book.class.name,
+      bookTitle: item.book?.title ?? "Unknown book",
+      className: item.book?.class?.name ?? "Unknown class",
       quantity: item.quantity,
-      unitPrice: Number(item.book.priceCedis),
+      unitPrice: Number(item.book?.priceCedis ?? 0),
     })),
   }));
 
