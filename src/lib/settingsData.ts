@@ -1,8 +1,27 @@
 import prisma from "@/lib/prisma";
 import { PrismaClient } from "@prisma/client";
 import type { AcademicYearRow } from "@/components/settings/SettingsManagement";
+import { isRecoverablePrismaError } from "@/lib/prismaError";
 
 const db = prisma as unknown as PrismaClient;
+
+type AcademicYearWithTerms = {
+  id: number;
+  label: string;
+  numberOfTerms: number;
+  isActive: boolean;
+  isArchived: boolean;
+  archivedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  terms: Array<{
+    termNumber: number;
+    days: number;
+    weeks: number;
+    startDate: Date;
+    endDate: Date;
+  }>;
+};
 
 export async function loadSettingsPageData(): Promise<{
   academicYears: AcademicYearRow[];
@@ -27,25 +46,38 @@ export async function loadSettingsPageData(): Promise<{
     results: number;
   };
 }> {
-  const [years, teachers, students, parents, schoolSettings, archivedCounts] = await Promise.all([
-    db.academicYear.findMany({
-      include: { terms: { orderBy: { termNumber: "asc" } } },
-      orderBy: { createdAt: "desc" },
-    }),
-    db.teacher.findMany({ select: { id: true, name: true, surname: true }, orderBy: { name: "asc" } }),
-    db.student.findMany({ select: { id: true, name: true, surname: true }, orderBy: { name: "asc" } }),
-    db.parent.findMany({ select: { id: true, name: true, surname: true }, orderBy: { name: "asc" } }),
-    db.schoolSetting.findFirst(),
-    Promise.all([
-      db.feeSchedule.count({ where: { isArchived: true } }),
-      db.attendance.count({ where: { isArchived: true } }),
-      db.exam.count({ where: { isArchived: true } }),
-      db.assignment.count({ where: { isArchived: true } }),
-      db.event.count({ where: { isArchived: true } }),
-      db.announcement.count({ where: { isArchived: true } }),
-      db.result.count({ where: { isArchived: true } }),
-    ]),
-  ]);
+  let years: AcademicYearWithTerms[] = [];
+  let teachers: { id: string; name: string; surname: string }[] = [];
+  let students: { id: string; name: string; surname: string }[] = [];
+  let parents: { id: string; name: string; surname: string }[] = [];
+  let schoolSettings = null;
+  let archivedCounts: number[] = [0, 0, 0, 0, 0, 0, 0];
+
+  try {
+    [years, teachers, students, parents, schoolSettings, archivedCounts] = await Promise.all([
+      db.academicYear.findMany({
+        include: { terms: { orderBy: { termNumber: "asc" } } },
+        orderBy: { createdAt: "desc" },
+      }),
+      db.teacher.findMany({ select: { id: true, name: true, surname: true }, orderBy: { name: "asc" } }),
+      db.student.findMany({ select: { id: true, name: true, surname: true }, orderBy: { name: "asc" } }),
+      db.parent.findMany({ select: { id: true, name: true, surname: true }, orderBy: { name: "asc" } }),
+      db.schoolSetting.findFirst(),
+      Promise.all([
+        db.feeSchedule.count({ where: { isArchived: true } }),
+        db.attendance.count({ where: { isArchived: true } }),
+        db.exam.count({ where: { isArchived: true } }),
+        db.assignment.count({ where: { isArchived: true } }),
+        db.event.count({ where: { isArchived: true } }),
+        db.announcement.count({ where: { isArchived: true } }),
+        db.result.count({ where: { isArchived: true } }),
+      ]),
+    ]);
+  } catch (error) {
+    if (!isRecoverablePrismaError(error)) {
+      throw error;
+    }
+  }
 
   return {
     academicYears: years.map((y) => ({
