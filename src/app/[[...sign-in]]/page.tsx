@@ -32,8 +32,8 @@ const LoginPage = () => {
           const res = await fetch("/api/session/role");
           const data = await res.json();
           const serverRole = data?.role ?? null;
-          if (serverRole) {
-            const redirectPath = getRoleRedirectPath(clientRole, serverRole);
+          const redirectPath = getRoleRedirectPath(clientRole, serverRole);
+          if (serverRole || clientRole) {
             window.location.replace(redirectPath);
             return;
           }

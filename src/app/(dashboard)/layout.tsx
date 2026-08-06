@@ -14,12 +14,16 @@ export default async function DashboardLayout({
 
   let supervisorClassName: string | null = null;
   if (role === "teacher" && userId) {
-    const supervisorClass = await prisma.class.findFirst({
-      where: { supervisorId: userId },
-      select: { name: true },
-      orderBy: { name: "asc" },
-    });
-    supervisorClassName = supervisorClass?.name ?? null;
+    try {
+      const supervisorClass = await prisma.class.findFirst({
+        where: { supervisorId: userId },
+        select: { name: true },
+        orderBy: { name: "asc" },
+      });
+      supervisorClassName = supervisorClass?.name ?? null;
+    } catch (error) {
+      console.warn("Failed to load supervisor class info:", error);
+    }
   }
 
   return (

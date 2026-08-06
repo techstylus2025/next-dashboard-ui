@@ -7,10 +7,26 @@ import { auth } from "@clerk/nextjs/server";
 const StudentPage = async () => {
   const { userId } = await auth();
 
-  const student = await prisma.student.findUnique({
-    where: { id: userId! },
-    include: { class: true },
-  });
+  if (!userId) {
+    return (
+      <div className="p-4">
+        <div className="rounded-3xl border border-slate-200/70 bg-white p-6 shadow-sm">
+          <p className="text-sm text-slate-600">Your session is still loading. Please refresh if this continues.</p>
+        </div>
+      </div>
+    );
+  }
+
+  let student;
+  try {
+    student = await prisma.student.findUnique({
+      where: { id: userId },
+      include: { class: true },
+    });
+  } catch (error) {
+    console.warn("Failed to load student dashboard data:", error);
+    student = null;
+  }
 
   if (!student?.class) {
     return (

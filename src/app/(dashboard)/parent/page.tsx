@@ -7,15 +7,32 @@ import { notFound } from "next/navigation";
 
 const ParentPage = async () => {
   const { userId } = await auth();
-  const parent = await prisma.parent.findUnique({
-    where: { id: userId! },
-    include: {
-      students: {
-        include: { class: true },
-        orderBy: { name: "asc" },
+
+  if (!userId) {
+    return (
+      <div className="p-4">
+        <div className="rounded-3xl border border-slate-200/70 bg-white p-6 shadow-sm">
+          <p className="text-sm text-slate-600">Your session is still loading. Please refresh if this continues.</p>
+        </div>
+      </div>
+    );
+  }
+
+  let parent;
+  try {
+    parent = await prisma.parent.findUnique({
+      where: { id: userId },
+      include: {
+        students: {
+          include: { class: true },
+          orderBy: { name: "asc" },
+        },
       },
-    },
-  });
+    });
+  } catch (error) {
+    console.warn("Failed to load parent dashboard data:", error);
+    parent = null;
+  }
 
   if (!parent) {
     return notFound();

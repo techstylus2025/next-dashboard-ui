@@ -10,10 +10,27 @@ const TeacherPage = async ({
   searchParams: Promise<{ [key: string]: string | undefined }>;
 }) => {
   const { userId } = await auth();
-  const teacher = await prisma.teacher.findUnique({
-    where: { id: userId! },
-    include: { subjects: true },
-  });
+
+  if (!userId) {
+    return (
+      <div className="p-4">
+        <div className="rounded-3xl border border-slate-200/70 bg-white p-6 shadow-sm">
+          <p className="text-sm text-slate-600">Your session is still loading. Please refresh if this continues.</p>
+        </div>
+      </div>
+    );
+  }
+
+  let teacher;
+  try {
+    teacher = await prisma.teacher.findUnique({
+      where: { id: userId },
+      include: { subjects: true },
+    });
+  } catch (error) {
+    console.warn("Failed to load teacher dashboard data:", error);
+    teacher = null;
+  }
 
   const teacherSubjectNames = teacher?.subjects?.map((subject) => subject.name) ?? [];
 
