@@ -18,40 +18,39 @@ const LoginPage = () => {
   const [isRedirecting, setIsRedirecting] = useState(false);
 
   useEffect(() => {
-    if (!isLoaded) return;
-    if (isSignedIn && user && !isRedirecting) {
-      const clientRole = (user as any)?.publicMetadata?.role as string | undefined;
-      setIsRedirecting(true);
+    if (!isLoaded || !isSignedIn || !user || isRedirecting) return;
 
-      const pollInterval = 400;
-      const maxAttempts = 12;
-      let attempts = 0;
+    const clientRole = (user as any)?.publicMetadata?.role as string | undefined;
+    setIsRedirecting(true);
 
-      const poll = async () => {
-        try {
-          const res = await fetch("/api/session/role");
-          const data = await res.json();
-          const serverRole = data?.role ?? null;
-          const redirectPath = getRoleRedirectPath(clientRole, serverRole);
-          if (serverRole || clientRole) {
-            window.location.replace(redirectPath);
-            return;
-          }
-        } catch (e) {
-          console.warn("Error polling session role:", e);
+    const pollInterval = 400;
+    const maxAttempts = 12;
+    let attempts = 0;
+
+    const poll = async () => {
+      try {
+        const res = await fetch("/api/session/role");
+        const data = await res.json();
+        const serverRole = data?.role ?? null;
+        const redirectPath = getRoleRedirectPath(clientRole, serverRole);
+        if (serverRole || clientRole) {
+          window.location.replace(redirectPath);
+          return;
         }
+      } catch (e) {
+        console.warn("Error polling session role:", e);
+      }
 
-        attempts++;
-        if (attempts < maxAttempts) {
-          setTimeout(poll, pollInterval);
-        } else {
-          window.location.replace(getRoleRedirectPath(clientRole, null));
-        }
-      };
+      attempts++;
+      if (attempts < maxAttempts) {
+        setTimeout(poll, pollInterval);
+      } else {
+        window.location.replace(getRoleRedirectPath(clientRole, null));
+      }
+    };
 
-      poll();
-    }
-  }, [isLoaded, isSignedIn, user, isRedirecting]);
+    poll();
+  }, [isLoaded, isRedirecting, isSignedIn, user]);
 
   if (!isLoaded) {
     return (
@@ -78,11 +77,30 @@ const LoginPage = () => {
     );
   }
 
-  if (isSignedIn && user) {
-    return null;
+  if ((isSignedIn && user) || isRedirecting) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 flex items-center justify-center px-4 py-10">
+        <div className="text-center">
+          <div className="mx-auto relative flex h-40 w-40 items-center justify-center">
+            <div className="absolute inset-0 flex items-center justify-center" aria-hidden="true">
+              <div className="loading-logo-spinner animate-slow-spin">
+                <span className="loading-logo-dot dot-1" />
+                <span className="loading-logo-dot dot-2" />
+                <span className="loading-logo-dot dot-3" />
+                <span className="loading-logo-dot dot-4" />
+                <span className="loading-logo-dot dot-5" />
+                <span className="loading-logo-dot dot-6" />
+                <span className="loading-logo-dot dot-7" />
+                <span className="loading-logo-dot dot-8" />
+              </div>
+            </div>
+            <Image src="/logo.png" alt="Loading" width={56} height={56} className="relative z-10 rounded-full bg-slate-950/90 p-1" />
+          </div>
+          <p className="mt-4 text-sm text-slate-300">Signing you in and preparing your dashboard…</p>
+        </div>
+      </div>
+    );
   }
-
-  if (isRedirecting) return null;
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
