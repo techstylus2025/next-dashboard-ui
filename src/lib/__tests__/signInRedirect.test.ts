@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { getDashboardPath } from "../dashboard";
 import { getRoleRedirectPath, normalizeRole } from "../signInRedirect";
 
 describe("normalizeRole", () => {
@@ -21,5 +22,15 @@ describe("getRoleRedirectPath", () => {
 
   it("falls back to the admin dashboard when no role is known", () => {
     expect(getRoleRedirectPath(undefined, null)).toBe("/admin");
+  });
+
+  it("keeps a safe default redirect even before the role has propagated", () => {
+    expect(getRoleRedirectPath(undefined, undefined)).toBe("/admin");
+  });
+});
+
+describe("getDashboardPath", () => {
+  it("defaults signed-in users without a role to the admin dashboard", () => {
+    expect(getDashboardPath(undefined)).toBe("/admin");
   });
 });

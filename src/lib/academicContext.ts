@@ -43,7 +43,16 @@ export const getActiveAcademicPeriod = cache(
   async (): Promise<AcademicPeriodBadge> => {
     const year = await db.academicYear.findFirst({
       where: { isActive: true, isArchived: false },
-      include: { terms: true },
+      include: {
+        terms: {
+          select: {
+            id: true,
+            termNumber: true,
+            startDate: true,
+            endDate: true,
+          },
+        },
+      },
     });
 
     if (!year || year.terms.length === 0) {

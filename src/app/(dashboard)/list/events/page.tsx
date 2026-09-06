@@ -129,7 +129,12 @@ const EventListPage = async ({
   // Fetch academic years and terms to group events
   const [academicYears, allEvents, count] = await Promise.all([
     prisma.academicYear.findMany({
-      include: { terms: { orderBy: { termNumber: "asc" } } },
+      include: {
+        terms: {
+          orderBy: { termNumber: "asc" },
+          select: { id: true, termNumber: true, startDate: true, endDate: true },
+        },
+      },
       where: { isArchived: false },
       orderBy: { createdAt: "desc" },
     }),
@@ -142,8 +147,11 @@ const EventListPage = async ({
   ]);
 
   // Function to find which term an event belongs to
-  const getTermForDate = (date: Date, year: AcademicYear & { terms: AcademicTerm[] }) => {
-    const term = year.terms.find(t => date >= t.startDate && date <= t.endDate);
+  const getTermForDate = (
+    date: Date,
+    year: { terms: { termNumber: number; startDate: Date; endDate: Date }[] }
+  ) => {
+    const term = year.terms.find((t) => date >= t.startDate && date <= t.endDate);
     return term?.termNumber ?? null;
   };
 

@@ -25,17 +25,25 @@ interface SyncMetadata {
 
 let db: IDBDatabase | null = null;
 
+function isIndexedDbAvailable(): boolean {
+  return typeof window !== "undefined" && "indexedDB" in window;
+}
+
 /**
  * Initialize IndexedDB
  */
-export async function initializeOfflineDb(): Promise<IDBDatabase> {
+export async function initializeOfflineDb(): Promise<IDBDatabase | null> {
+  if (!isIndexedDbAvailable()) {
+    return null;
+  }
+
   return new Promise((resolve, reject) => {
     if (db) {
       resolve(db);
       return;
     }
 
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    const request = window.indexedDB.open(DB_NAME, DB_VERSION);
 
     request.onerror = () => {
       console.error("Failed to open IndexedDB:", request.error);
@@ -73,6 +81,10 @@ export async function getAllOfflineData<T>(
 ): Promise<T[]> {
   try {
     const database = await initializeOfflineDb();
+    if (!database) {
+      return [];
+    }
+
     return new Promise((resolve, reject) => {
       const transaction = database.transaction(storeName, "readonly");
       const store = transaction.objectStore(storeName);
@@ -96,6 +108,10 @@ export async function getOfflineData<T>(
 ): Promise<T | null> {
   try {
     const database = await initializeOfflineDb();
+    if (!database) {
+      return null;
+    }
+
     return new Promise((resolve, reject) => {
       const transaction = database.transaction(storeName, "readonly");
       const store = transaction.objectStore(storeName);
@@ -119,6 +135,10 @@ export async function saveOfflineData<T extends { id: string | number }>(
 ): Promise<void> {
   try {
     const database = await initializeOfflineDb();
+    if (!database) {
+      return;
+    }
+
     return new Promise((resolve, reject) => {
       const transaction = database.transaction(storeName, "readwrite");
       const store = transaction.objectStore(storeName);
@@ -142,6 +162,10 @@ export async function saveOfflineData<T extends { id: string | number }>(
 export async function clearOfflineStore(storeName: OfflineDataType): Promise<void> {
   try {
     const database = await initializeOfflineDb();
+    if (!database) {
+      return;
+    }
+
     return new Promise((resolve, reject) => {
       const transaction = database.transaction(storeName, "readwrite");
       const store = transaction.objectStore(storeName);
@@ -161,6 +185,10 @@ export async function clearOfflineStore(storeName: OfflineDataType): Promise<voi
 export async function getLastSyncTime(storeName: OfflineDataType): Promise<number | null> {
   try {
     const database = await initializeOfflineDb();
+    if (!database) {
+      return null;
+    }
+
     return new Promise((resolve, reject) => {
       const transaction = database.transaction(STORES.SYNC_METADATA, "readonly");
       const store = transaction.objectStore(STORES.SYNC_METADATA);
@@ -184,6 +212,10 @@ export async function getLastSyncTime(storeName: OfflineDataType): Promise<numbe
 export async function updateLastSyncTime(storeName: OfflineDataType): Promise<void> {
   try {
     const database = await initializeOfflineDb();
+    if (!database) {
+      return;
+    }
+
     return new Promise((resolve, reject) => {
       const transaction = database.transaction(STORES.SYNC_METADATA, "readwrite");
       const store = transaction.objectStore(STORES.SYNC_METADATA);
@@ -221,6 +253,10 @@ export async function getOfflineCacheStats(): Promise<Record<string, number>> {
 export async function clearAllOfflineData(): Promise<void> {
   try {
     const database = await initializeOfflineDb();
+    if (!database) {
+      return;
+    }
+
     return new Promise((resolve, reject) => {
       const transaction = database.transaction(Object.values(STORES), "readwrite");
 

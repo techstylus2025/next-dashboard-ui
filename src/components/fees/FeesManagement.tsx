@@ -1,75 +1,18 @@
 "use client";
 
 import Image from "next/image";
+import { PlusCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "react-toastify";
 import {
   createFeeSchedule,
-  deleteFeePayment,
-  deleteFeeSchedule,
   recordFeePayment,
   updateFeePayment,
+  deleteFeePayment,
   updateFeeSchedule,
-} from "@/lib/feeActions";
-
-export type ClassOption = { id: number; name: string };
-
-export type ClassFeeCard = {
-  id: number;
-  classId: number;
-  className: string;
-  term: string;
-  academicYear: string;
-  totalBill: number;
-  studentCount: number;
-  totalCollected: number;
-  outstanding: number;
-};
-
-export type AssignmentOption = {
-  id: number;
-  studentName: string;
-  className: string;
-  term: string;
-  academicYear: string;
-  totalBill: number;
-  paidSoFar: number;
-  balance: number;
-  lastPaymentDate: string | null;
-};
-
-export type PaymentRow = {
-  id: number;
-  assignmentId: number;
-  studentName: string;
-  className: string;
-  term: string;
-  academicYear: string;
-  amount: number;
-  paidAt: string;
-  paymentMethod?: string;
-  methodDetails?: string | null;
-};
-
-export type FeeSummary = {
-  totalFeesCollected: number;
-  totalFeesOutstanding: number;
-  feeAssignments: number;
-  activeFeeSchedules: number;
-};
-
-type ReceiptData = {
-  studentName: string;
-  className: string;
-  term: string;
-  academicYear: string;
-  amount: number;
-  paymentDate: string;
-  paymentMethod: string;
-  methodDetails: string | null;
-  mobileMoneyService?: string | null;
-};
+  deleteFeeSchedule,
+} from "../../lib/feeActions";
 
 function termLabel(term: string) {
   switch (term) {
@@ -83,6 +26,64 @@ function termLabel(term: string) {
       return term;
   }
 }
+
+// Lightweight local types for this component
+type ClassOption = { id: number; name: string };
+type ClassFeeCard = {
+  id: number;
+  classId: number;
+  className: string;
+  term: string;
+  academicYear: string;
+  totalBill: number;
+  studentCount: number;
+  totalCollected: number;
+  outstanding: number;
+};
+type AssignmentOption = {
+  id: number;
+  studentName: string;
+  className: string;
+  term: string;
+  academicYear: string;
+  totalBill: number;
+  paidSoFar: number;
+  balance: number;
+  lastPaymentDate: string | null;
+};
+type PaymentRow = {
+  id: number;
+  assignmentId: number;
+  studentName: string;
+  className: string;
+  term: string;
+  academicYear: string;
+  amount: number;
+  paidAt: string;
+  paymentMethod?: string | null;
+  methodDetails?: string | null;
+  studentId?: number;
+  parentId?: string | null;
+};
+type ReceiptData = {
+  studentName: string;
+  className: string;
+  term: string;
+  academicYear: string;
+  amount: number;
+  paymentDate: string;
+  paymentMethod: string;
+  methodDetails?: string | null;
+  mobileMoneyService?: string | null;
+  balance?: number;
+};
+type FeeSummary = {
+  totalFeesCollected: number;
+  totalFeesOutstanding: number;
+  feeAssignments: number;
+  activeFeeSchedules: number;
+};
+
 
 export default function FeesManagement({
   role,
@@ -127,12 +128,101 @@ export default function FeesManagement({
   const [receiptModalOpen, setReceiptModalOpen] = useState(false);
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
   const [viewingReceiptPayment, setViewingReceiptPayment] = useState<PaymentRow | null>(null);
+  const [paymentFilterYear, setPaymentFilterYear] = useState("");
+  const [paymentFilterTerm, setPaymentFilterTerm] = useState("");
+  const [paymentFilterClass, setPaymentFilterClass] = useState("");
+  const [paymentFilterStudent, setPaymentFilterStudent] = useState("");
+  const [paymentFilterModalOpen, setPaymentFilterModalOpen] = useState(false);
+  const [expandedStudentKeys, setExpandedStudentKeys] = useState<Record<string, boolean>>({});
+
+  const toggleStudentGroup = (key: string) => {
+    setExpandedStudentKeys((prev) => ({
+      ...prev,
+      [key]: !(prev[key] ?? true),
+    }));
+  };
+
+  const paymentYears = useMemo(
+    () => Array.from(new Set(payments.map((p) => p.academicYear))).sort((a, b) => b.localeCompare(a)),
+    [payments]
+  );
+
+  const paymentTerms = useMemo(() => {
+    const source = paymentFilterYear
+      ? payments.filter((p) => p.academicYear === paymentFilterYear)
+      : payments;
+    return Array.from(new Set(source.map((p) => p.term))).sort((a, b) => a.localeCompare(b));
+  }, [payments, paymentFilterYear]);
+
+  const paymentClasses = useMemo(() => {
+    const source = payments.filter((p) => {
+      if (paymentFilterYear && p.academicYear !== paymentFilterYear) return false;
+      if (paymentFilterTerm && p.term !== paymentFilterTerm) return false;
+      return true;
+    });
+    return Array.from(new Set(source.map((p) => p.className))).sort((a, b) => a.localeCompare(b));
+  }, [payments, paymentFilterYear, paymentFilterTerm]);
+
+  const paymentStudents = useMemo(() => {
+    const source = payments.filter((p) => {
+      if (paymentFilterYear && p.academicYear !== paymentFilterYear) return false;
+      if (paymentFilterTerm && p.term !== paymentFilterTerm) return false;
+      if (paymentFilterClass && p.className !== paymentFilterClass) return false;
+      return true;
+    });
+    return Array.from(new Set(source.map((p) => p.studentName))).sort((a, b) => a.localeCompare(b));
+  }, [payments, paymentFilterYear, paymentFilterTerm, paymentFilterClass]);
 
   const filteredPayments = useMemo(() => {
     const q = paymentSearch.trim().toLowerCase();
-    if (!q) return payments;
-    return payments.filter((p) => p.studentName.toLowerCase().includes(q));
-  }, [payments, paymentSearch]);
+    return payments.filter((p) => {
+      if (q) {
+        const searchTarget = `${p.studentName} ${p.className} ${p.academicYear} ${termLabel(p.term)}`.toLowerCase();
+        if (!searchTarget.includes(q)) return false;
+      }
+      if (paymentFilterYear && p.academicYear !== paymentFilterYear) return false;
+      if (paymentFilterTerm && p.term !== paymentFilterTerm) return false;
+      if (paymentFilterClass && p.className !== paymentFilterClass) return false;
+      if (paymentFilterStudent && p.studentName !== paymentFilterStudent) return false;
+      return true;
+    });
+  }, [payments, paymentSearch, paymentFilterYear, paymentFilterTerm, paymentFilterClass, paymentFilterStudent]);
+
+  const studentPaymentGroups = useMemo(() => {
+    const groups = new Map<
+      string,
+      {
+        studentName: string;
+        className: string;
+        academicYear: string;
+        term: string;
+        payments: PaymentRow[];
+      }
+    >();
+
+    for (const p of filteredPayments) {
+      const key = `${p.studentName}|${p.className}|${p.term}|${p.academicYear}`;
+      if (!groups.has(key)) {
+        groups.set(key, {
+          studentName: p.studentName,
+          className: p.className,
+          academicYear: p.academicYear,
+          term: p.term,
+          payments: [],
+        });
+      }
+      groups.get(key)!.payments.push(p);
+    }
+
+    return Array.from(groups.values())
+      .map((group) => ({
+        ...group,
+        payments: [...group.payments].sort(
+          (a, b) => new Date(b.paidAt).getTime() - new Date(a.paidAt).getTime()
+        ),
+      }))
+      .sort((a, b) => a.studentName.localeCompare(b.studentName));
+  }, [filteredPayments]);
 
   const filteredStudents = useMemo(() => {
     const q = paymentSearch.trim().toLowerCase();
@@ -140,23 +230,97 @@ export default function FeesManagement({
     return assignmentOptions.filter((a) => a.studentName.toLowerCase().includes(q));
   }, [assignmentOptions, paymentSearch]);
 
+  const renderPaymentFilterFields = () => (
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <label className="text-xs font-medium text-slate-600">
+        Academic Year
+        <select
+          value={paymentFilterYear}
+          onChange={(e) => {
+            setPaymentFilterYear(e.target.value);
+            setPaymentFilterTerm("");
+            setPaymentFilterClass("");
+            setPaymentFilterStudent("");
+          }}
+          className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+        >
+          <option value="">All years</option>
+          {paymentYears.map((year) => (
+            <option key={year} value={year}>{year}</option>
+          ))}
+        </select>
+      </label>
+
+      <label className="text-xs font-medium text-slate-600">
+        Term
+        <select
+          value={paymentFilterTerm}
+          onChange={(e) => {
+            setPaymentFilterTerm(e.target.value);
+            setPaymentFilterClass("");
+            setPaymentFilterStudent("");
+          }}
+          className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+        >
+          <option value="">All terms</option>
+          {paymentTerms.map((term) => (
+            <option key={term} value={term}>{termLabel(term)}</option>
+          ))}
+        </select>
+      </label>
+
+      <label className="text-xs font-medium text-slate-600">
+        Class
+        <select
+          value={paymentFilterClass}
+          onChange={(e) => {
+            setPaymentFilterClass(e.target.value);
+            setPaymentFilterStudent("");
+          }}
+          className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+        >
+          <option value="">All classes</option>
+          {paymentClasses.map((className) => (
+            <option key={className} value={className}>{className}</option>
+          ))}
+        </select>
+      </label>
+
+      <label className="text-xs font-medium text-slate-600">
+        Student
+        <select
+          value={paymentFilterStudent}
+          onChange={(e) => setPaymentFilterStudent(e.target.value)}
+          className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+        >
+          <option value="">All students</option>
+          {paymentStudents.map((studentName) => (
+            <option key={studentName} value={studentName}>{studentName}</option>
+          ))}
+        </select>
+      </label>
+    </div>
+  );
+
   return (
     <div className="w-full flex flex-col gap-8 p-4 md:p-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-slate-800">Fee management</h1>
-        <p className="text-sm text-slate-500 mt-1">
-          {canAdmin
-            ? "Create class fee bills, record collections, and manage payment entries."
-            : role === "parent"
-            ? "Fee payments recorded for your children."
-            : role === "student"
-            ? "Your school fee payment history."
-            : "Class fee overview (read-only)."}
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">Fee management</h1>
+          <p className="mt-1 text-sm font-semibold text-slate-500">
+            {canAdmin
+              ? "Create class fee bills, record collections, and manage payment entries."
+              : role === "parent"
+              ? "Fee payments recorded for your children."
+              : role === "student"
+              ? "Your school fee payment history."
+              : "Class fee overview (read-only)."}
+          </p>
+        </div>
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-2 rounded-full bg-slate-100 p-1">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex w-full items-center justify-between gap-1 rounded-full bg-slate-100 p-1 sm:w-auto sm:justify-start sm:gap-2">
           {[
             { key: "overview", label: "Overview" },
             { key: "feeBills", label: "Fee schedules" },
@@ -166,25 +330,27 @@ export default function FeesManagement({
               key={tab.key}
               type="button"
               onClick={() => setActiveTab(tab.key as any)}
-              className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+              className={`rounded-full px-2 py-1.5 text-[11px] font-medium transition sm:px-4 sm:py-2 sm:text-sm ${
                 activeTab === tab.key ? "bg-slate-900 text-white" : "text-slate-700 hover:text-slate-900"
               }`}
             >
               {tab.label}
             </button>
           ))}
-        </div>
 
-        <div className="flex flex-wrap items-center gap-2">
           {canAdmin && activeTab === "feeBills" && (
             <button
               type="button"
+              aria-label="Create fee bill"
               onClick={() => setCreateModalOpen(true)}
-              className="rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-white transition hover:bg-slate-800"
             >
-              Create fee bill
+              <PlusCircle size={16} strokeWidth={2.5} />
             </button>
           )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
           {canCollect && activeTab === "payments" && (
             <button
               type="button"
@@ -204,22 +370,22 @@ export default function FeesManagement({
               <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-slate-100 p-5 shadow-sm ring-1 ring-slate-100">
                 <div className="inline-flex rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold uppercase tracking-[0.15em] text-white">Collected</div>
                 <p className="mt-4 text-sm text-slate-500">Total fees collected</p>
-                <p className="mt-3 text-3xl font-semibold text-slate-900">₵{summary.totalFeesCollected.toFixed(2)}</p>
+                <p className="mt-3 text-xl font-semibold text-slate-900">₵{summary.totalFeesCollected.toFixed(2)}</p>
               </div>
               <div className="rounded-3xl border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-amber-100 p-5 shadow-sm ring-1 ring-amber-100">
                 <div className="inline-flex rounded-full bg-amber-600 px-3 py-1 text-xs font-semibold uppercase tracking-[0.15em] text-white">Outstanding</div>
                 <p className="mt-4 text-sm text-slate-600">Outstanding balance</p>
-                <p className="mt-3 text-3xl font-semibold text-slate-900">₵{summary.totalFeesOutstanding.toFixed(2)}</p>
+                <p className="mt-3 text-xl font-semibold text-slate-900">₵{summary.totalFeesOutstanding.toFixed(2)}</p>
               </div>
               <div className="rounded-3xl border border-sky-200 bg-gradient-to-br from-sky-50 via-white to-sky-100 p-5 shadow-sm ring-1 ring-sky-100">
                 <div className="inline-flex rounded-full bg-sky-600 px-3 py-1 text-xs font-semibold uppercase tracking-[0.15em] text-white">Schedules</div>
                 <p className="mt-4 text-sm text-slate-600">Active fee schedules</p>
-                <p className="mt-3 text-3xl font-semibold text-slate-900">{summary.activeFeeSchedules}</p>
+                <p className="mt-3 text-xl font-semibold text-slate-900">{summary.activeFeeSchedules}</p>
               </div>
               <div className="rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-emerald-100 p-5 shadow-sm ring-1 ring-emerald-100">
                 <div className="inline-flex rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold uppercase tracking-[0.15em] text-white">Assignments</div>
                 <p className="mt-4 text-sm text-slate-600">Fee assignments</p>
-                <p className="mt-3 text-3xl font-semibold text-slate-900">{summary.feeAssignments}</p>
+                <p className="mt-3 text-xl font-semibold text-slate-900">{summary.feeAssignments}</p>
               </div>
             </div>
 
@@ -292,7 +458,7 @@ export default function FeesManagement({
             ) : (
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {classFeeCards.map((card) => (
-                  <div key={card.id} className="rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-slate-100 p-5 shadow-lg transition hover:-translate-y-1 hover:shadow-xl">
+                  <div key={card.id} className="rounded-3xl bg-gradient-to-br from-white via-slate-50 to-slate-100 p-5 transition hover:-translate-y-1">
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="text-sm font-semibold text-slate-900">{card.className}</p>
@@ -303,20 +469,20 @@ export default function FeesManagement({
                       </span>
                     </div>
 
-                    <div className="mt-4 space-y-4 text-sm text-slate-600">
-                      <div className="rounded-2xl bg-slate-50 p-4 shadow-inner shadow-slate-100">
-                        <p className="text-xs uppercase tracking-[0.15em] text-slate-500">Total bill</p>
-                        <p className="mt-2 text-lg font-semibold text-slate-900">₵{card.totalBill.toFixed(2)}</p>
-                      </div>
-                      <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="mt-4 space-y-3 text-sm text-slate-600">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="rounded-2xl bg-slate-50 p-4 shadow-inner shadow-slate-100">
+                          <p className="text-xs uppercase tracking-[0.15em] text-slate-500">Total bill</p>
+                          <p className="mt-2 text-lg font-semibold text-slate-900">₵{card.totalBill.toFixed(2)}</p>
+                        </div>
                         <div className="rounded-2xl bg-emerald-50 p-4">
                           <p className="text-xs uppercase tracking-[0.15em] text-emerald-700">Collected</p>
                           <p className="mt-2 text-lg font-semibold text-emerald-900">₵{card.totalCollected.toFixed(2)}</p>
                         </div>
-                        <div className="rounded-2xl bg-amber-50 p-4">
-                          <p className="text-xs uppercase tracking-[0.15em] text-amber-700">Outstanding</p>
-                          <p className="mt-2 text-lg font-semibold text-amber-900">₵{card.outstanding.toFixed(2)}</p>
-                        </div>
+                      </div>
+                      <div className="rounded-2xl bg-amber-50 p-4">
+                        <p className="text-xs uppercase tracking-[0.15em] text-amber-700">Outstanding</p>
+                        <p className="mt-2 text-lg font-semibold text-amber-900">₵{card.outstanding.toFixed(2)}</p>
                       </div>
                     </div>
                   </div>
@@ -328,6 +494,37 @@ export default function FeesManagement({
 
         {activeTab === "payments" && (
           <div>
+            <div className="mb-4 hidden md:block rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <h3 className="text-sm font-medium text-slate-700">Filters</h3>
+                <button
+                  type="button"
+                  className="text-xs font-medium text-slate-600 underline underline-offset-2"
+                  onClick={() => {
+                    setPaymentFilterYear("");
+                    setPaymentFilterTerm("");
+                    setPaymentFilterClass("");
+                    setPaymentFilterStudent("");
+                  }}
+                >
+                  Clear filters
+                </button>
+              </div>
+
+              {renderPaymentFilterFields()}
+            </div>
+
+            <div className="mb-4 md:hidden">
+              <button
+                type="button"
+                onClick={() => setPaymentFilterModalOpen(true)}
+                className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm font-medium text-slate-700"
+              >
+                <span>Payment filters</span>
+                <span className="rounded-full bg-white px-2 py-1 text-xs text-slate-500">Open</span>
+              </button>
+            </div>
+
             <div className="mb-4">
               <form onSubmit={(e) => e.preventDefault()} className="flex items-center gap-2">
                 <input
@@ -345,73 +542,115 @@ export default function FeesManagement({
               {filteredPayments.length === 0 ? (
                 <p className="text-sm text-slate-600">No payments found.</p>
               ) : (
-                <div className="space-y-2">
-                  {filteredPayments.map((p) => (
-                    <div key={p.id} className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <p className="font-semibold">{p.studentName} — {p.className}</p>
-                        <p className="text-xs text-slate-500">{termLabel(p.term)} • {p.academicYear}</p>
-                        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                          <span className="rounded-full bg-slate-100 px-2 py-1">
-                            {p.paymentMethod === "mobile_money"
-                              ? "Mobile Money"
-                              : p.paymentMethod === "bank_payment"
-                              ? "Bank Payment"
-                              : p.paymentMethod === "other"
-                              ? "Other"
-                              : "Cash"}
-                          </span>
-                          {p.methodDetails ? <span className="rounded-full bg-slate-100 px-2 py-1">{p.methodDetails}</span> : null}
+                <div className="space-y-3">
+                  {studentPaymentGroups.map((group) => {
+                    const groupKey = `${group.studentName}-${group.className}-${group.term}-${group.academicYear}`;
+                    const isExpanded = expandedStudentKeys[groupKey] ?? true;
+
+                    return (
+                      <div key={groupKey} className="rounded-xl border border-slate-200 bg-slate-50 overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => toggleStudentGroup(groupKey)}
+                          className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+                        >
+                          <div>
+                            <p className="font-semibold text-slate-800">{group.studentName}</p>
+                            <p className="text-xs text-slate-500">
+                              {group.className} • {termLabel(group.term)} • {group.academicYear}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-slate-700">
+                              ₵{group.payments.reduce((sum, p) => sum + p.amount, 0).toFixed(2)}
+                            </span>
+                            <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-slate-600">
+                              {isExpanded ? "Hide" : "Show"}
+                            </span>
+                          </div>
+                        </button>
+
+                        <div
+                          className={`grid overflow-hidden transition-all duration-300 ease-in-out ${
+                            isExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                          }`}
+                        >
+                          <div className="overflow-hidden">
+                            <div className="space-y-2 border-t border-slate-100 p-3">
+                              {group.payments.map((p) => (
+                                <div key={p.id} className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
+                                  <div>
+                                    <p className="font-semibold text-slate-800">{p.studentName}</p>
+                                    <p className="text-xs text-slate-500">{termLabel(p.term)} • {p.academicYear}</p>
+                                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                                      <span className="rounded-full bg-slate-100 px-2 py-1">
+                                        {p.paymentMethod === "mobile_money"
+                                          ? "Mobile Money"
+                                          : p.paymentMethod === "bank_payment"
+                                          ? "Bank Payment"
+                                          : p.paymentMethod === "other"
+                                          ? "Other"
+                                          : "Cash"}
+                                      </span>
+                                      {p.methodDetails ? <span className="rounded-full bg-slate-100 px-2 py-1">{p.methodDetails}</span> : null}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-3">
+                                    <div className="text-sm font-semibold text-slate-900">₵{p.amount.toFixed(2)}</div>
+                                    <div className="text-xs text-slate-500">{new Date(p.paidAt).toLocaleDateString()}</div>
+                                    <button
+                                      type="button"
+                                      title="View receipt"
+                                      className="rounded-lg p-2 hover:bg-sky-100"
+                                      onClick={() => {
+                                        setViewingReceiptPayment(p);
+                                        const matching = assignmentOptions.find((a) => a.id === p.assignmentId);
+                                        setReceiptData({
+                                          studentName: p.studentName,
+                                          className: p.className,
+                                          term: p.term,
+                                          academicYear: p.academicYear,
+                                          amount: p.amount,
+                                          paymentDate: p.paidAt,
+                                          paymentMethod: p.paymentMethod ?? "cash",
+                                          methodDetails: p.methodDetails ?? null,
+                                          mobileMoneyService: p.paymentMethod === "mobile_money" ? (p.methodDetails?.split(" - ")[0] || "MTN") : null,
+                                          balance: matching ? matching.balance : 0,
+                                        });
+                                      }}
+                                    >
+                                      <Image src="/receipt.svg" alt="Receipt" width={16} height={16} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (!confirm('Delete this payment?')) return;
+                                        startTransition(() => {
+                                          void (async () => {
+                                            const res = await deleteFeePayment(p.id);
+                                            if (res.success) {
+                                              toast.success('Payment deleted.');
+                                              router.refresh();
+                                            } else {
+                                              toast.error(res.error || 'Delete failed.');
+                                            }
+                                          })();
+                                        });
+                                      }}
+                                      className="rounded-lg p-2 hover:bg-red-100"
+                                      title="Delete"
+                                    >
+                                      <Image src="/delete.svg" alt="Delete" width={16} height={16} />
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <div className="text-sm font-semibold">₵{p.amount.toFixed(2)}</div>
-                        <div className="text-xs text-slate-500">{new Date(p.paidAt).toLocaleDateString()}</div>
-                        <button
-                          type="button"
-                          title="View receipt"
-                          className="rounded-lg p-2 hover:bg-sky-100"
-                          onClick={() => {
-                            setViewingReceiptPayment(p);
-                            setReceiptData({
-                              studentName: p.studentName,
-                              className: p.className,
-                              term: p.term,
-                              academicYear: p.academicYear,
-                              amount: p.amount,
-                              paymentDate: p.paidAt,
-                              paymentMethod: p.paymentMethod ?? "cash",
-                              methodDetails: p.methodDetails ?? null,
-                              mobileMoneyService: p.paymentMethod === "mobile_money" ? (p.methodDetails?.split(" - ")[0] || "MTN") : null,
-                            });
-                          }}
-                        >
-                          <Image src="/receipt.svg" alt="Receipt" width={16} height={16} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (!confirm('Delete this payment?')) return;
-                            startTransition(() => {
-                              void (async () => {
-                                const res = await deleteFeePayment(p.id);
-                                if (res.success) {
-                                  toast.success('Payment deleted.');
-                                  router.refresh();
-                                } else {
-                                  toast.error(res.error || 'Delete failed.');
-                                }
-                              })();
-                            });
-                          }}
-                          className="rounded-lg p-2 hover:bg-red-100"
-                          title="Delete"
-                        >
-                          <Image src="/delete.svg" alt="Delete" width={16} height={16} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -447,6 +686,49 @@ export default function FeesManagement({
           </div>
         )}
       </div>
+
+      {paymentFilterModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 md:hidden">
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h3 className="text-lg font-semibold text-slate-800">Payment filters</h3>
+              <button
+                type="button"
+                onClick={() => setPaymentFilterModalOpen(false)}
+                className="rounded-full bg-slate-100 px-2 py-1 text-sm text-slate-600"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {renderPaymentFilterFields()}
+            </div>
+
+            <div className="mt-5 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                className="text-sm font-medium text-slate-600 underline underline-offset-2"
+                onClick={() => {
+                  setPaymentFilterYear("");
+                  setPaymentFilterTerm("");
+                  setPaymentFilterClass("");
+                  setPaymentFilterStudent("");
+                }}
+              >
+                Clear
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentFilterModalOpen(false)}
+                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white"
+              >
+                Apply
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {createModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -597,6 +879,7 @@ export default function FeesManagement({
                       paymentMethod,
                       methodDetails: fullMethodDetails,
                       mobileMoneyService: paymentMethod === 'mobile_money' ? mobileMoneyService : null,
+                      balance: Math.max(0, selectedAssignment.balance - amt),
                     };
                     startTransition(() => {
                       void (async () => {
@@ -629,6 +912,7 @@ export default function FeesManagement({
                   <div>
                     <p className="text-sm font-medium">Recording for: {selectedAssignment.studentName}</p>
                     <p className="text-xs text-slate-500">{selectedAssignment.className} — {selectedAssignment.academicYear}</p>
+                    <p className="mt-1 text-sm font-semibold text-red-600">Balance: ₵{selectedAssignment.balance.toFixed(2)}</p>
                   </div>
                   <div className="grid gap-2">
                     <input value={payAmount} onChange={(e) => setPayAmount(e.target.value)} placeholder="Amount (₵)" className="rounded-lg border px-3 py-2" />
@@ -682,14 +966,14 @@ export default function FeesManagement({
           <div className="fee-receipt-print w-full max-w-2xl rounded-2xl bg-white p-8 shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="mb-6 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Image src="/logo.png" alt="TechStylus" width={32} height={32} />
-                <h2 className="text-2xl font-bold text-slate-800">TechStylus</h2>
+                <Image src="/logo.png" alt={process.env.NEXT_PUBLIC_SCHOOL_NAME || 'School'} width={32} height={32} />
+                <h2 className="text-2xl font-bold text-slate-800">{process.env.NEXT_PUBLIC_SCHOOL_NAME || 'School Name'}</h2>
               </div>
               <h3 className="text-lg font-semibold text-slate-600">PAYMENT RECEIPT</h3>
             </div>
 
             <div className="mb-6 border-y border-slate-200 py-4">
-              <p className="text-center text-sm text-slate-600">School Management System</p>
+              <p className="text-center text-sm text-slate-600">Fees Payment Receipt</p>
               <p className="mt-1 text-center text-xs text-slate-500">Receipt ID: {new Date().getTime()}</p>
             </div>
 
@@ -721,6 +1005,15 @@ export default function FeesManagement({
                 <div className="flex justify-between">
                   <span className="text-slate-600">Payment date:</span>
                   <span className="text-slate-800">{new Date(receiptData.paymentDate).toLocaleDateString()}</span>
+                </div>
+              </div>
+
+              <div className="mt-3">
+                <div className="flex justify-between">
+                  <span className="text-slate-600">Remaining balance:</span>
+                  <span className={`font-bold ${receiptData.balance && receiptData.balance > 0 ? 'text-red-600' : 'text-emerald-700'}`}>
+                    ₵{(receiptData.balance ?? 0).toFixed(2)}
+                  </span>
                 </div>
               </div>
 

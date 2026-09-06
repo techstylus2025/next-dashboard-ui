@@ -58,7 +58,7 @@ const ParentForm = ({
       setOpen(false);
       router.refresh();
     } else if (state.error) {
-      toast.error("Something went wrong. Check required fields and duplicates.");
+      toast.error(state.message || "Something went wrong. Check required fields and duplicates.");
     }
   }, [state, router, type, setOpen]);
 

@@ -8,7 +8,23 @@ export default async function DashboardLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const { userId, sessionClaims } = await auth();
+  // auth() can throw if Clerk environment is not configured. Guard it so the
+  // layout can render an informative fallback rather than crashing the page.
+  let userId: string | null = null;
+  let sessionClaims: any = undefined;
+  let authError: string | null = null;
+  try {
+    const authResult = await auth();
+    userId = authResult.userId ?? null;
+    sessionClaims = authResult.sessionClaims;
+  } catch (err) {
+    // Log and continue with undefined role; DashboardShell will render limited view.
+    console.warn("Clerk auth() failed in DashboardLayout:", err);
+    authError = err instanceof Error ? err.message : String(err);
+    userId = null;
+    sessionClaims = undefined;
+  }
+
   const role = (sessionClaims?.metadata as { role?: string })?.role;
   const homeHref = getDashboardPath(role);
 
@@ -30,6 +46,7 @@ export default async function DashboardLayout({
     <DashboardShell
       homeHref={homeHref}
       supervisorClassName={supervisorClassName}
+      authError={authError}
     >
       {children}
     </DashboardShell>

@@ -1,6 +1,9 @@
 import { auth, clerkClient } from "@clerk/nextjs/server";
 
-export async function GET() {
+export async function GET(req: Request) {
+  const url = new URL(req.url);
+  const debug = url.searchParams.get("debug");
+
   const { sessionClaims, userId } = await auth();
   let role = (sessionClaims?.metadata as { role?: string })?.role ?? null;
 
@@ -8,23 +11,28 @@ export async function GET() {
   if (!role && userId) {
     try {
       const client = await clerkClient();
-    const user = await client.users.getUser(userId);
+      const user = await client.users.getUser(userId);
       role = (user?.publicMetadata as { role?: string })?.role ?? null;
       const publicMetadata = user?.publicMetadata ?? null;
 
-      return new Response(
-        JSON.stringify({ role, userId, sessionClaims: sessionClaims ?? null, publicMetadata }),
-        {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        }
-      );
+      const payload: any = { role, userId, sessionClaims: sessionClaims ?? null, publicMetadata };
+      if (debug) {
+        payload.debug = { cookie: req.headers.get("cookie") ?? null };
+      }
+
+      return new Response(JSON.stringify(payload), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
     } catch (e) {
       console.warn("Failed to fetch Clerk user for role fallback:", e);
     }
   }
 
-  return new Response(JSON.stringify({ role, userId, sessionClaims: sessionClaims ?? null }), {
+  const payload: any = { role, userId, sessionClaims: sessionClaims ?? null };
+  if (debug) payload.debug = { cookie: req.headers.get("cookie") ?? null };
+
+  return new Response(JSON.stringify(payload), {
     status: 200,
     headers: { "Content-Type": "application/json" },
   });

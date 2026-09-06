@@ -149,12 +149,30 @@ async function resolveAcademicYear(academicYearId?: number) {
   if (academicYearId) {
     return db.academicYear.findUnique({
       where: { id: academicYearId },
-      include: { terms: true },
+      include: {
+        terms: {
+          select: {
+            id: true,
+            termNumber: true,
+            startDate: true,
+            endDate: true,
+          },
+        },
+      },
     });
   }
   return db.academicYear.findFirst({
     where: { isActive: true, isArchived: false },
-    include: { terms: true },
+    include: {
+      terms: {
+        select: {
+          id: true,
+          termNumber: true,
+          startDate: true,
+          endDate: true,
+        },
+      },
+    },
   });
 }
 
@@ -166,7 +184,16 @@ async function generateReportsForClass(
 ): Promise<{ created: number; error?: string }> {
   const year = await db.academicYear.findUnique({
     where: { id: academicYearId },
-    include: { terms: true },
+    include: {
+      terms: {
+        select: {
+          id: true,
+          termNumber: true,
+          startDate: true,
+          endDate: true,
+        },
+      },
+    },
   });
   if (!year || year.isArchived) {
     return { created: 0, error: "Academic year not found or archived." };

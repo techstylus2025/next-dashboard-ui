@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import prisma from "@/lib/prisma";
 import { loadGradingLevels } from "@/lib/gradingData";
+import { GRADING_LEVEL_LABELS } from "@/lib/gradingUtils";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -32,12 +33,15 @@ export async function GET(request: Request) {
     }
     case "class": {
       const classGrades = await loadGradingLevels();
+      // Fallback: if no grades found in DB, use default grading levels from utils
+      const fallbackGrades = Object.entries(GRADING_LEVEL_LABELS).map(([level, label], idx) => ({ id: -(idx + 1), level, label }));
+      const finalClassGrades = (classGrades && classGrades.length > 0) ? classGrades : fallbackGrades;
       const classTeachers = await prisma.teacher.findMany({
         where: { isArchived: false },
         select: { id: true, name: true, surname: true },
         orderBy: [{ name: "asc" }, { surname: "asc" }],
       });
-      relatedData = { teachers: classTeachers, grades: classGrades };
+      relatedData = { teachers: classTeachers, grades: finalClassGrades };
       break;
     }
     case "teacher": {

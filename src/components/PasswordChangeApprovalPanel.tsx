@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { toast } from "react-toastify";
 import { useRouter } from "next/navigation";
+import EmptyState from "@/components/EmptyState";
+import { ClipboardCheck } from "lucide-react";
 import type { UserRoleSlug } from "@/lib/messageActions";
 
 type PasswordRequestRow = {
@@ -60,9 +62,12 @@ const PasswordChangeApprovalPanel = ({ initialRequests }: PasswordChangeApproval
       </div>
 
       {requests.length === 0 ? (
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-          No password change requests are waiting for review.
-        </div>
+        <EmptyState
+          icon={<ClipboardCheck className="w-16 h-16" />}
+          title="No Pending Approvals"
+          message="All password change requests have been reviewed. No action needed."
+          variant="info"
+        />
       ) : (
         <div className="space-y-4">
           {requests.map((request) => (

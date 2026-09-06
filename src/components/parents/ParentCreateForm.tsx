@@ -32,7 +32,7 @@ export default function ParentCreateForm() {
       router.refresh();
     } else if (state.error) {
       toast.error(
-        "Could not create parent. Check username, phone, and password (min 8 characters)."
+        state.message || "Could not create parent. Check username, phone, and password (min 8 characters)."
       );
     }
   }, [state, router, reset]);

@@ -1,4 +1,6 @@
 import prisma from "@/lib/prisma";
+import EmptyState from "@/components/EmptyState";
+import { CalendarDays } from "lucide-react";
 import {
   getNationalEventsForDate,
   resolveCountryFromLocation,
@@ -27,9 +29,12 @@ const EventList = async ({ dateParam }: { dateParam: string | undefined }) => {
 
   if (schoolEvents.length === 0 && nationalEvents.length === 0) {
     return (
-      <p className="rounded-md border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
-        No events scheduled for this day.
-      </p>
+        <EmptyState
+        icon={<CalendarDays className="w-16 h-16" />}
+        title="No Events Scheduled"
+        message="There are no events scheduled for this day."
+        variant="search"
+      />
     );
   }
 

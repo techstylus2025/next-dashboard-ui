@@ -1,6 +1,6 @@
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import type { GradingLevel } from "@prisma/client";
 import prisma from "@/lib/prisma";
@@ -11,7 +11,18 @@ const db = prisma as unknown as PrismaClient;
 
 async function requireAdmin(): Promise<{ ok: true } | { ok: false; error: string }> {
   const session = await auth();
-  const role = (session?.sessionClaims?.metadata as { role?: string })?.role;
+  let role = (session?.sessionClaims?.metadata as { role?: string })?.role ?? null;
+
+  if (!role && session?.userId) {
+    try {
+      const client = await clerkClient();
+      const user = await client.users.getUser(session.userId);
+      role = (user?.publicMetadata as { role?: string })?.role ?? null;
+    } catch (e) {
+      console.warn("requireAdmin: failed to read Clerk user metadata", e);
+    }
+  }
+
   if (role !== "admin") {
     return { ok: false, error: "Only administrators can manage grading scales." };
   }

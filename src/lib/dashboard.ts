@@ -7,7 +7,7 @@ export function getDashboardPath(
   if (role === "teacher") return "/teacher";
   if (role === "student") return "/student";
   if (role === "parent") return "/parent";
-  return "/sign-in";
+  return "/admin";
 }
 
 export function isDashboardPath(pathname: string): boolean {

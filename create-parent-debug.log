@@ -1,0 +1,55 @@
+2026-09-01T12:45:28.186Z enter-createParent
+2026-09-01T12:45:28.191Z before-username-check
+2026-09-01T12:45:28.438Z after-username-check
+2026-09-01T12:45:28.924Z before-clerk-client
+2026-09-01T12:45:28.931Z after-clerk-client
+2026-09-01T12:45:28.935Z before-clerk-createUser
+2026-09-01T12:45:31.443Z caught:[ClerkAPIResponseError]
+Message:Unprocessable Entity
+Status:422
+Serialized errors: {"code":"form_identifier_exists","message":"That username is taken. Please try another.","longMessage":"That username is taken. Please try another.","meta":{"paramName":"username"}}
+Clerk Trace ID: 2883a8836b8b824729a890010effec52
+2026-09-01T12:46:11.713Z enter-createParent
+2026-09-01T12:46:11.717Z before-username-check
+2026-09-01T12:46:11.957Z after-username-check
+2026-09-01T12:46:12.436Z before-clerk-client
+2026-09-01T12:46:12.463Z after-clerk-client
+2026-09-01T12:46:12.486Z before-clerk-createUser
+2026-09-01T12:46:20.963Z caught:[ClerkAPIResponseError]
+Message:Unprocessable Entity
+Status:422
+Serialized errors: {"code":"form_identifier_exists","message":"That username is taken. Please try another.","longMessage":"That username is taken. Please try another.","meta":{"paramName":"username"}}
+Clerk Trace ID: 4c8bd7014d816f4830bddb16a59c969d
+2026-09-01T12:46:25.574Z enter-createParent
+2026-09-01T12:46:25.612Z before-username-check
+2026-09-01T12:46:27.286Z after-username-check
+2026-09-01T12:46:27.802Z before-clerk-client
+2026-09-01T12:46:27.826Z after-clerk-client
+2026-09-01T12:46:27.831Z before-clerk-createUser
+2026-09-01T12:46:31.228Z caught:[ClerkAPIResponseError]
+Message:Unprocessable Entity
+Status:422
+Serialized errors: {"code":"form_identifier_exists","message":"That username is taken. Please try another.","longMessage":"That username is taken. Please try another.","meta":{"paramName":"username"}}
+Clerk Trace ID: eaf31bdc111c92445d7e9773464b2668
+2026-09-01T12:47:04.874Z enter-createParent
+2026-09-01T12:47:04.878Z before-username-check
+2026-09-01T12:47:05.122Z after-username-check
+2026-09-01T12:47:05.595Z before-clerk-client
+2026-09-01T12:47:05.613Z after-clerk-client
+2026-09-01T12:47:05.618Z before-clerk-createUser
+2026-09-01T12:47:07.893Z caught:[ClerkAPIResponseError]
+Message:Unprocessable Entity
+Status:422
+Serialized errors: {"code":"form_identifier_exists","message":"That username is taken. Please try another.","longMessage":"That username is taken. Please try another.","meta":{"paramName":"username"}}
+Clerk Trace ID: c9cc88e6f85a16b6bf0de69aabdc842d
+2026-09-01T12:55:29.021Z enter-createParent
+2026-09-01T12:55:29.025Z before-username-check
+2026-09-01T12:55:29.287Z after-username-check
+2026-09-01T12:55:29.749Z before-clerk-client
+2026-09-01T12:55:29.758Z after-clerk-client
+2026-09-01T12:55:29.761Z before-clerk-username-check
+2026-09-01T12:55:29.768Z clerk-check-error:TypeError: Cannot read properties of undefined (reading 'request')
+2026-09-01T12:55:29.771Z before-clerk-createUser
+2026-09-01T12:55:30.500Z after-clerk-createUser
+2026-09-01T12:55:30.502Z before-prisma-create-parent
+2026-09-01T12:55:30.821Z after-prisma-create-parent

@@ -54,12 +54,22 @@ const ExamTimetableForm = ({
   );
 
   const filteredLessons = useMemo(() => {
-    const selectedIds = (selectedClassIds || []).map(Number);
+    const idsArray = Array.isArray(selectedClassIds)
+      ? selectedClassIds
+      : selectedClassIds
+      ? [selectedClassIds]
+      : [];
+    const selectedIds = idsArray.map(Number);
     return lessons.filter((lesson) => selectedIds.includes(lesson.classId));
   }, [lessons, selectedClassIds]);
 
   useEffect(() => {
-    const selectedIds = (selectedClassIds || []).map(Number);
+    const idsArray = Array.isArray(selectedClassIds)
+      ? selectedClassIds
+      : selectedClassIds
+      ? [selectedClassIds]
+      : [];
+    const selectedIds = idsArray.map(Number);
     if (
       selectedIds.length > 0 &&
       !filteredLessons.some((lesson) => selectedIds.includes(lesson.classId))

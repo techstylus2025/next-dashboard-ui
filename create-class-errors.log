@@ -1,0 +1,241 @@
+[enter-createClass] 2026-09-01T14:13:15.737Z payload={"name":"Basic 7","capacity":25,"gradeId":5,"supervisorId":"user_3IjGocTPn5rmZUxSwH8UnOWehiE"}
+[caught] 2026-09-01T14:13:20.607Z Error [PrismaClientKnownRequestError]: 
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$prisma$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["default"].grade.findUnique()` invocation in
+D:\School-Management-System\.next\dev\server\chunks\ssr\[root-of-the-server]__0gbpdgx._.js:638:163
+
+  635     };
+  636 }
+  637 // Get the grade to determine gradingLevel
+→ 638 const grade = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$prisma$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["default"].grade.findUnique(
+The column `Grade.label` does not exist in the current database.
+    at <unknown> (src\lib\actions.ts:193:38)
+    at async createClass (src\lib\actions.ts:193:19)
+  191 |
+  192 |     // Get the grade to determine gradingLevel
+> 193 |     const grade = await prisma.grade.findUnique({
+      |                                      ^
+  194 |       where: { id: data.gradeId },
+  195 |     });
+  196 | {
+  code: 'P2022',
+  meta: {
+    modelName: 'Grade',
+    driverAdapterError: Error [DriverAdapterError]: ColumnNotFound
+        at [3mignore-listed frames[23m {
+      [cause]: {
+        originalCode: '42703',
+        originalMessage: 'column Grade.label does not exist',
+        kind: 'ColumnNotFound',
+        column: 'Grade.label'
+      }
+    }
+  },
+  clientVersion: '7.8.0'
+}
+[enter-createClass] 2026-09-01T14:25:22.230Z payload={"name":"Basic 7","capacity":25,"gradeId":5,"supervisorId":"user_3IjGocTPn5rmZUxSwH8UnOWehiE"}
+[caught] 2026-09-01T14:25:25.338Z Error [PrismaClientKnownRequestError]: 
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$prisma$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["default"].class.create()` invocation in
+D:\School-Management-System\.next\dev\server\chunks\ssr\[root-of-the-server]__0gbpdgx._.js:657:149
+
+  654         message: "Selected grading level not found."
+  655     };
+  656 }
+→ 657 await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$prisma$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["default"].class.create(
+The column `(not available)` does not exist in the current database.
+    at <unknown> (src\lib\actions.ts:208:24)
+    at async createClass (src\lib\actions.ts:208:5)
+  206 |     }
+  207 |
+> 208 |     await prisma.class.create({
+      |                        ^
+  209 |       data: {
+  210 |         ...data,
+  211 |         gradingLevel: grade.level, {
+  code: 'P2022',
+  meta: {
+    modelName: 'Class',
+    driverAdapterError: Error [DriverAdapterError]: ColumnNotFound
+        at async createClass (src\lib\actions.ts:208:5)
+      206 |     }
+      207 |
+    > 208 |     await prisma.class.create({
+          |     ^
+      209 |       data: {
+      210 |         ...data,
+      211 |         gradingLevel: grade.level, {
+      [cause]: {
+        originalCode: '42703',
+        originalMessage: 'tsvector column "search_vector" does not exist',
+        kind: 'ColumnNotFound',
+        column: undefined
+      }
+    }
+  },
+  clientVersion: '7.8.0'
+}
+[enter-createClass] 2026-09-01T14:25:29.670Z payload={"name":"Basic 7","capacity":25,"gradeId":5,"supervisorId":"user_3IjGocTPn5rmZUxSwH8UnOWehiE"}
+[caught] 2026-09-01T14:25:33.710Z Error [PrismaClientKnownRequestError]: 
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$prisma$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["default"].class.create()` invocation in
+D:\School-Management-System\.next\dev\server\chunks\ssr\[root-of-the-server]__0gbpdgx._.js:657:149
+
+  654         message: "Selected grading level not found."
+  655     };
+  656 }
+→ 657 await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$prisma$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["default"].class.create(
+The column `(not available)` does not exist in the current database.
+    at <unknown> (src\lib\actions.ts:208:24)
+    at async createClass (src\lib\actions.ts:208:5)
+  206 |     }
+  207 |
+> 208 |     await prisma.class.create({
+      |                        ^
+  209 |       data: {
+  210 |         ...data,
+  211 |         gradingLevel: grade.level, {
+  code: 'P2022',
+  meta: {
+    modelName: 'Class',
+    driverAdapterError: Error [DriverAdapterError]: ColumnNotFound
+        at async createClass (src\lib\actions.ts:208:5)
+      206 |     }
+      207 |
+    > 208 |     await prisma.class.create({
+          |     ^
+      209 |       data: {
+      210 |         ...data,
+      211 |         gradingLevel: grade.level, {
+      [cause]: {
+        originalCode: '42703',
+        originalMessage: 'tsvector column "search_vector" does not exist',
+        kind: 'ColumnNotFound',
+        column: undefined
+      }
+    }
+  },
+  clientVersion: '7.8.0'
+}
+[enter-createClass] 2026-09-01T14:26:33.107Z payload={"name":"Basic 7","capacity":25,"gradeId":5,"supervisorId":"user_3IjGocTPn5rmZUxSwH8UnOWehiE"}
+[caught] 2026-09-01T14:26:36.431Z Error [PrismaClientKnownRequestError]: 
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$prisma$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["default"].class.create()` invocation in
+D:\School-Management-System\.next\dev\server\chunks\ssr\[root-of-the-server]__0gbpdgx._.js:657:149
+
+  654         message: "Selected grading level not found."
+  655     };
+  656 }
+→ 657 await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$prisma$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["default"].class.create(
+The column `(not available)` does not exist in the current database.
+    at <unknown> (src\lib\actions.ts:208:24)
+    at async createClass (src\lib\actions.ts:208:5)
+  206 |     }
+  207 |
+> 208 |     await prisma.class.create({
+      |                        ^
+  209 |       data: {
+  210 |         ...data,
+  211 |         gradingLevel: grade.level, {
+  code: 'P2022',
+  meta: {
+    modelName: 'Class',
+    driverAdapterError: Error [DriverAdapterError]: ColumnNotFound
+        at async createClass (src\lib\actions.ts:208:5)
+      206 |     }
+      207 |
+    > 208 |     await prisma.class.create({
+          |     ^
+      209 |       data: {
+      210 |         ...data,
+      211 |         gradingLevel: grade.level, {
+      [cause]: {
+        originalCode: '42703',
+        originalMessage: 'tsvector column "search_vector" does not exist',
+        kind: 'ColumnNotFound',
+        column: undefined
+      }
+    }
+  },
+  clientVersion: '7.8.0'
+}
+[enter-createClass] 2026-09-01T14:27:16.365Z payload={"name":"Basic 7","capacity":18,"gradeId":5,"supervisorId":"user_3IjGocTPn5rmZUxSwH8UnOWehiE"}
+[caught] 2026-09-01T14:27:20.292Z Error [PrismaClientKnownRequestError]: 
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$prisma$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["default"].class.create()` invocation in
+D:\School-Management-System\.next\dev\server\chunks\ssr\[root-of-the-server]__0gbpdgx._.js:657:149
+
+  654         message: "Selected grading level not found."
+  655     };
+  656 }
+→ 657 await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$prisma$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["default"].class.create(
+The column `(not available)` does not exist in the current database.
+    at <unknown> (src\lib\actions.ts:208:24)
+    at async createClass (src\lib\actions.ts:208:5)
+  206 |     }
+  207 |
+> 208 |     await prisma.class.create({
+      |                        ^
+  209 |       data: {
+  210 |         ...data,
+  211 |         gradingLevel: grade.level, {
+  code: 'P2022',
+  meta: {
+    modelName: 'Class',
+    driverAdapterError: Error [DriverAdapterError]: ColumnNotFound
+        at async createClass (src\lib\actions.ts:208:5)
+      206 |     }
+      207 |
+    > 208 |     await prisma.class.create({
+          |     ^
+      209 |       data: {
+      210 |         ...data,
+      211 |         gradingLevel: grade.level, {
+      [cause]: {
+        originalCode: '42703',
+        originalMessage: 'tsvector column "search_vector" does not exist',
+        kind: 'ColumnNotFound',
+        column: undefined
+      }
+    }
+  },
+  clientVersion: '7.8.0'
+}
+[enter-createClass] 2026-09-01T14:46:04.229Z payload={
+  name: 'Basic 7',
+  capacity: 20,
+  gradeId: 5,
+  supervisorId: 'user_3IjGocTPn5rmZUxSwH8UnOWehiE'
+}
+keys=name,capacity,gradeId,supervisorId
+[create-payload] 2026-09-01T14:46:06.310Z payload={
+  name: 'Basic 7',
+  capacity: 20,
+  gradeId: 5,
+  gradingLevel: 'JHS',
+  supervisorId: 'user_3IjGocTPn5rmZUxSwH8UnOWehiE'
+}
+[enter-createClass] 2026-09-06T20:05:31.324Z payload={
+  name: 'Basic',
+  capacity: 25,
+  gradeId: 5,
+  supervisorId: 'user_3Iy7ibaJ9OHLGqiKW5XUwpoolqv'
+}
+keys=name,capacity,gradeId,supervisorId
+[create-payload] 2026-09-06T20:05:33.272Z payload={
+  name: 'Basic',
+  capacity: 25,
+  gradeId: 5,
+  gradingLevel: 'JHS',
+  supervisorId: 'user_3Iy7ibaJ9OHLGqiKW5XUwpoolqv'
+}
+[enter-updateClass] 2026-09-06T20:05:56.759Z payload={
+  id: 6,
+  name: 'Basic 8',
+  capacity: 25,
+  gradeId: 5,
+  supervisorId: 'user_3Iy7ibaJ9OHLGqiKW5XUwpoolqv'
+}
+keys=id,name,capacity,gradeId,supervisorId
+[update-payload] 2026-09-06T20:05:57.081Z payload={
+  name: 'Basic 8',
+  capacity: 25,
+  gradeId: 5,
+  gradingLevel: 'JHS',
+  supervisorId: 'user_3Iy7ibaJ9OHLGqiKW5XUwpoolqv'
+}

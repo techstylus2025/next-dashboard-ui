@@ -114,10 +114,11 @@ export const examTimetableSchema = z.object({
     })
     .optional()
     .default("PRIMARY"),
-  classIds: z
-    .array(z.string())
-    .min(1, { message: "At least one class is required!" })
-    .transform((ids) => ids.map(Number)),
+  classIds: z.preprocess((val) => {
+    if (val == null) return [] as string[];
+    if (Array.isArray(val)) return val as string[];
+    return [String(val)];
+  }, z.array(z.string()).min(1, { message: "At least one class is required!" }).transform((ids) => ids.map(Number))),
   lessonId: z.coerce.number({ message: "Lesson is required!" }),
   date: z
     .string()

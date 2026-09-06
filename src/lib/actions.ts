@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { promises as fs } from "fs";
 import path from "path";
 import { getActiveAcademicPeriod } from "./academicContext";
+import util from "util";
 
 const PARENTS_PATH = "/list/parents";
 import {
@@ -175,27 +176,67 @@ export const createClass = async (
   data: ClassSchema
 ) => {
   try {
+    // Log incoming data for debugging (use util.inspect to avoid stringify issues)
+    try {
+      await fs.appendFile(
+        path.join(process.cwd(), "create-class-errors.log"),
+        `[enter-createClass] ${new Date().toISOString()} payload=${util.inspect(data, { depth: 3 })}\n`
+      );
+      await fs.appendFile(
+        path.join(process.cwd(), "create-class-errors.log"),
+        `keys=${Object.keys(data || {}).join(',')}\n`
+      );
+    } catch {}
+
+    // Basic validation for gradeId
+    if (!data || typeof data.gradeId !== "number" || Number.isNaN(data.gradeId) || data.gradeId < 1) {
+      return { success: false, error: true, message: "Grading level is required!" };
+    }
+
     // Get the grade to determine gradingLevel
     const grade = await prisma.grade.findUnique({
       where: { id: data.gradeId },
+      select: { id: true, level: true },
     });
 
     if (!grade) {
-      return { success: false, error: true };
+      try {
+        await fs.appendFile(
+          path.join(process.cwd(), "create-class-errors.log"),
+          `[missing-grade] ${new Date().toISOString()} gradeId=${data.gradeId}\n`
+        );
+      } catch {}
+      return { success: false, error: true, message: "Selected grading level not found." };
     }
 
-    await prisma.class.create({
-      data: {
-        ...data,
-        gradingLevel: grade.level,
-      },
-    });
+    const createPayload: any = {
+      name: (data as any).name,
+      capacity: Number((data as any).capacity) || 0,
+      gradeId: Number((data as any).gradeId),
+      gradingLevel: grade.level,
+      supervisorId: (data as any).supervisorId || null,
+    };
+
+    try {
+      await fs.appendFile(
+        path.join(process.cwd(), "create-class-errors.log"),
+        `[create-payload] ${new Date().toISOString()} payload=${util.inspect(createPayload, { depth: 3 })}\n`
+      );
+    } catch {}
+
+    await prisma.class.create({ data: createPayload });
 
     // revalidatePath("/list/class");
     return { success: true, error: false };
   } catch (err) {
     console.log(err);
-    return { success: false, error: true };
+    try {
+      await fs.appendFile(
+        path.join(process.cwd(), "create-class-errors.log"),
+        `[caught] ${new Date().toISOString()} ${util.inspect(err, { depth: 4 })}\n`
+      );
+    } catch {}
+    return { success: false, error: true, message: getErrorMessage(err) };
   }
 };
 
@@ -204,30 +245,66 @@ export const updateClass = async (
   data: ClassSchema
 ) => {
   try {
+    // Log incoming update payload
+    try {
+      await fs.appendFile(
+        path.join(process.cwd(), "create-class-errors.log"),
+        `[enter-updateClass] ${new Date().toISOString()} payload=${util.inspect(data, { depth: 3 })}\n`
+      );
+      await fs.appendFile(
+        path.join(process.cwd(), "create-class-errors.log"),
+        `keys=${Object.keys(data || {}).join(',')}\n`
+      );
+    } catch {}
+
+    if (!data || typeof data.gradeId !== "number" || Number.isNaN(data.gradeId) || data.gradeId < 1) {
+      return { success: false, error: true, message: "Grading level is required!" };
+    }
+
     // Get the grade to determine gradingLevel
     const grade = await prisma.grade.findUnique({
       where: { id: data.gradeId },
+      select: { id: true, level: true },
     });
 
     if (!grade) {
-      return { success: false, error: true };
+      try {
+        await fs.appendFile(
+          path.join(process.cwd(), "create-class-errors.log"),
+          `[missing-grade-update] ${new Date().toISOString()} gradeId=${data.gradeId}\n`
+        );
+      } catch {}
+      return { success: false, error: true, message: "Selected grading level not found." };
     }
 
-    await prisma.class.update({
-      where: {
-        id: data.id,
-      },
-      data: {
-        ...data,
-        gradingLevel: grade.level,
-      },
-    });
+    const updatePayload: any = {
+      name: (data as any).name,
+      capacity: Number((data as any).capacity) || undefined,
+      gradeId: Number((data as any).gradeId),
+      gradingLevel: grade.level,
+      supervisorId: (data as any).supervisorId || null,
+    };
+
+    try {
+      await fs.appendFile(
+        path.join(process.cwd(), "create-class-errors.log"),
+        `[update-payload] ${new Date().toISOString()} payload=${util.inspect(updatePayload, { depth: 3 })}\n`
+      );
+    } catch {}
+
+    await prisma.class.update({ where: { id: data.id }, data: updatePayload });
 
     // revalidatePath("/list/class");
     return { success: true, error: false };
   } catch (err) {
     console.log(err);
-    return { success: false, error: true };
+    try {
+      await fs.appendFile(
+        path.join(process.cwd(), "create-class-errors.log"),
+        `[caught-update] ${new Date().toISOString()} ${util.inspect(err, { depth: 4 })}\n`
+      );
+    } catch {}
+    return { success: false, error: true, message: getErrorMessage(err) };
   }
 };
 
@@ -609,19 +686,102 @@ export const createParent = async (
   currentState: CurrentState,
   data: ParentSchema
 ) => {
-  if (!data.password || data.password.length < 8) {
-    return { success: false, error: true };
-  }
+  // server-side validation to avoid unhandled rejections that lead to 422 responses
   try {
+    const { parentSchema } = await import("./formValidationSchemas.js");
+    const parsed = parentSchema.safeParse(data as any);
+    if (!parsed.success) {
+      const msg = parsed.error.issues.map((i: any) => i.message).join("; ");
+      return { success: false, error: true, message: `Validation: ${msg}` };
+    }
+  } catch (e) {
+    // if schema import fails, continue to main logic
+  }
+  // debug trace file - write checkpoints to help diagnose 422/Unprocessable Entity
+  const debugLog = (msg: string) =>
+    fs.appendFile(path.join(process.cwd(), "create-parent-debug.log"), `${new Date().toISOString()} ${msg}\n`).catch(() => {});
+  await debugLog("enter-createParent");
+  // For create, password is required
+  if (!data.password || data.password.length < 8) {
+    return { success: false, error: true, message: "Password must be at least 8 characters long." };
+  }
+  
+  try {
+    await debugLog("before-username-check");
+    // Check if username already exists
+    const existingUsername = await prisma.parent.findUnique({
+      where: { username: data.username },
+    });
+    await debugLog("after-username-check");
+    if (existingUsername) {
+      await debugLog("username-exists");
+      return { success: false, error: true, message: "Username already exists." };
+    }
+
+    // Check if email already exists (if provided)
+    if (data.email && data.email.trim()) {
+      const existingEmail = await prisma.parent.findUnique({
+        where: { email: data.email },
+      });
+      if (existingEmail) {
+        return { success: false, error: true, message: "Email already exists." };
+      }
+    }
+
+    // Check if phone already exists
+    const existingPhone = await prisma.parent.findUnique({
+      where: { phone: data.phone },
+    });
+    if (existingPhone) {
+      return { success: false, error: true, message: "Phone number already exists." };
+    }
+
+    await debugLog("before-clerk-client");
     const client = await clerkClient();
+    await debugLog("after-clerk-client");
+
+    // Pre-flight checks against Clerk to avoid 422 from the auth provider
+    try {
+      await debugLog("before-clerk-username-check");
+      const getUserList = (client.users as any).getUserList;
+      let usersByUsername: any[] = [];
+      if (typeof getUserList === "function") {
+        usersByUsername = await getUserList({ username: [data.username] });
+      }
+      await debugLog(`clerk-users-by-username:${usersByUsername?.length ?? 0}`);
+      if (usersByUsername && usersByUsername.length > 0) {
+        await debugLog("clerk-username-exists");
+        return { success: false, error: true, message: "Username already exists in the auth provider." };
+      }
+      if (data.email && data.email.trim()) {
+        await debugLog("before-clerk-email-check");
+        let usersByEmail: any[] = [];
+        if (typeof getUserList === "function") {
+          usersByEmail = await getUserList({ emailAddress: [data.email] });
+        }
+        await debugLog(`clerk-users-by-email:${usersByEmail?.length ?? 0}`);
+        if (usersByEmail && usersByEmail.length > 0) {
+          await debugLog("clerk-email-exists");
+          return { success: false, error: true, message: "Email already exists in the auth provider." };
+        }
+      }
+    } catch (clerkCheckErr) {
+      await debugLog(`clerk-check-error:${String(clerkCheckErr)}`);
+      // continue to createUser; the provider will return an error we catch below
+    }
+
+    await debugLog("before-clerk-createUser");
     const user = await client.users.createUser({
       username: data.username,
       password: data.password,
       firstName: data.name,
       lastName: data.surname,
       publicMetadata: { role: "parent" },
+      emailAddress: buildClerkEmailAddresses(data.email, data.username),
     });
+    await debugLog("after-clerk-createUser");
 
+    await debugLog("before-prisma-create-parent");
     await prisma.parent.create({
       data: {
         id: user.id,
@@ -634,13 +794,28 @@ export const createParent = async (
         address: data.address,
       },
     });
+    await debugLog("after-prisma-create-parent");
 
     revalidatePath(PARENTS_PATH);
     return { success: true, error: false };
   } catch (err) {
-    console.log(err);
-    return { success: false, error: true };
+    console.log("Create parent error:", err);
+    const inspected = typeof err === "string" ? err : util.inspect(err, { depth: null });
+    try {
+      await fs.appendFile(
+        path.join(process.cwd(), "create-parent-errors.log"),
+        `\n---- ${new Date().toISOString()} ----\n${inspected}\n`
+      );
+    } catch (writeErr) {
+      console.log("Failed to write create-parent log:", writeErr);
+    }
+    await debugLog(`caught:${String(err)}`);
+    const maybeErr = err as any;
+    const msgFromErr = maybeErr && (maybeErr.message || maybeErr.statusText || maybeErr.code || maybeErr.longMessage || (maybeErr.response && JSON.stringify(maybeErr.response)));
+    const msg = msgFromErr || String(inspected) || "Failed to create parent. Please try again.";
+    return { success: false, error: true, message: msg };
   }
+  await debugLog("exit-createParent-success");
 };
 
 export const updateParent = async (
@@ -648,13 +823,49 @@ export const updateParent = async (
   data: ParentSchema
 ) => {
   if (!data.id) {
-    return { success: false, error: true };
+    return { success: false, error: true, message: "Parent ID is required." };
   }
   try {
+    // Check if new username already exists (if changing username)
+    const existingParent = await prisma.parent.findUnique({
+      where: { id: data.id },
+    });
+    
+    if (existingParent && existingParent.username !== data.username) {
+      const usernameExists = await prisma.parent.findUnique({
+        where: { username: data.username },
+      });
+      if (usernameExists) {
+        return { success: false, error: true, message: "Username already exists." };
+      }
+    }
+
+    // Check if email already exists (if changing email)
+    if (data.email && data.email.trim()) {
+      if (existingParent && existingParent.email !== data.email) {
+        const emailExists = await prisma.parent.findUnique({
+          where: { email: data.email },
+        });
+        if (emailExists) {
+          return { success: false, error: true, message: "Email already exists." };
+        }
+      }
+    }
+
+    // Check if phone already exists (if changing phone)
+    if (existingParent && existingParent.phone !== data.phone) {
+      const phoneExists = await prisma.parent.findUnique({
+        where: { phone: data.phone },
+      });
+      if (phoneExists) {
+        return { success: false, error: true, message: "Phone number already exists." };
+      }
+    }
+
     const client = await clerkClient();
     await client.users.updateUser(data.id, {
       username: data.username,
-      ...(data.password !== "" && { password: data.password }),
+      ...(data.password && data.password.trim() && { password: data.password }),
       firstName: data.name,
       lastName: data.surname,
     });
@@ -675,9 +886,10 @@ export const updateParent = async (
     revalidatePath(PARENTS_PATH);
     return { success: true, error: false };
   } catch (err) {
-    console.log(err);
-    return { success: false, error: true };
+    console.log("Update parent error:", util.inspect(err, { depth: null }));
+    return { success: false, error: true, message: "Failed to update parent. Please try again." };
   }
+
 };
 
 export const deleteParent = async (

@@ -14,10 +14,10 @@ const CustomToolbar = ({ label, onView }: any) => {
   ];
 
   return (
-    <div className="mb-4 flex flex-col gap-3 rounded-3xl border border-slate-200/80 bg-slate-50 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+    <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Class calendar</p>
-        <div className="mt-1 text-lg font-semibold text-slate-950">{label}</div>
+        <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Class calendar</p>
+        <div className="text-lg font-semibold text-slate-950">{label}</div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {views.map((viewOption) => (
@@ -25,7 +25,7 @@ const CustomToolbar = ({ label, onView }: any) => {
             key={viewOption.key}
             type="button"
             onClick={() => onView(viewOption.key)}
-            className="rounded-full border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+            className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
           >
             {viewOption.label}
           </button>
@@ -62,7 +62,7 @@ const BigCalendar = ({
   const initialDate = useMemo(() => new Date(), []);
 
   return (
-    <div className="min-h-[32rem] w-full rounded-3xl border border-slate-200/70 bg-white shadow-sm">
+    <div className="w-full">
       <Calendar
         localizer={localizer}
         events={data}

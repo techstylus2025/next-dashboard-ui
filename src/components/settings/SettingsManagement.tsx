@@ -14,8 +14,9 @@ import {
   type TermInput,
 } from "@/lib/settingsActions";
 import { archiveParentRecords } from "@/lib/parentArchiveActions";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition, type ChangeEvent } from "react";
 import { toast } from "react-toastify";
 import { calculateTermDays } from "@/lib/academicYearUtils";
 
@@ -166,6 +167,26 @@ export default function SettingsManagement({
       setSchoolLogoUrl(schoolSettings.logoUrl ?? "");
     }
   }, [schoolSettings]);
+
+  const handleLogoUpload = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select a valid image file for the school logo.");
+      event.target.value = "";
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        setSchoolLogoUrl(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
+    event.target.value = "";
+  };
 
   const handleSaveSchoolSettings = () => {
     if (
@@ -579,22 +600,40 @@ export default function SettingsManagement({
                 placeholder="Street address, city, region"
               />
             </label>
-            <label className="md:col-span-2 flex flex-col gap-1 text-sm">
-              <span className="text-slate-600">Logo URL</span>
-              <input
-                type="url"
-                className="rounded-lg border border-slate-200 px-3 py-2"
-                value={schoolLogoUrl}
-                onChange={(e) => setSchoolLogoUrl(e.target.value)}
-                placeholder="/logo.png or https://example.com/logo.png"
-              />
-            </label>
+            <div className="md:col-span-2 flex flex-col gap-2 text-sm">
+              <span className="text-slate-600">School logo</span>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <label
+                  htmlFor="school-logo-upload"
+                  className="inline-flex cursor-pointer items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800"
+                >
+                  Upload logo
+                </label>
+                <input
+                  id="school-logo-upload"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleLogoUpload}
+                />
+                <span className="text-xs text-slate-500">
+                  {schoolLogoUrl ? "New logo selected and ready to save." : "No logo selected yet."}
+                </span>
+              </div>
+            </div>
           </div>
 
           {schoolLogoUrl ? (
             <div className="mt-4 flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
               <div className="h-16 w-16 overflow-hidden rounded-lg bg-white p-2 shadow-sm">
-                <img src={schoolLogoUrl} alt="School logo preview" className="h-full w-full object-contain" />
+                <Image
+                  src={schoolLogoUrl}
+                  alt="School logo preview"
+                  width={64}
+                  height={64}
+                  unoptimized
+                  className="h-full w-full object-contain"
+                />
               </div>
               <p className="text-sm text-slate-600">Logo preview</p>
             </div>

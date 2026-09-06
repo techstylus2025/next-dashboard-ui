@@ -70,14 +70,16 @@ export async function loadGradingLevels(): Promise<GradingLevelRow[]> {
   await ensureDefaultGradingLevels();
 
   try {
+    // Select only columns we know exist in older schemas (id, level).
     const rows = await db.grade.findMany({
+      select: { id: true, level: true },
       orderBy: { id: "asc" },
     });
 
     return rows.map((row) => ({
       id: row.id,
       level: row.level,
-      label: row.label ?? null,
+      label: null,
     }));
   } catch (error) {
     if (!isRecoverablePrismaError(error)) {

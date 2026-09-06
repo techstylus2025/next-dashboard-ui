@@ -146,7 +146,17 @@ export async function loadResultsPageData(
 
   const years = await db.academicYear.findMany({
     where: { isArchived: false },
-    include: { terms: { orderBy: { termNumber: "asc" } } },
+    include: {
+      terms: {
+        orderBy: { termNumber: "asc" },
+        select: {
+          id: true,
+          termNumber: true,
+          startDate: true,
+          endDate: true,
+        },
+      },
+    },
     orderBy: { createdAt: "desc" },
   });
 
@@ -294,11 +304,13 @@ export async function loadResultsPageData(
     assignedSubjects,
   };
 
-  // Cache the data for offline access (fire and forget)
-  try {
-    void cacheResultsData(ctx);
-  } catch (error) {
-    console.error("Failed to cache results data:", error);
+  // Cache the data for offline access (fire and forget) in the browser only.
+  if (typeof window !== "undefined") {
+    try {
+      void cacheResultsData(ctx);
+    } catch (error) {
+      console.error("Failed to cache results data:", error);
+    }
   }
 
   return ctx;

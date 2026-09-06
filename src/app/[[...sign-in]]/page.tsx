@@ -16,6 +16,39 @@ const LoginPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const [checkingRole, setCheckingRole] = useState(false);
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+
+  const redirectToRoleDashboard = (clientRole?: string | null, serverRole?: string | null) => {
+    const redirectPath = getRoleRedirectPath(clientRole, serverRole);
+    if (typeof window !== "undefined") {
+      window.location.replace(redirectPath);
+    }
+    return redirectPath;
+  };
+
+  const redirectSignedInUser = async () => {
+    const clientRole = (user as any)?.publicMetadata?.role as string | undefined;
+
+    try {
+      const res = await fetch("/api/session/role");
+      const data = await res.json();
+      const serverRole = data?.role ?? null;
+      redirectToRoleDashboard(clientRole, serverRole);
+      return;
+    } catch {
+      redirectToRoleDashboard(clientRole, null);
+    }
+  };
+
+  function pushDebug(msg: any) {
+    try {
+      const text = typeof msg === "string" ? msg : JSON.stringify(msg, null, 2);
+      setDebugLogs((s) => [text, ...s].slice(0, 12));
+    } catch {
+      setDebugLogs((s) => [String(msg), ...s].slice(0, 12));
+    }
+  }
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn || !user || isRedirecting) return;
@@ -31,10 +64,16 @@ const LoginPage = () => {
       try {
         const res = await fetch("/api/session/role");
         const data = await res.json();
+        pushDebug({ when: "poll", status: res.status, data, attempt: attempts });
         const serverRole = data?.role ?? null;
-        const redirectPath = getRoleRedirectPath(clientRole, serverRole);
         if (serverRole || clientRole) {
-          window.location.replace(redirectPath);
+          redirectToRoleDashboard(clientRole, serverRole);
+          return;
+        }
+
+        if (attempts >= maxAttempts - 1) {
+          const fallbackPath = redirectToRoleDashboard(clientRole, null);
+          pushDebug({ when: "role polling fallback redirect", fallbackPath, clientRole });
           return;
         }
       } catch (e) {
@@ -44,8 +83,6 @@ const LoginPage = () => {
       attempts++;
       if (attempts < maxAttempts) {
         setTimeout(poll, pollInterval);
-      } else {
-        window.location.replace(getRoleRedirectPath(clientRole, null));
       }
     };
 
@@ -94,7 +131,7 @@ const LoginPage = () => {
                 <span className="loading-logo-dot dot-8" />
               </div>
             </div>
-            <Image src="/logo.png" alt="Loading" width={56} height={56} className="relative z-10 rounded-full bg-slate-950/90 p-1" />
+            <Image src="/logo.png" alt="Loading" width={56} height={56} className="relative z-10 rounded-full" />
           </div>
           <p className="mt-4 text-sm text-slate-300">Signing you in and preparing your dashboard…</p>
         </div>
@@ -112,8 +149,7 @@ const LoginPage = () => {
 
     try {
       if (isSignedIn && user) {
-        const clientRole = (user as any)?.publicMetadata?.role as string | undefined;
-        window.location.replace(getRoleRedirectPath(clientRole, null));
+        await redirectSignedInUser();
         return;
       }
 
@@ -121,6 +157,14 @@ const LoginPage = () => {
         identifier,
         password,
       });
+
+        // Debug: log raw signIn result to help diagnose cases where createdSessionId is missing
+        // (this will appear in the browser console)
+        try {
+          // eslint-disable-next-line no-console
+          console.debug("signIn.create result:", result);
+        } catch {}
+      pushDebug({ when: "signIn.create result", result });
 
       if (result?.error) {
         setError(result.error?.message || "Invalid credentials");
@@ -130,10 +174,34 @@ const LoginPage = () => {
       if (result?.status === "complete" && result.createdSessionId && setActive) {
         try {
           await setActive({ session: result.createdSessionId });
+          try {
+            // eslint-disable-next-line no-console
+            console.debug("setActive succeeded, sessionId:", result.createdSessionId);
+          } catch {}
+          pushDebug({ when: "setActive succeeded", sessionId: result.createdSessionId });
         } catch (activeError) {
           console.error("Failed to activate Clerk session", activeError);
           setError("We could not finish signing you in. Please try again.");
           return;
+        }
+      }
+
+      // Handle Clerk's new needs_client_trust status (custom flow)
+      if (result?.status === "needs_client_trust") {
+        pushDebug({ when: "needs_client_trust", result });
+        // If Clerk returned a createdSessionId, try to activate it like the normal flow.
+        if (result.createdSessionId && setActive) {
+          try {
+            await setActive({ session: result.createdSessionId });
+            pushDebug({ when: "setActive succeeded (client_trust)", sessionId: result.createdSessionId });
+          } catch (activeError) {
+            console.error("Failed to activate Clerk session (client_trust)", activeError);
+            setError("We could not finish signing you in. Please try again.");
+            return;
+          }
+        } else {
+          // createdSessionId not provided; surface a helpful message and let the existing polling/fallback continue
+          setError("This sign-in requires additional client trust. If the problem persists, contact your administrator.");
         }
       }
 
@@ -144,6 +212,27 @@ const LoginPage = () => {
 
       setError(null);
       setIsRedirecting(true);
+
+      try {
+        const r = await fetch("/api/session/role");
+        const d = await r.json();
+        // eslint-disable-next-line no-console
+        console.debug("/api/session/role (post-signin):", r.status, d);
+        pushDebug({ when: "/api/session/role (post-signin)", status: r.status, data: d });
+
+        const serverRole = d?.role ?? null;
+        const clientRole = (user as any)?.publicMetadata?.role as string | undefined;
+        if (serverRole || clientRole) {
+          redirectToRoleDashboard(clientRole, serverRole);
+          return;
+        }
+
+        redirectToRoleDashboard(clientRole, null);
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn("Failed to fetch /api/session/role after sign-in:", e);
+        redirectToRoleDashboard((user as any)?.publicMetadata?.role as string | undefined, null);
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Invalid username or password.";
       setError(message);
@@ -167,7 +256,7 @@ const LoginPage = () => {
                   Secure portal
                 </div>
                 <h2 className="mt-5 text-2xl font-semibold sm:text-3xl">
-                  Welcome back to King&apos;s Heart.
+                  Welcome back to King&apos;s Heart Montessori School.
                 </h2>
                 <p className="mt-3 max-w-lg text-sm leading-6 text-slate-300 sm:text-base">
                   Access attendance, lessons, examinations, and student records through a single, secure dashboard.
@@ -198,7 +287,7 @@ const LoginPage = () => {
               </div>
 
               <h1 className="mt-5 text-3xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent sm:text-4xl">
-                KING&apos;S HEART
+                KING&apos;S HEART MONTESSORI SCHOOL
               </h1>
               <p className="mt-2 text-sm font-medium text-slate-600">School Management System</p>
               <p className="mt-1 text-xs text-slate-500">Sign in to your account</p>
@@ -262,9 +351,46 @@ const LoginPage = () => {
               </button>
             </form>
 
+                  <div className="mt-3 flex items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setCheckingRole(true);
+                        try {
+                          const r = await fetch("/api/session/role");
+                          const d = await r.json();
+                          pushDebug({ when: "manual /api/session/role", status: r.status, data: d });
+                          // eslint-disable-next-line no-console
+                          console.debug("manual /api/session/role:", r.status, d);
+                        } catch (e) {
+                          pushDebug({ when: "manual /api/session/role", error: String(e) });
+                          // eslint-disable-next-line no-console
+                          console.warn("manual /api/session/role failed:", e);
+                        } finally {
+                          setCheckingRole(false);
+                        }
+                      }}
+                      className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white/90 px-3 py-2 text-xs font-medium text-slate-700 shadow-sm hover:bg-white"
+                    >
+                      {checkingRole ? <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-slate-400 border-t-slate-700" /> : null}
+                      Check session role
+                    </button>
+                  </div>
+
+            {debugLogs.length > 0 && (
+              <div className="mt-4 rounded-md bg-slate-50 p-3 text-xs text-slate-700">
+                <div className="font-medium mb-1">Debug logs</div>
+                <div className="max-h-40 overflow-auto">
+                  {debugLogs.map((log, i) => (
+                    <pre key={i} className="whitespace-pre-wrap">{log}</pre>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="mt-6 border-t border-slate-200 pt-4 text-center">
               <p className="text-xs text-slate-500">
-                © 2026 King&apos;s Heart School. All rights reserved.
+                © 2026 King&apos;s Heart Montessori School. All rights reserved.
               </p>
             </div>
           </section>

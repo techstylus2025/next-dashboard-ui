@@ -1,0 +1,152 @@
+
+---- 2026-09-01T12:45:31.434Z ----
+ClerkAPIResponseError: Unprocessable Entity
+    at async createParent (src\lib\actions.ts:667:18)
+  665 |     await debugLog("after-clerk-client");
+  666 |     await debugLog("before-clerk-createUser");
+> 667 |     const user = await client.users.createUser({
+      |                  ^
+  668 |       username: data.username,
+  669 |       password: data.password,
+  670 |       firstName: data.name, {
+  cause: undefined,
+  clerkError: true,
+  code: 'api_response_error',
+  longMessage: undefined,
+  docsUrl: undefined,
+  status: 422,
+  clerkTraceId: '2883a8836b8b824729a890010effec52',
+  retryAfter: undefined,
+  errors: [
+    ClerkAPIError {
+      code: 'form_identifier_exists',
+      message: 'That username is taken. Please try another.',
+      longMessage: 'That username is taken. Please try another.',
+      meta: {
+        paramName: 'username',
+        sessionId: undefined,
+        emailAddresses: undefined,
+        identifiers: undefined,
+        zxcvbn: undefined,
+        plan: undefined,
+        isPlanUpgradePossible: undefined,
+        seatsQuantityToAdd: undefined,
+        seatsQuantity: undefined
+      }
+    }
+  ]
+}
+
+---- 2026-09-01T12:46:20.361Z ----
+ClerkAPIResponseError: Unprocessable Entity
+    at async createParent (src\lib\actions.ts:667:18)
+  665 |     await debugLog("after-clerk-client");
+  666 |     await debugLog("before-clerk-createUser");
+> 667 |     const user = await client.users.createUser({
+      |                  ^
+  668 |       username: data.username,
+  669 |       password: data.password,
+  670 |       firstName: data.name, {
+  cause: undefined,
+  clerkError: true,
+  code: 'api_response_error',
+  longMessage: undefined,
+  docsUrl: undefined,
+  status: 422,
+  clerkTraceId: '4c8bd7014d816f4830bddb16a59c969d',
+  retryAfter: undefined,
+  errors: [
+    ClerkAPIError {
+      code: 'form_identifier_exists',
+      message: 'That username is taken. Please try another.',
+      longMessage: 'That username is taken. Please try another.',
+      meta: {
+        paramName: 'username',
+        sessionId: undefined,
+        emailAddresses: undefined,
+        identifiers: undefined,
+        zxcvbn: undefined,
+        plan: undefined,
+        isPlanUpgradePossible: undefined,
+        seatsQuantityToAdd: undefined,
+        seatsQuantity: undefined
+      }
+    }
+  ]
+}
+
+---- 2026-09-01T12:46:30.959Z ----
+ClerkAPIResponseError: Unprocessable Entity
+    at async createParent (src\lib\actions.ts:667:18)
+  665 |     await debugLog("after-clerk-client");
+  666 |     await debugLog("before-clerk-createUser");
+> 667 |     const user = await client.users.createUser({
+      |                  ^
+  668 |       username: data.username,
+  669 |       password: data.password,
+  670 |       firstName: data.name, {
+  cause: undefined,
+  clerkError: true,
+  code: 'api_response_error',
+  longMessage: undefined,
+  docsUrl: undefined,
+  status: 422,
+  clerkTraceId: 'eaf31bdc111c92445d7e9773464b2668',
+  retryAfter: undefined,
+  errors: [
+    ClerkAPIError {
+      code: 'form_identifier_exists',
+      message: 'That username is taken. Please try another.',
+      longMessage: 'That username is taken. Please try another.',
+      meta: {
+        paramName: 'username',
+        sessionId: undefined,
+        emailAddresses: undefined,
+        identifiers: undefined,
+        zxcvbn: undefined,
+        plan: undefined,
+        isPlanUpgradePossible: undefined,
+        seatsQuantityToAdd: undefined,
+        seatsQuantity: undefined
+      }
+    }
+  ]
+}
+
+---- 2026-09-01T12:47:07.885Z ----
+ClerkAPIResponseError: Unprocessable Entity
+    at async createParent (src\lib\actions.ts:667:18)
+  665 |     await debugLog("after-clerk-client");
+  666 |     await debugLog("before-clerk-createUser");
+> 667 |     const user = await client.users.createUser({
+      |                  ^
+  668 |       username: data.username,
+  669 |       password: data.password,
+  670 |       firstName: data.name, {
+  cause: undefined,
+  clerkError: true,
+  code: 'api_response_error',
+  longMessage: undefined,
+  docsUrl: undefined,
+  status: 422,
+  clerkTraceId: 'c9cc88e6f85a16b6bf0de69aabdc842d',
+  retryAfter: undefined,
+  errors: [
+    ClerkAPIError {
+      code: 'form_identifier_exists',
+      message: 'That username is taken. Please try another.',
+      longMessage: 'That username is taken. Please try another.',
+      meta: {
+        paramName: 'username',
+        sessionId: undefined,
+        emailAddresses: undefined,
+        identifiers: undefined,
+        zxcvbn: undefined,
+        plan: undefined,
+        isPlanUpgradePossible: undefined,
+        seatsQuantityToAdd: undefined,
+        seatsQuantity: undefined
+      }
+    }
+  ]
+}

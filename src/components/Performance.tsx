@@ -1,39 +1,100 @@
 "use client";
-import Image from "next/image";
-import { PieChart, Pie, Sector, Cell, ResponsiveContainer } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 
-const data = [
-  { name: "Group A", value: 45, fill: "#C3EBFA" },
-  { name: "Group B", value: 35, fill: "#FAE27C" },
-  { name: "Group A", value: 20, fill: "#C3EBFA" },
-];
+type PerformanceReport = {
+  overallPercentage: number | null;
+  overallGrade: string | null;
+  resultStatus: string | null;
+  academicYearLabel?: string;
+  termNumber?: number;
+  className?: string;
+};
 
-const Performance = () => {
+const Performance = ({ report }: { report?: PerformanceReport | null }) => {
+  const percentage = Math.min(Math.max(report?.overallPercentage ?? 0, 0), 100);
+  const safePercentage = Number.isFinite(percentage) ? percentage : 0;
+  const remaining = Math.max(100 - safePercentage, 0);
+  const balancedRemaining = remaining > 0 ? remaining / 2 : 0;
+  const tertiary = remaining > 0 ? Math.max(remaining - balancedRemaining, 0) : 0;
+
+  const chartData = [
+    { name: "Overall %", value: safePercentage, fill: "#2563eb" },
+    { name: "Remaining", value: balancedRemaining, fill: "#dbeafe" },
+    { name: "Balance", value: tertiary, fill: "#93c5fd" },
+  ];
+
+  const resultStatus = (report?.resultStatus ?? "—").trim();
+  const resultTone =
+    resultStatus === "Passed" || resultStatus === "PASS" || resultStatus === "Pass"
+      ? "bg-emerald-100 text-emerald-700"
+      : resultStatus === "Failed" || resultStatus === "FAIL" || resultStatus === "Fail"
+        ? "bg-rose-100 text-rose-700"
+        : "bg-slate-100 text-slate-700";
+
+  const summaryRows = [
+    { label: "Overall %", value: report?.overallPercentage != null ? `${report.overallPercentage.toFixed(1)}%` : "—" },
+    { label: "Overall Grade", value: report?.overallGrade ?? "—" },
+    { label: "Result", value: resultStatus === "—" ? "—" : <span className={`inline-flex rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${resultTone}`}>{resultStatus}</span> },
+  ];
+
   return (
-    <div className="bg-white p-4 rounded-md h-80 relative">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Performance</h1>
-        <Image src="/moreDark.png" alt="" width={16} height={16} />
+    <div className="rounded-md bg-white p-4 shadow-sm border border-slate-200">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold text-slate-900">Performance</h1>
+          <p className="text-xs text-slate-500">
+            {report?.academicYearLabel ? `${report.academicYearLabel}` : "Latest term"}
+            {report?.termNumber ? ` • Term ${report.termNumber}` : ""}
+          </p>
+        </div>
+        {report?.className ? (
+          <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.2em] text-slate-600">
+            {report.className}
+          </span>
+        ) : null}
       </div>
-      <ResponsiveContainer width="100%" height="100%">
-        <PieChart>
-          <Pie
-            dataKey="value"
-            startAngle={180}
-            endAngle={0}
-            data={data}
-            cx="50%"
-            cy="50%"
-            innerRadius={70}
-            fill="#8884d8"
-          />
-        </PieChart>
-      </ResponsiveContainer>
-      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
-        <h1 className="text-3xl font-bold">9.2</h1>
-        <p className="text-xs text-slate-500">of 10 max LTS</p>
+
+      <div className="relative h-52">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={chartData}
+              dataKey="value"
+              cx="50%"
+              cy="50%"
+              innerRadius={48}
+              outerRadius={72}
+              paddingAngle={2}
+              startAngle={90}
+              endAngle={-270}
+            >
+              {chartData.map((entry) => (
+                <Cell key={entry.name} fill={entry.fill} />
+              ))}
+            </Pie>
+          </PieChart>
+        </ResponsiveContainer>
+
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <div className="text-center">
+            <div className="text-3xl font-bold text-slate-900">
+              {report?.overallPercentage != null ? `${report.overallPercentage.toFixed(1)}%` : "—"}
+            </div>
+            <div className="text-[10px] uppercase tracking-[0.2em] text-slate-500">Score</div>
+          </div>
+        </div>
       </div>
-      <h2 className="font-medium absolute bottom-16 left-0 right-0 m-auto text-center">1st Term - 3rd Term</h2>
+
+      <div className="mt-2 grid grid-cols-3 gap-2">
+        {summaryRows.map((row) => (
+          <div key={row.label} className="rounded-xl border border-slate-200 bg-slate-50 px-2 py-2 text-center">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">{row.label}</p>
+            <div className="mt-1 flex min-h-[1.75rem] items-center justify-center text-sm font-semibold text-slate-900">
+              {typeof row.value === "string" ? row.value : row.value}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };

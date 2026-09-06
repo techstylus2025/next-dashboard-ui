@@ -14,11 +14,14 @@ export default function DashboardShell({
   children,
   homeHref,
   supervisorClassName,
+  authError,
 }: {
   children: ReactNode;
   homeHref: string;
   supervisorClassName?: string | null;
+  authError?: string | null;
 }) {
+  const [showAuthError, setShowAuthError] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   const [messagesOpen, setMessagesOpen] = useState(false);
   const { user } = useUser();
@@ -85,23 +88,25 @@ export default function DashboardShell({
   return (
     <div className="flex h-screen overflow-hidden bg-slate-100">
       <aside
-        className={`fixed inset-y-0 left-0 z-50 h-screen w-64 border-r border-slate-800/60 bg-slate-950 shadow-xl transition-transform duration-300 ease-out md:static md:h-auto md:translate-x-0 flex flex-col ${
+        className={`fixed inset-y-0 left-0 z-50 h-screen w-64 bg-slate-950 shadow-xl transition-transform duration-300 ease-out md:static md:h-auto md:translate-x-0 flex flex-col ${
           menuOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-slate-800/50 px-4 py-3 sm:px-5 bg-slate-950">
-          <Link href={homeHref} className="flex items-center gap-2">
-            <Image src="/logo.png" alt="logo" width={32} height={32} />
-            <span className="font-bold text-white">KINGS HEART SCHOOL</span>
-          </Link>
-          <button
-            type="button"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-800 text-slate-200 hover:bg-slate-700 md:hidden"
-            onClick={() => setMenuOpen(false)}
-            aria-label="Close menu"
-          >
-            ✕
-          </button>
+        <div className="sticky top-0 z-10 px-4 py-3 sm:px-5 bg-slate-950">
+          <div className="flex items-start justify-between gap-2">
+            <Link href={homeHref} className="flex flex-col items-center gap-2 text-center bg-white/5 rounded-lg px-2 py-2 hover:bg-white/10 transition-colors duration-200">
+              <Image src="/logo.png" alt="logo" width={52} height={52} />
+              <span className="text-xl font-bold uppercase tracking-wide text-white">KING&apos;S HEART MONTESSORI SCHOOL</span>
+            </Link>
+            <button
+              type="button"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-800 text-slate-200 hover:bg-slate-700 md:hidden"
+              onClick={() => setMenuOpen(false)}
+              aria-label="Close menu"
+            >
+              ✕
+            </button>
+          </div>
         </div>
         <div className="flex-1 min-h-0 overflow-hidden">
           <div className="h-full overflow-hidden">
@@ -111,10 +116,31 @@ export default function DashboardShell({
       </aside>
 
       <div className="flex min-h-0 flex-1 min-w-0 flex-col md:pl-0 lg:pl-0">
+        {/** Surface server-side auth errors from layout (e.g., Clerk misconfiguration) */}
+        {typeof authError !== "undefined" && authError && showAuthError && (
+          <div className="z-50 mx-4 mt-4 rounded-md border border-red-200 bg-red-50/90 px-4 py-3 text-sm text-red-800 shadow-sm sm:mx-6 lg:mx-8">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="font-semibold">Authentication configuration issue</p>
+                <p className="mt-1 text-xs">{authError}</p>
+                <p className="mt-1 text-xs">This commonly happens when Clerk publishable and secret keys do not match. Check your `.env.local` values and restart the dev server.</p>
+              </div>
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setShowAuthError(false)}
+                  className="ml-2 rounded-md bg-red-100 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-200"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="sticky top-0 z-40 flex items-center justify-center border-b border-slate-200 bg-white/90 px-2 py-2.5 backdrop-blur-md shadow-sm md:hidden">
           <Link href={homeHref} className="flex items-center gap-2">
             <Image src="/logo.png" alt="logo" width={28} height={28} />
-            <span className="text-sm font-semibold text-slate-900">KINGS HEART SCHOOL</span>
+            <span className="text-sm font-semibold text-slate-900">KING&apos;S HEART MONTESSORI SCHOOL</span>
           </Link>
         </div>
 

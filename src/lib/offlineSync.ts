@@ -21,6 +21,10 @@ import type {
  * Sync results data to offline cache
  */
 export async function cacheResultsData(data: ResultsPageContext): Promise<void> {
+  if (typeof window === "undefined" || !("indexedDB" in window)) {
+    return;
+  }
+
   try {
     // Cache individual reports
     if (data.reports.length > 0) {

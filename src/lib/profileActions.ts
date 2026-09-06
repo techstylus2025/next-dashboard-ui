@@ -133,7 +133,7 @@ export async function getProfilePageData(
   }
 
   if (role === "admin") {
-    const [admin, studentCount, teacherCount, parentCount, pendingRequestCount] = await prisma.$transaction([
+    const [admin, studentCount, teacherCount, parentCount, pendingRequestCount] = await Promise.all([
       prisma.admin.findUnique({ where: { id: userId } }),
       prisma.student.count({ where: { isArchived: false } }),
       prisma.teacher.count({ where: { isArchived: false } }),

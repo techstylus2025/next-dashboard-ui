@@ -30,7 +30,7 @@ const EventCalendar = () => {
 
   useEffect(() => {
     if (value instanceof Date) {
-      router.push(`?date=${value.toISOString()}`);
+      router.push(`?date=${value.toISOString()}`, { scroll: false });
     }
   }, [value, router]);
 

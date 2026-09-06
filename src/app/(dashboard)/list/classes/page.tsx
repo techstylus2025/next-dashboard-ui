@@ -2,6 +2,7 @@ import FormContainer from "@/components/FormContainer";
 import Pagination from "@/components/Pagination";
 import Table from "@/components/Table";
 import TableSearch from "@/components/TableSearch";
+import ClassReportButton, { ClassReportData } from "@/components/ClassReportButton";
 import prisma from "@/lib/prisma";
 import { ITEM_PER_PAGE } from "@/lib/settings";
 import { GRADING_LEVEL_LABELS } from "@/lib/gradingUtils";
@@ -9,7 +10,100 @@ import { Class, Prisma, Teacher } from "@prisma/client";
 import Image from "next/image";
 import { auth } from "@clerk/nextjs/server";
 
-type ClassList = Class & { supervisor: Teacher | null; grade: { level: string } | null };
+type ClassList = Class & {
+  supervisor: Teacher | null;
+  grade: { level: string } | null;
+};
+
+const buildClassReport = async (
+  classItem: ClassList,
+  schoolSettings: {
+    name: string | null;
+    address: string | null;
+    telephone: string | null;
+    location: string | null;
+    email: string | null;
+    logoUrl: string | null;
+  }
+): Promise<ClassReportData> => {
+  const [classStudents, activeYear, activeTerm, subjectRows] = await Promise.all([
+    prisma.student.findMany({
+      where: { classId: classItem.id },
+      include: {
+        results: true,
+        attendances: { where: { present: true } },
+      },
+    }),
+    prisma.academicYear.findFirst({
+      where: { isActive: true },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.academicTerm.findFirst({
+      where: { academicYear: { isActive: true } },
+      orderBy: { termNumber: "asc" },
+    }),
+    prisma.subject.findMany({
+      where: { lessons: { some: { classId: classItem.id } } },
+      select: { name: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
+
+  const totalStudents = classStudents.length;
+  const totalMale = classStudents.filter((student) => student.sex === "MALE").length;
+  const totalFemale = classStudents.filter((student) => student.sex === "FEMALE").length;
+
+  const averageAge = totalStudents
+    ? classStudents.reduce((sum, student) => {
+        const age = Math.max(0, new Date().getFullYear() - new Date(student.birthday).getFullYear());
+        return sum + age;
+      }, 0) / totalStudents
+    : 0;
+
+  const averageAttendance = totalStudents
+    ? classStudents.reduce((sum, student) => {
+        const attendanceCount = student.attendances.length;
+        return sum + Math.min(100, attendanceCount > 0 ? (attendanceCount / 20) * 100 : 0);
+      }, 0) / totalStudents
+    : 0;
+
+  const averageScore = totalStudents
+    ? classStudents.reduce((sum, student) => {
+        const scores = student.results.map((result) => Number(result.score ?? 0));
+        const averageStudentScore = scores.length ? scores.reduce((inner, value) => inner + value, 0) / scores.length : 0;
+        return sum + averageStudentScore;
+      }, 0) / totalStudents
+    : 0;
+
+  const topStudents = classStudents
+    .map((student) => ({
+      name: student.name,
+      surname: student.surname,
+      score:
+        student.results.length > 0
+          ? student.results.reduce((sum, result) => sum + Number(result.score ?? 0), 0) / student.results.length
+          : 0,
+    }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5);
+
+  return {
+    className: classItem.name,
+    gradingLevel: classItem.grade ? GRADING_LEVEL_LABELS[classItem.grade.level as keyof typeof GRADING_LEVEL_LABELS] ?? classItem.grade.level : "Unassigned",
+    supervisor: classItem.supervisor ? `${classItem.supervisor.name} ${classItem.supervisor.surname}` : "Unassigned",
+    subjects: subjectRows.map((subject) => subject.name),
+    totalStudents,
+    totalMale,
+    totalFemale,
+    averageAge,
+    averageAttendance,
+    averageScore,
+    academicYear: activeYear?.label ?? "No active year",
+    term: activeTerm ? `Term ${activeTerm.termNumber}` : "No active term",
+    topStudents,
+    schoolSettings,
+  };
+};
 
 const ClassListPage = async ({
   searchParams,
@@ -77,6 +171,7 @@ const renderRow = (item: ClassList) => {
       <div className="flex items-center gap-2">
         {role === "admin" && (
           <>
+            <ClassReportButton report={reportMap[item.id]} />
             <FormContainer table="class" type="update" data={item} />
             <FormContainer table="class" type="delete" id={item.id} />
           </>
@@ -112,18 +207,41 @@ const renderRow = (item: ClassList) => {
     }
   }
 
-  const [data, count] = await Promise.all([
+  const [data, count, schoolSettings] = await Promise.all([
     prisma.class.findMany({
       where: query,
       include: {
         supervisor: true,
-        grade: true,
+        grade: { select: { level: true } },
       },
       take: ITEM_PER_PAGE,
       skip: ITEM_PER_PAGE * (p - 1),
     }),
     prisma.class.count({ where: query }),
+    prisma.schoolSetting.findFirst({
+      select: {
+        name: true,
+        address: true,
+        telephone: true,
+        location: true,
+        email: true,
+        logoUrl: true,
+      },
+    }),
   ]);
+
+  const reportMap = Object.fromEntries(
+    await Promise.all(
+      data.map(async (classItem) => [classItem.id, await buildClassReport(classItem, schoolSettings ?? {
+        name: null,
+        address: null,
+        telephone: null,
+        location: null,
+        email: null,
+        logoUrl: null,
+      })] as const)
+    )
+  ) as Record<number, ClassReportData>;
 
   return (
     <div className="bg-white p-4 rounded-md flex-1 m-4 mt-0">

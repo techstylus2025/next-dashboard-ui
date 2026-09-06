@@ -107,63 +107,63 @@ export default function TermReportView({
     >
       <article className="report-card overflow-hidden bg-white">
         {/* Letterhead */}
-        <header className="report-card-header relative border-b border-slate-200 px-5 py-6 sm:px-8">
-          <div className="report-accent-bar absolute inset-x-0 top-0 h-1.5 bg-[#062e61]" />
+        <header className="report-card-header relative border-b border-slate-200 px-3 py-3 sm:px-5 sm:py-4">
+          <div className="report-accent-bar absolute inset-x-0 top-0 h-1.25 bg-[#062e61]" />
 
-          <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex flex-col items-center gap-2.5 sm:flex-row sm:items-center sm:justify-center">
             <div className="shrink-0">
               {school?.logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={school.logoUrl}
                   alt="School logo"
-                  className="h-20 w-20 rounded-xl border border-slate-200 bg-white object-contain p-1.5 shadow-sm"
+                  className="h-16 w-16 rounded-xl border border-slate-200 bg-white object-contain p-1.5 shadow-sm sm:h-20 sm:w-20"
                 />
               ) : (
-                <div className="flex h-20 w-20 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                <div className="flex h-16 w-16 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 text-[10px] font-semibold uppercase tracking-wider text-slate-400 sm:h-20 sm:w-20">
                   Logo
                 </div>
               )}
             </div>
 
-            <div className="flex-1 text-center sm:px-4">
-              <p className="text-xl font-bold tracking-tight text-[#062e61] sm:text-2xl">
+            <div className="w-full text-center sm:max-w-[70%]">
+              <p className="text-lg font-bold tracking-tight text-[#062e61] sm:text-2xl">
                 {school?.name ?? "School Name"}
               </p>
               {school?.address ? (
-                <p className="mt-1.5 text-xs text-slate-600 sm:text-sm">
+                <p className="mt-1 text-xs text-slate-600 sm:text-sm">
                   {school.address}
                 </p>
               ) : null}
               {contactParts.length > 0 ? (
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-[11px] text-slate-500">
                   {contactParts.join(" · ")}
                 </p>
               ) : null}
             </div>
+          </div>
 
-            <div className="shrink-0 text-center sm:text-right">
-              <span className="report-title-badge inline-block rounded-lg bg-[#062e61] px-4 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-white sm:text-xs">
-                Learner&apos;s Terminal Report
-              </span>
-              <p className="mt-2 text-[10px] font-medium uppercase tracking-wider text-slate-500">
-                Official Academic Record
-              </p>
-            </div>
+          <div className="mt-3 flex flex-col items-center justify-center text-center">
+            <span className="report-title-badge inline-block rounded-lg bg-[#062e61] px-3.5 py-1.5 text-[9px] font-bold uppercase tracking-[0.16em] text-white sm:text-[10px]">
+              Learner&apos;s Terminal Report
+            </span>
+            <p className="mt-1.5 text-[9px] font-medium uppercase tracking-wider text-slate-500 sm:text-[10px]">
+              Official Academic Record
+            </p>
           </div>
         </header>
 
-        <div className="px-5 py-5 sm:px-8 sm:py-6">
+        <div className="px-3 py-3 sm:px-5 sm:py-4">
           {/* Student & term metadata */}
-          <section className="report-meta mb-6 rounded-xl border border-slate-200 bg-slate-50/80 p-4 sm:p-5">
-            <div className="grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-4">
+          <section className="report-meta mb-4 rounded-xl border border-slate-200 bg-slate-50/80 p-3 sm:p-4">
+            <div className="grid grid-cols-2 gap-x-3 gap-y-3 sm:grid-cols-4">
               <MetaField label="Student's Name" value={report.studentName} />
               <MetaField label="Academic Year" value={report.academicYearLabel} />
               <MetaField label="Class" value={report.className} />
               <MetaField label="Term" value={`Term ${report.termNumber}`} />
             </div>
-            <div className="mt-4 border-t border-slate-200 pt-4">
-              <div className="grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-4">
+            <div className="mt-3 border-t border-slate-200 pt-3">
+              <div className="grid grid-cols-2 gap-x-3 gap-y-3 sm:grid-cols-4">
                 <MetaField label="No. On Roll" value={report.totalOnRoll} />
                 <MetaField
                   label="Total Attendance"
@@ -182,7 +182,7 @@ export default function TermReportView({
           </section>
 
           {/* Performance summary strip */}
-          <section className="report-summary-strip mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <section className="report-summary-strip mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
             <div className="rounded-xl border border-slate-200 bg-white p-3 text-center shadow-sm">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
                 Overall %
@@ -222,7 +222,7 @@ export default function TermReportView({
           </section>
 
           {/* Subject scores */}
-          <section className="mb-6 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+          <section className="mb-4 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
             <table className="report-table w-full text-left">
               <thead>
                 <tr>
