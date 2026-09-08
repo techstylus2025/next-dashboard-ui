@@ -26,7 +26,7 @@ export default function QuickActionCard({ title, description, href = "#", icon, 
   return (
     <Link
       href={href}
-      className="group flex min-h-[72px] items-center rounded-lg border border-slate-200/80 bg-slate-50 p-3 transition-all duration-150 hover:-translate-y-0.5 hover:border-sky-200 hover:bg-white"
+      className="group flex min-h-[72px] items-center rounded-lg bg-slate-50 p-3 transition-all duration-150 hover:-translate-y-0.5 hover:bg-white"
     >
       <div className="flex w-full items-center gap-3">
         <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${colors.bg} text-white shadow-sm ${colors.shadow}`}>

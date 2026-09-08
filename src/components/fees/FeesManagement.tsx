@@ -94,6 +94,8 @@ export default function FeesManagement({
   canAdmin,
   canCollect,
   summary,
+  activeTermArrears,
+  previousTermArrears,
 }: {
   role: string | undefined;
   classes: ClassOption[];
@@ -103,6 +105,8 @@ export default function FeesManagement({
   canAdmin: boolean;
   canCollect: boolean;
   summary: FeeSummary;
+  activeTermArrears?: AssignmentOption[];
+  previousTermArrears?: AssignmentOption[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -230,6 +234,18 @@ export default function FeesManagement({
     return assignmentOptions.filter((a) => a.studentName.toLowerCase().includes(q));
   }, [assignmentOptions, paymentSearch]);
 
+  const activeArrearsTerm = (activeTermArrears ?? [])[0]?.term ?? "";
+  const previousArrearsTerm = (previousTermArrears ?? [])[0]?.term ?? "";
+
+  const jumpToArrears = (term: string, label: string) => {
+    setActiveTab("payments");
+    setPaymentFilterTerm(term || "");
+    setPaymentFilterStudent("");
+    setPaymentFilterClass("");
+    setPaymentFilterYear("");
+    setPaymentSearch(label);
+  };
+
   const renderPaymentFilterFields = () => (
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
       <label className="text-xs font-medium text-slate-600">
@@ -303,8 +319,8 @@ export default function FeesManagement({
   );
 
   return (
-    <div className="w-full flex flex-col gap-8 p-4 md:p-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="w-full flex flex-col gap-4 p-2 md:p-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Fee management</h1>
           <p className="mt-1 text-sm font-semibold text-slate-500">
@@ -363,33 +379,117 @@ export default function FeesManagement({
         </div>
       </div>
 
-      <div className="rounded-2xl border border-white/60 bg-white/90 backdrop-blur-sm p-6 shadow-sm">
+      <div className="rounded-2xl bg-white/90 p-3 shadow-sm md:p-4">
         {activeTab === "overview" && (
-          <div className="space-y-6">
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-slate-100 p-5 shadow-sm ring-1 ring-slate-100">
+          <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-6">
+              <div className="rounded-3xl bg-gradient-to-br from-slate-50 via-white to-slate-100 p-5 shadow-sm">
                 <div className="inline-flex rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold uppercase tracking-[0.15em] text-white">Collected</div>
                 <p className="mt-4 text-sm text-slate-500">Total fees collected</p>
                 <p className="mt-3 text-xl font-semibold text-slate-900">₵{summary.totalFeesCollected.toFixed(2)}</p>
               </div>
-              <div className="rounded-3xl border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-amber-100 p-5 shadow-sm ring-1 ring-amber-100">
+              <div className="rounded-3xl bg-gradient-to-br from-amber-50 via-white to-amber-100 p-5 shadow-sm">
                 <div className="inline-flex rounded-full bg-amber-600 px-3 py-1 text-xs font-semibold uppercase tracking-[0.15em] text-white">Outstanding</div>
                 <p className="mt-4 text-sm text-slate-600">Outstanding balance</p>
                 <p className="mt-3 text-xl font-semibold text-slate-900">₵{summary.totalFeesOutstanding.toFixed(2)}</p>
               </div>
-              <div className="rounded-3xl border border-sky-200 bg-gradient-to-br from-sky-50 via-white to-sky-100 p-5 shadow-sm ring-1 ring-sky-100">
+              <div className="rounded-3xl bg-gradient-to-br from-sky-50 via-white to-sky-100 p-5 shadow-sm">
                 <div className="inline-flex rounded-full bg-sky-600 px-3 py-1 text-xs font-semibold uppercase tracking-[0.15em] text-white">Schedules</div>
                 <p className="mt-4 text-sm text-slate-600">Active fee schedules</p>
                 <p className="mt-3 text-xl font-semibold text-slate-900">{summary.activeFeeSchedules}</p>
               </div>
-              <div className="rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-emerald-100 p-5 shadow-sm ring-1 ring-emerald-100">
+              <div className="rounded-3xl bg-gradient-to-br from-emerald-50 via-white to-emerald-100 p-5 shadow-sm">
                 <div className="inline-flex rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold uppercase tracking-[0.15em] text-white">Assignments</div>
                 <p className="mt-4 text-sm text-slate-600">Fee assignments</p>
                 <p className="mt-3 text-xl font-semibold text-slate-900">{summary.feeAssignments}</p>
               </div>
+              <button
+                type="button"
+                onClick={() => jumpToArrears(activeArrearsTerm, "active arrears")}
+                className="rounded-3xl bg-gradient-to-br from-rose-50 via-white to-rose-100 p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+              >
+                <div className="inline-flex rounded-full bg-rose-600 px-3 py-1 text-xs font-semibold uppercase tracking-[0.15em] text-white">Active Arrears</div>
+                <p className="mt-4 text-sm text-slate-600">Students with outstanding balance for active term</p>
+                <p className="mt-3 text-xl font-semibold text-slate-900">{(activeTermArrears ?? []).length}</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => jumpToArrears(previousArrearsTerm, "previous arrears")}
+                className="rounded-3xl bg-gradient-to-br from-violet-50 via-white to-violet-100 p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+              >
+                <div className="inline-flex rounded-full bg-violet-600 px-3 py-1 text-xs font-semibold uppercase tracking-[0.15em] text-white">Previous Arrears</div>
+                <p className="mt-4 text-sm text-slate-600">Students still owing from previous term</p>
+                <p className="mt-3 text-xl font-semibold text-slate-900">{(previousTermArrears ?? []).length}</p>
+              </button>
             </div>
 
-            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 shadow-sm ring-1 ring-slate-100">
+            <div className="grid gap-3 lg:grid-cols-2">
+              <div className="rounded-3xl bg-slate-50 p-5 shadow-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-slate-900">Active term arrears</p>
+                    <p className="text-xs text-slate-500">{activeArrearsTerm ? termLabel(activeArrearsTerm) : "No active arrears"}</p>
+                  </div>
+                  <button type="button" onClick={() => jumpToArrears(activeArrearsTerm, "active arrears")} className="text-xs font-medium text-rose-700 hover:text-rose-800">
+                    View all
+                  </button>
+                </div>
+                <div className="mt-4 space-y-2">
+                  {(activeTermArrears ?? []).length === 0 ? (
+                    <p className="rounded-2xl border border-dashed border-slate-200 bg-white p-3 text-sm text-slate-500">No active term arrears.</p>
+                  ) : (
+                    (activeTermArrears ?? []).slice(0, 5).map((student) => (
+                      <button
+                        key={`${student.id}-${student.studentName}`}
+                        type="button"
+                        onClick={() => jumpToArrears(student.term, student.studentName)}
+                        className="flex w-full items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-left text-sm text-slate-700 hover:border-rose-200 hover:bg-rose-50"
+                      >
+                        <div>
+                          <p className="font-medium text-slate-900">{student.studentName}</p>
+                          <p className="text-xs text-slate-500">{student.className}</p>
+                        </div>
+                        <span className="text-xs font-semibold text-rose-700">₵{student.balance.toFixed(2)}</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-3xl bg-slate-50 p-5 shadow-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-slate-900">Previous term arrears</p>
+                    <p className="text-xs text-slate-500">{previousArrearsTerm ? termLabel(previousArrearsTerm) : "No previous arrears"}</p>
+                  </div>
+                  <button type="button" onClick={() => jumpToArrears(previousArrearsTerm, "previous arrears")} className="text-xs font-medium text-violet-700 hover:text-violet-800">
+                    View all
+                  </button>
+                </div>
+                <div className="mt-4 space-y-2">
+                  {(previousTermArrears ?? []).length === 0 ? (
+                    <p className="rounded-2xl border border-dashed border-slate-200 bg-white p-3 text-sm text-slate-500">No previous term arrears.</p>
+                  ) : (
+                    (previousTermArrears ?? []).slice(0, 5).map((student) => (
+                      <button
+                        key={`${student.id}-${student.studentName}`}
+                        type="button"
+                        onClick={() => jumpToArrears(student.term, student.studentName)}
+                        className="flex w-full items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-left text-sm text-slate-700 hover:border-violet-200 hover:bg-violet-50"
+                      >
+                        <div>
+                          <p className="font-medium text-slate-900">{student.studentName}</p>
+                          <p className="text-xs text-slate-500">{student.className}</p>
+                        </div>
+                        <span className="text-xs font-semibold text-violet-700">₵{student.balance.toFixed(2)}</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-3xl bg-slate-50 p-5 shadow-sm">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-sm font-medium text-slate-900">Recent fee schedules</p>
@@ -407,7 +507,7 @@ export default function FeesManagement({
                   </div>
                 ) : (
                   classFeeCards.slice(0, 4).map((card) => (
-                    <div key={card.id} className="rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-slate-100 p-4 shadow-sm">
+                    <div key={card.id} className="rounded-3xl bg-gradient-to-br from-white via-slate-50 to-slate-100 p-4 shadow-sm">
                       <div className="flex items-start justify-between gap-4">
                         <div>
                           <p className="text-sm font-semibold text-slate-900">{card.className}</p>
@@ -494,7 +594,7 @@ export default function FeesManagement({
 
         {activeTab === "payments" && (
           <div>
-            <div className="mb-4 hidden md:block rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <div className="mb-4 hidden md:block rounded-xl bg-slate-50 p-3">
               <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <h3 className="text-sm font-medium text-slate-700">Filters</h3>
                 <button
@@ -518,7 +618,7 @@ export default function FeesManagement({
               <button
                 type="button"
                 onClick={() => setPaymentFilterModalOpen(true)}
-                className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm font-medium text-slate-700"
+                className="flex w-full items-center justify-between rounded-xl bg-slate-50 px-4 py-3 text-left text-sm font-medium text-slate-700"
               >
                 <span>Payment filters</span>
                 <span className="rounded-full bg-white px-2 py-1 text-xs text-slate-500">Open</span>
@@ -548,7 +648,7 @@ export default function FeesManagement({
                     const isExpanded = expandedStudentKeys[groupKey] ?? true;
 
                     return (
-                      <div key={groupKey} className="rounded-xl border border-slate-200 bg-slate-50 overflow-hidden">
+                      <div key={groupKey} className="rounded-xl bg-slate-50 overflow-hidden">
                         <button
                           type="button"
                           onClick={() => toggleStudentGroup(groupKey)}

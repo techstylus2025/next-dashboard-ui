@@ -8,9 +8,10 @@ import { currentUser } from "@clerk/nextjs/server";
 const AttendancePage = async ({
   searchParams,
 }: {
-  searchParams?: { date?: string | string[] };
+  searchParams?: Promise<{ date?: string | string[] }> | { date?: string | string[] };
 }) => {
-  const rawDate = typeof searchParams?.date === "string" ? searchParams.date : undefined;
+  const params = searchParams ? await searchParams : {};
+  const rawDate = typeof params.date === "string" ? params.date : undefined;
   const selectedDate = rawDate ? new Date(rawDate) : new Date();
   const safeDate = Number.isNaN(selectedDate.getTime())
     ? new Date()

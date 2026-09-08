@@ -25,58 +25,58 @@ const FinanceChart = ({ data }: { data: FinanceChartPoint[] }) => {
         <h1 className="text-lg font-semibold text-slate-800">Finance</h1>
         <Image src="/moreDark.png" alt="" width={20} height={20} />
       </div>
-      <ResponsiveContainer width="100%" height="90%">
-        <LineChart
-          width={500}
-          height={300}
-          data={data}
-          margin={{
-            top: 5,
-            right: 30,
-            left: 20,
-            bottom: 5,
-          }}
-        >
-          <CartesianGrid
-            strokeDasharray="3 3"
-            stroke={chartColors.finance.grid}
-          />
-          <XAxis
-            dataKey="month"
-            axisLine={false}
-            tick={{ fill: "#94a3b8" }}
-            tickLine={false}
-            tickMargin={10}
-          />
-          <YAxis
-            axisLine={false}
-            tick={{ fill: "#94a3b8" }}
-            tickLine={false}
-            tickMargin={20}
-          />
-          <Tooltip
-            contentStyle={{
-              borderRadius: "12px",
-              borderColor: "#e2e8f0",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.06)",
+      <div className="h-72 w-full min-w-0">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart
+            data={data}
+            margin={{
+              top: 5,
+              right: 30,
+              left: 20,
+              bottom: 5,
             }}
-          />
-          <Legend
-            align="center"
-            verticalAlign="top"
-            wrapperStyle={{ paddingTop: "10px", paddingBottom: "30px" }}
-          />
-          <Line
-            type="monotone"
-            dataKey="collected"
-            name="Collected"
-            stroke={chartColors.finance.income}
-            strokeWidth={4}
-            dot={{ fill: chartColors.finance.income, r: 4 }}
-            activeDot={{ r: 6 }}
-          />
-        </LineChart>
-      </ResponsiveContainer>
+          >
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke={chartColors.finance.grid}
+            />
+            <XAxis
+              dataKey="month"
+              axisLine={false}
+              tick={{ fill: "#94a3b8" }}
+              tickLine={false}
+              tickMargin={10}
+            />
+            <YAxis
+              axisLine={false}
+              tick={{ fill: "#94a3b8" }}
+              tickLine={false}
+              tickMargin={20}
+            />
+            <Tooltip
+              contentStyle={{
+                borderRadius: "12px",
+                borderColor: "#e2e8f0",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.06)",
+              }}
+            />
+            <Legend
+              align="center"
+              verticalAlign="top"
+              wrapperStyle={{ paddingTop: "10px", paddingBottom: "30px" }}
+            />
+            <Line
+              type="monotone"
+              dataKey="collected"
+              name="Collected"
+              stroke={chartColors.finance.income}
+              strokeWidth={4}
+              dot={{ fill: chartColors.finance.income, r: 4 }}
+              activeDot={{ r: 6 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 };

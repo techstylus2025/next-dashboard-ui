@@ -10,6 +10,9 @@ import StatCard from "@/components/dashboard/StatCard";
 import QuickActionCard from "@/components/dashboard/QuickActionCard";
 import EmptyState from "@/components/EmptyState";
 import TermPerformanceToggle from "@/components/dashboard/TermPerformanceToggle";
+import PerformanceComparePanel from "@/components/dashboard/PerformanceComparePanel";
+import UpcomingEvents from "@/components/dashboard/UpcomingEvents";
+import FeePaymentChart from "@/components/dashboard/FeePaymentChart";
 import AdminDashboardAutoRefresh from "@/components/dashboard/AdminDashboardAutoRefresh";
 import { getPendingPasswordChangeRequests } from "@/lib/profileActions";
 import { loadAdminDashboardSummary } from "@/lib/dashboardStats";
@@ -61,100 +64,92 @@ const AdminPage = async ({ searchParams }: { searchParams: Promise<{ [key: strin
       </SectionCard>
       <div className="grid gap-4">
         <SectionCard title="Student Performance" subtitle="Average academic performance by class">
-          <div className="rounded-[14px] border border-slate-200/70 bg-slate-50 p-3">
-            <TermPerformanceToggle
-              terms={
-                summary.performanceByTerm && summary.performanceByTerm.length > 0
-                  ? summary.performanceByTerm
-                  : [
-                      {
-                        termKey: "latest",
-                        label: "Latest",
-                        performanceByClass: summary.performanceByClass,
-                      },
-                    ]
-              }
-            />
-          </div>
+          <PerformanceComparePanel initialTerms={
+            summary.performanceByTerm && summary.performanceByTerm.length > 0
+              ? summary.performanceByTerm.map((t) => ({
+                  termKey: t.termKey,
+                  label: t.label,
+                  classes: t.performanceByClass.map((c, idx) => ({ classId: idx + 1, className: c.className, subjects: [] })),
+                }))
+              : undefined
+          } />
         </SectionCard>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <SectionCard title="Attendance Overview" subtitle="Daily present and absent split">
-            <div className="rounded-[24px] border border-slate-200/70 bg-slate-50 p-4">
-              <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start">
-                <div className="flex items-center justify-center">
-                  <div className="h-32 w-32 rounded-full flex items-center justify-center" style={attendanceDonutStyle}>
-                    <div className="h-24 w-24 rounded-full bg-white flex items-center justify-center">
-                      <div className="text-center">
-                        <p className="text-2xl font-semibold text-slate-950">{summary.attendanceTodayRate}%</p>
-                        <p className="text-xs text-slate-500">Students Present</p>
-                      </div>
+            <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start">
+              <div className="flex items-center justify-center">
+                <div className="h-32 w-32 rounded-full flex items-center justify-center" style={attendanceDonutStyle}>
+                  <div className="h-24 w-24 rounded-full bg-white flex items-center justify-center">
+                    <div className="text-center">
+                      <p className="text-2xl font-semibold text-slate-950">{summary.attendanceTodayRate}%</p>
+                      <p className="text-xs text-slate-500">Students Present</p>
                     </div>
                   </div>
                 </div>
+              </div>
 
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-2">
-                    <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                      <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Students</p>
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-3">
-                          <span className="inline-block h-3 w-3 rounded-full bg-emerald-500" />
-                          <div>
-                            <p className="text-sm font-semibold text-slate-900">Present</p>
-                            <p className="text-sm text-slate-500">{summary.attendanceTodayPresent} ({summary.attendanceTodayRate}%)</p>
-                          </div>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-2">
+                  <div className="rounded-2xl bg-white p-3">
+                    <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Students</p>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3">
+                        <span className="inline-block h-3 w-3 rounded-full bg-emerald-500" />
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">Present</p>
+                          <p className="text-sm text-slate-500">{summary.attendanceTodayPresent} ({summary.attendanceTodayRate}%)</p>
                         </div>
+                      </div>
 
-                        <div className="flex items-center gap-3">
-                          <span className="inline-block h-3 w-3 rounded-full bg-rose-500" />
-                          <div>
-                            <p className="text-sm font-semibold text-slate-900">Absent</p>
-                            <p className="text-sm text-slate-500">{Math.max(summary.attendanceTodayTotal - summary.attendanceTodayPresent, 0)} ({summary.attendanceTodayTotal ? Math.round(((summary.attendanceTodayTotal - summary.attendanceTodayPresent) / summary.attendanceTodayTotal) * 100) : 0}%)</p>
-                          </div>
+                      <div className="flex items-center gap-3">
+                        <span className="inline-block h-3 w-3 rounded-full bg-rose-500" />
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">Absent</p>
+                          <p className="text-sm text-slate-500">{Math.max(summary.attendanceTodayTotal - summary.attendanceTodayPresent, 0)} ({summary.attendanceTodayTotal ? Math.round(((summary.attendanceTodayTotal - summary.attendanceTodayPresent) / summary.attendanceTodayTotal) * 100) : 0}%)</p>
                         </div>
                       </div>
                     </div>
-
-                    {summary.teacherAttendance ? (
-                      <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                        <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Teachers</p>
-                        <div className="space-y-3">
-                          <div className="flex items-center gap-3">
-                            <span className="inline-block h-3 w-3 rounded-full bg-blue-500" />
-                            <div>
-                              <p className="text-sm font-semibold text-slate-900">Present</p>
-                              <p className="text-sm text-slate-500">{summary.teacherAttendance.present} ({summary.teacherAttendance.rate}%)</p>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-3">
-                            <span className="inline-block h-3 w-3 rounded-full bg-orange-500" />
-                            <div>
-                              <p className="text-sm font-semibold text-slate-900">Absent</p>
-                              <p className="text-sm text-slate-500">{Math.max(summary.teacherAttendance.total - summary.teacherAttendance.present, 0)} ({summary.teacherAttendance.total ? 100 - summary.teacherAttendance.rate : 0}%)</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ) : null}
                   </div>
 
-                  <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                    <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Class Attendance</p>
-                    <div className="space-y-3">
-                      {summary.classAttendanceRates.map((item) => (
-                        <div key={item.className}>
-                          <div className="mb-1 flex items-center justify-between text-sm text-slate-600">
-                            <span>{item.className}</span>
-                            <span className="font-semibold text-slate-900">{item.rate}%</span>
-                          </div>
-                          <div className="h-2 rounded-full bg-slate-200">
-                            <div className="h-2 rounded-full bg-gradient-to-r from-emerald-500 to-teal-600" style={{ width: `${item.rate}%` }} />
+                  {summary.teacherAttendance ? (
+                    <div className="rounded-2xl bg-white p-3">
+                      <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Teachers</p>
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3">
+                          <span className="inline-block h-3 w-3 rounded-full bg-blue-500" />
+                          <div>
+                            <p className="text-sm font-semibold text-slate-900">Present</p>
+                            <p className="text-sm text-slate-500">{summary.teacherAttendance.present} ({summary.teacherAttendance.rate}%)</p>
                           </div>
                         </div>
-                      ))}
+
+                        <div className="flex items-center gap-3">
+                          <span className="inline-block h-3 w-3 rounded-full bg-orange-500" />
+                          <div>
+                            <p className="text-sm font-semibold text-slate-900">Absent</p>
+                            <p className="text-sm text-slate-500">{Math.max(summary.teacherAttendance.total - summary.teacherAttendance.present, 0)} ({summary.teacherAttendance.total ? 100 - summary.teacherAttendance.rate : 0}%)</p>
+                          </div>
+                        </div>
+                      </div>
                     </div>
+                  ) : null}
+                </div>
+
+                <div className="rounded-2xl bg-white p-3">
+                  <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Class Attendance</p>
+                  <div className="space-y-3">
+                    {summary.classAttendanceRates.map((item) => (
+                      <div key={item.className}>
+                        <div className="mb-1 flex items-center justify-between text-sm text-slate-600">
+                          <span>{item.className}</span>
+                          <span className="font-semibold text-slate-900">{item.rate}%</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-slate-200">
+                          <div className="h-2 rounded-full bg-gradient-to-r from-emerald-500 to-teal-600" style={{ width: `${item.rate}%` }} />
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -162,15 +157,7 @@ const AdminPage = async ({ searchParams }: { searchParams: Promise<{ [key: strin
           </SectionCard>
 
           <SectionCard title="Upcoming Events" subtitle="Important school milestones">
-            <div className="space-y-3">
-              {summary.upcomingEvents.length > 0 ? summary.upcomingEvents.map((event) => (
-                <div key={event.title} className="rounded-2xl border border-slate-200/80 bg-slate-50 p-3">
-                  <p className="font-semibold text-slate-900">{event.title}</p>
-                  <p className="mt-1 text-sm text-slate-500">{event.timeLabel}</p>
-                  <p className="mt-1 text-sm text-slate-500">{event.location}</p>
-                </div>
-              )) : <p className="text-sm text-slate-500">No upcoming events are scheduled yet.</p>}
-            </div>
+            <UpcomingEvents events={summary.upcomingEvents} />
           </SectionCard>
         </div>
       </div>
@@ -179,7 +166,7 @@ const AdminPage = async ({ searchParams }: { searchParams: Promise<{ [key: strin
         <SectionCard title="Recent Activities" subtitle="Live school activity feed">
           <div className="space-y-3">
             {summary.recentActivities.map((activity) => (
-              <div key={`${activity.title}-${activity.detail}`} className="flex items-start gap-3 rounded-2xl border border-slate-200/80 bg-slate-50 p-3">
+              <div key={`${activity.title}-${activity.detail}`} className="flex items-start gap-3 rounded-2xl bg-slate-50 p-3">
                 <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-full bg-sky-100 text-sky-700"><Sparkles size={16} /></div>
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-slate-900">{activity.title}</p>
@@ -191,15 +178,9 @@ const AdminPage = async ({ searchParams }: { searchParams: Promise<{ [key: strin
           </div>
         </SectionCard>
 
-        <SectionCard title="Upcoming Events" subtitle="Important school milestones">
-          <div className="space-y-3">
-            {summary.upcomingEvents.length > 0 ? summary.upcomingEvents.map((event) => (
-              <div key={event.title} className="rounded-2xl border border-slate-200/80 bg-slate-50 p-3">
-                <p className="font-semibold text-slate-900">{event.title}</p>
-                <p className="mt-1 text-sm text-slate-500">{event.timeLabel}</p>
-                <p className="mt-1 text-sm text-slate-500">{event.location}</p>
-              </div>
-            )) : <p className="text-sm text-slate-500">No upcoming events are scheduled yet.</p>}
+        <SectionCard title="Fee Payments by Class" subtitle="Students paid vs unpaid (active term)">
+          <div className="rounded-2xl bg-white p-3">
+              <FeePaymentChart data={summary.feePaymentByClass ?? []} />
           </div>
         </SectionCard>
 
@@ -211,10 +192,10 @@ const AdminPage = async ({ searchParams }: { searchParams: Promise<{ [key: strin
       
 
       <div className="grid gap-5 grid-cols-1 md:grid-cols-2">
-        <div className="rounded-[14px] border border-slate-200/80 bg-white p-4 shadow-[0_22px_45px_-24px_rgba(7,26,73,0.2)]">
+        <div className="rounded-[14px] bg-white p-4 shadow-[0_22px_45px_-24px_rgba(7,26,73,0.2)]">
           <EventCalendarContainer searchParams={searchParams} />
         </div>
-        <div className="rounded-[14px] border border-slate-200/80 bg-white p-4 shadow-[0_22px_45px_-24px_rgba(7,26,73,0.2)]">
+        <div className="rounded-[14px] bg-white p-4 shadow-[0_22px_45px_-24px_rgba(7,26,73,0.2)]">
           <PasswordChangeApprovalPanel initialRequests={pendingRequests} />
         </div>
       </div>

@@ -160,8 +160,60 @@ export default async function FeesPage() {
     activeFeeSchedules: classFeeCards.length,
   };
 
+  // determine active academic year and term and compute arrears
+  const activeYear = await prisma.academicYear.findFirst({ where: { isActive: true }, orderBy: { createdAt: "desc" } });
+  let activeTermRec = null;
+  if (activeYear) {
+    activeTermRec = await prisma.academicTerm.findFirst({ where: { academicYearId: activeYear.id }, orderBy: { termNumber: "desc" } });
+  }
+
+  const makeAssignmentOption = (a: any) => {
+    const totalBill = Number(a.totalBillCedis ?? a.feeSchedule?.totalBillCedis ?? 0);
+    const paidSoFar = (a.payments ?? []).reduce((s: number, p: any) => s + Number(p.amountCedis), 0);
+    const balance = totalBill - paidSoFar;
+    const last = (a.payments && a.payments[0]?.paidAt) ?? null;
+    return {
+      id: a.id,
+      studentName: `${a.student?.name ?? ""} ${a.student?.surname ?? ""}`.trim(),
+      className: a.student?.class?.name ?? a.feeSchedule?.class?.name ?? "",
+      term: a.feeSchedule?.term ?? a.term,
+      academicYear: a.feeSchedule?.academicYear ?? a.academicYear,
+      totalBill,
+      paidSoFar,
+      balance,
+      lastPaymentDate: last ? new Date(last).toISOString() : null,
+    };
+  };
+
+  let activeTermArrears: any[] = [];
+  let previousTermArrears: any[] = [];
+  if (activeYear && activeTermRec) {
+    const activeTermEnum = `TERM_${activeTermRec.termNumber}`;
+    const prevTermNumber = activeTermRec.termNumber - 1;
+    const prevTermEnum = prevTermNumber >= 1 ? `TERM_${prevTermNumber}` : null;
+
+    const allAssigns = await prisma.studentFeeAssignment.findMany({
+      include: {
+        student: { select: { name: true, surname: true, class: { select: { name: true } } } },
+        feeSchedule: { select: { academicYear: true, term: true, totalBillCedis: true, class: { select: { name: true } } } },
+        payments: { orderBy: { paidAt: "desc" } },
+      },
+    });
+
+    for (const a of allAssigns) {
+      const opt = makeAssignmentOption(a);
+      if (opt.balance > 0.009) {
+        if (a.feeSchedule?.academicYear === activeYear.label && a.feeSchedule?.term === activeTermEnum) {
+          activeTermArrears.push(opt);
+        } else if (prevTermEnum && a.feeSchedule?.academicYear === activeYear.label && a.feeSchedule?.term === prevTermEnum) {
+          previousTermArrears.push(opt);
+        }
+      }
+    }
+  }
+
   return (
-    <div className="flex-1 p-4 min-h-[60vh] rounded-2xl bg-slate-50">
+    <div className="flex-1 p-2 min-h-[60vh] rounded-xl bg-slate-50">
       <FeesManagement
         role={role}
         classes={classes}
@@ -172,6 +224,8 @@ export default async function FeesPage() {
         canAdmin={canAdmin}
         canCollect={canCollect}
         summary={feeSummary}
+        activeTermArrears={activeTermArrears}
+        previousTermArrears={previousTermArrears}
       />
     </div>
   );

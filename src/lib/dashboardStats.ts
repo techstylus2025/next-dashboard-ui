@@ -23,6 +23,9 @@ export type ClassPerformancePoint = {
 export type UpcomingEventItem = {
   title: string;
   timeLabel: string;
+  startTimeIso?: string;
+  dateLabel?: string;
+  description?: string;
   location: string;
 };
 
@@ -43,6 +46,7 @@ export type AdminDashboardSummary = {
   totalFeesOutstanding: number;
   outstandingAssignments: number;
   monthlyPayments: MonthlyPaymentPoint[];
+  feePaymentByClass?: { className: string; paid: number; unpaid: number }[];
   attendanceTodayRate: number;
   attendanceTodayPresent: number;
   attendanceTodayTotal: number;
@@ -317,6 +321,7 @@ export async function loadAdminDashboardSummary(): Promise<AdminDashboardSummary
     select: {
       title: true,
       startTime: true,
+      description: true,
       class: { select: { name: true } },
     },
     orderBy: { startTime: "asc" },
@@ -447,9 +452,70 @@ export async function loadAdminDashboardSummary(): Promise<AdminDashboardSummary
     })(),
     upcomingEvents: upcomingEvents.map((event) => ({
       title: event.title,
+      startTimeIso: event.startTime.toISOString(),
+      dateLabel: event.startTime.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
       timeLabel: `${formatTimeLabel(event.startTime)}${event.class?.name ? ` · ${event.class.name}` : ""}`,
+      description: event.description ?? undefined,
       location: event.class?.name ?? "School",
     })),
+    // fee payment counts per class for the active academic year and term
+    feePaymentByClass: await (async () => {
+      try {
+        const activeYear = await db.academicYear.findFirst({ where: { isActive: true } });
+        if (!activeYear) return [];
+        const activeTerm = await db.academicTerm.findFirst({ where: { academicYearId: activeYear.id }, orderBy: { termNumber: "asc" } });
+        if (!activeTerm) return [];
+
+        const termEnum = activeTerm.termNumber === 1 ? "TERM_1" : activeTerm.termNumber === 2 ? "TERM_2" : "TERM_3";
+
+        const schedules = await db.feeSchedule.findMany({ where: { academicYear: activeYear.label, term: termEnum as any }, select: { id: true, classId: true } });
+
+        let assignments: Array<any> = [];
+
+        if (schedules.length) {
+          const scheduleIds = schedules.map((s) => s.id);
+
+          assignments = await db.studentFeeAssignment.findMany({
+            where: { feeScheduleId: { in: scheduleIds } },
+            select: { totalBillCedis: true, payments: { select: { amountCedis: true } }, student: { select: { classId: true } } },
+          });
+        } else {
+          // try to find assignments by joining feeSchedule relation (more robust if feeSchedule records exist differently)
+          assignments = await db.studentFeeAssignment.findMany({
+            where: { feeSchedule: { academicYear: activeYear.label, term: termEnum as any } },
+            select: { totalBillCedis: true, payments: { select: { amountCedis: true } }, student: { select: { classId: true } } },
+          });
+
+          // final fallback: include all assignments (will show payments across years)
+          if (!assignments.length) {
+            assignments = await db.studentFeeAssignment.findMany({
+              select: { totalBillCedis: true, payments: { select: { amountCedis: true } }, student: { select: { classId: true } } },
+            });
+          }
+        }
+
+        const classMap = new Map<number, { paid: number; unpaid: number }>();
+        for (const a of assignments) {
+          const classId = a.student?.classId ?? -1;
+          const paidAmount = a.payments.reduce((sum: number, payment: { amountCedis: any }) => sum + Number(payment.amountCedis), 0);
+          const finished = paidAmount + 0.005 >= Number(a.totalBillCedis);
+          const current = classMap.get(classId) ?? { paid: 0, unpaid: 0 };
+          if (finished) current.paid += 1; else current.unpaid += 1;
+          classMap.set(classId, current);
+        }
+
+        const out = classes
+          .map((c) => ({ classId: c.id, className: c.name }))
+          .map((item) => {
+            const counts = classMap.get(item.classId) ?? { paid: 0, unpaid: 0 };
+            return { className: item.className, paid: counts.paid, unpaid: counts.unpaid };
+          });
+
+        return out;
+      } catch (e) {
+        return [];
+      }
+    })(),
     recentActivities,
     currentFridayEvent: fridayEvent
       ? {

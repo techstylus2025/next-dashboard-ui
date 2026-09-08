@@ -9,7 +9,7 @@ type DashboardStatCardProps = {
 
 const DashboardStatCard = ({ label, value, detail, badge, className, detailClassName }: DashboardStatCardProps) => {
   const base = "rounded-3xl p-4 shadow-sm";
-  const outer = className ? `${base} ${className}` : `${base} border border-slate-200/80 bg-white/95`;
+  const outer = className ? `${base} ${className}` : `${base} bg-white/95`;
   const labelClass = className ? "text-sm font-medium text-white/90" : "text-sm font-medium text-slate-500";
   const valueClass = className ? "mt-2 text-lg font-semibold text-white" : "mt-2 text-lg font-semibold text-slate-900";
   const badgeClass = className ? "rounded-2xl bg-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-white" : "rounded-2xl bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-slate-700";

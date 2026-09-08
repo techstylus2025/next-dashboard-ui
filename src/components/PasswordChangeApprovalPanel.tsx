@@ -50,7 +50,7 @@ const PasswordChangeApprovalPanel = ({ initialRequests }: PasswordChangeApproval
   };
 
   return (
-    <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+    <div className="rounded-3xl bg-white p-6 shadow-sm">
       <div className="mb-5 flex items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">Password approvals</h2>
@@ -71,7 +71,7 @@ const PasswordChangeApprovalPanel = ({ initialRequests }: PasswordChangeApproval
       ) : (
         <div className="space-y-4">
           {requests.map((request) => (
-            <div key={request.id} className="rounded-3xl border border-slate-200 p-4">
+            <div key={request.id} className="rounded-3xl bg-slate-50 p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-sm font-semibold text-slate-900">{request.displayName}</p>
