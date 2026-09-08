@@ -83,6 +83,20 @@ function formatTimeLabel(date: Date) {
   });
 }
 
+function formatRecentActivityTime(date: Date) {
+  const diffMinutes = Math.max(0, Math.round((Date.now() - date.getTime()) / 60000));
+
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+
+  const diffHours = Math.round(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+
+  const diffDays = Math.round(diffHours / 24);
+  if (diffDays < 7) return `${diffDays}d ago`;
+
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
 export async function loadAdminDashboardSummary(): Promise<AdminDashboardSummary> {
   const [totalStudents, totalTeachers, totalParents, totalClasses, activeFeeSchedules, feeAssignments] =
     await Promise.all([
@@ -94,113 +108,161 @@ export async function loadAdminDashboardSummary(): Promise<AdminDashboardSummary
       db.studentFeeAssignment.count(),
     ]);
 
-  const [payments, classes, results, attendanceRecords, latestStudent, latestBook, latestResult, latestPayment] =
-    await Promise.all([
-      db.feePayment.findMany({
-        select: { amountCedis: true, paidAt: true },
-        orderBy: { paidAt: "asc" },
-      }),
-      db.class.findMany({
-        select: { id: true, name: true },
-        orderBy: { name: "asc" },
-      }),
-      db.result.findMany({
-        where: { isArchived: false },
-        select: {
-          score: true,
-          student: {
-            select: {
-              classId: true,
+  const [
+    payments,
+    classes,
+    results,
+    attendanceRecords,
+    latestStudent,
+    latestTeacher,
+    latestBook,
+    latestBookOrder,
+    latestResult,
+    latestPayment,
+    latestLesson,
+    latestAssignment,
+  ] = await Promise.all([
+    db.feePayment.findMany({
+      select: { amountCedis: true, paidAt: true },
+      orderBy: { paidAt: "asc" },
+    }),
+    db.class.findMany({
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+    db.result.findMany({
+      where: { isArchived: false },
+      select: {
+        score: true,
+        student: {
+          select: {
+            classId: true,
+          },
+        },
+      },
+    }),
+    db.attendance.findMany({
+      where: {
+        date: {
+          gte: new Date(new Date().setHours(0, 0, 0, 0)),
+          lte: new Date(new Date().setHours(23, 59, 59, 999)),
+        },
+        studentId: { not: null },
+        isArchived: false,
+      },
+      select: {
+        present: true,
+        student: {
+          select: {
+            classId: true,
+            class: {
+              select: { name: true },
             },
           },
         },
-      }),
-      db.attendance.findMany({
-        where: {
-          date: {
-            gte: new Date(new Date().setHours(0, 0, 0, 0)),
-            lte: new Date(new Date().setHours(23, 59, 59, 999)),
+      },
+    }),
+    db.student.findFirst({
+      where: { isArchived: false },
+      orderBy: { createdAt: "desc" },
+      select: {
+        name: true,
+        surname: true,
+        createdAt: true,
+        class: { select: { name: true } },
+      },
+    }),
+    db.teacher.findFirst({
+      where: { isArchived: false },
+      orderBy: { createdAt: "desc" },
+      select: {
+        name: true,
+        surname: true,
+        createdAt: true,
+      },
+    }),
+    db.book.findFirst({
+      orderBy: { createdAt: "desc" },
+      select: {
+        title: true,
+        createdAt: true,
+        class: { select: { name: true } },
+      },
+    }),
+    db.bookOrder.findFirst({
+      orderBy: { createdAt: "desc" },
+      select: {
+        createdAt: true,
+        parent: { select: { name: true, surname: true } },
+        items: { select: { book: { select: { title: true } } } },
+      },
+    }),
+    db.result.findFirst({
+      where: { isArchived: false },
+      orderBy: { id: "desc" },
+      select: {
+        id: true,
+        student: {
+          select: {
+            name: true,
+            surname: true,
+            class: { select: { name: true } },
           },
-          studentId: { not: null },
-          isArchived: false,
         },
-        select: {
-          present: true,
-          student: {
-            select: {
-              classId: true,
-              class: {
-                select: { name: true },
+        assignment: { select: { title: true, dueDate: true } },
+        exam: { select: { title: true, startTime: true } },
+      },
+    }),
+    db.feePayment.findFirst({
+      orderBy: { paidAt: "desc" },
+      select: {
+        paidAt: true,
+        assignment: {
+          select: {
+            student: {
+              select: {
+                name: true,
+                surname: true,
               },
             },
           },
         },
-      }),
-      db.student.findFirst({
-        where: { isArchived: false },
-        orderBy: { createdAt: "desc" },
-        select: {
-          name: true,
-          surname: true,
-          createdAt: true,
-          class: { select: { name: true } },
+      },
+    }),
+    db.lesson.findFirst({
+      orderBy: { startTime: "desc" },
+      select: {
+        name: true,
+        startTime: true,
+        subject: { select: { name: true } },
+        class: { select: { name: true } },
+        teacher: { select: { name: true, surname: true } },
+      },
+    }),
+    db.assignment.findFirst({
+      where: { isArchived: false },
+      orderBy: { dueDate: "desc" },
+      select: {
+        title: true,
+        dueDate: true,
+        lesson: { select: { name: true, class: { select: { name: true } } } },
+      },
+    }),
+    db.event.findFirst({
+      where: {
+        isArchived: false,
+        startTime: {
+          gte: new Date(new Date().setHours(0, 0, 0, 0)),
         },
-      }),
-      db.book.findFirst({
-        orderBy: { createdAt: "desc" },
-        select: {
-          title: true,
-          createdAt: true,
-          class: { select: { name: true } },
-        },
-      }),
-      db.result.findFirst({
-        where: { isArchived: false },
-        orderBy: { id: "desc" },
-        select: {
-          id: true,
-          student: {
-            select: {
-              name: true,
-              surname: true,
-              class: { select: { name: true } },
-            },
-          },
-          assignment: { select: { title: true } },
-          exam: { select: { title: true } },
-        },
-      }),
-      db.feePayment.findFirst({
-        orderBy: { paidAt: "desc" },
-        select: {
-          paidAt: true,
-          assignment: {
-            select: {
-              student: {
-                select: {
-                  name: true,
-                  surname: true,
-                },
-              },
-            },
-          },
-        },
-      }),
-      db.event.findFirst({
-        where: {
-          isArchived: false,
-          startTime: {
-            gte: new Date(new Date().setHours(0, 0, 0, 0)),
-          },
-        },
-        include: {
-          class: true,
-        },
-        orderBy: {
-          startTime: "asc",
-        },
-      }),
-    ]);
+      },
+      include: {
+        class: true,
+      },
+      orderBy: {
+        startTime: "asc",
+      },
+    }),
+  ]);
 
   const totalFeesCollected = payments.reduce(
     (sum, payment) => sum + Number(payment.amountCedis),
@@ -328,37 +390,86 @@ export async function loadAdminDashboardSummary(): Promise<AdminDashboardSummary
     take: 3,
   });
 
-  const recentActivities: RecentActivityItem[] = [];
+  const recentActivityCandidates: Array<{ date: Date; title: string; detail: string }> = [];
+
   if (latestStudent) {
-    recentActivities.push({
+    recentActivityCandidates.push({
+      date: latestStudent.createdAt,
       title: "New student registered",
-      detail: `${latestStudent.name} ${latestStudent.surname}` + (latestStudent.class?.name ? ` · ${latestStudent.class.name}` : ""),
-      timeLabel: latestStudent.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      detail: `${latestStudent.name} ${latestStudent.surname}${latestStudent.class?.name ? ` · ${latestStudent.class.name}` : ""}`,
     });
   }
+
+  if (latestTeacher) {
+    recentActivityCandidates.push({
+      date: latestTeacher.createdAt,
+      title: "New teacher added",
+      detail: `${latestTeacher.name} ${latestTeacher.surname}`,
+    });
+  }
+
   if (latestBook) {
-    recentActivities.push({
-      title: "New books added",
-      detail: `${latestBook.title}` + (latestBook.class?.name ? ` · ${latestBook.class.name}` : ""),
-      timeLabel: latestBook.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    recentActivityCandidates.push({
+      date: latestBook.createdAt,
+      title: "Book inventory updated",
+      detail: `${latestBook.title}${latestBook.class?.name ? ` · ${latestBook.class.name}` : ""}`,
     });
   }
+
+  if (latestBookOrder) {
+    const parentName = [latestBookOrder.parent?.name, latestBookOrder.parent?.surname].filter(Boolean).join(" ");
+    const bookNames = latestBookOrder.items.map((item) => item.book?.title).filter(Boolean).slice(0, 2).join(", ");
+    recentActivityCandidates.push({
+      date: latestBookOrder.createdAt,
+      title: "Book purchase recorded",
+      detail: `${parentName || "Parent"}${bookNames ? ` · ${bookNames}` : ""}`,
+    });
+  }
+
   if (latestResult) {
+    const personName = [latestResult.student?.name, latestResult.student?.surname].filter(Boolean).join(" ");
     const subjectLabel = latestResult.assignment?.title ?? latestResult.exam?.title ?? "Assessment";
-    recentActivities.push({
+    const resultDate = latestResult.assignment?.dueDate ?? latestResult.exam?.startTime ?? new Date();
+    recentActivityCandidates.push({
+      date: resultDate,
       title: "Results submitted",
-      detail: `${latestResult.student?.name ?? "Student"} ${latestResult.student?.surname ?? ""}`.trim() + (latestResult.student?.class?.name ? ` · ${latestResult.student.class.name}` : "") + ` · ${subjectLabel}`,
-      timeLabel: "Recently submitted",
+      detail: `${personName || "Student"}${latestResult.student?.class?.name ? ` · ${latestResult.student.class.name}` : ""} · ${subjectLabel}`,
     });
   }
+
   if (latestPayment) {
     const studentName = [latestPayment.assignment?.student?.name, latestPayment.assignment?.student?.surname].filter(Boolean).join(" ");
-    recentActivities.push({
+    recentActivityCandidates.push({
+      date: latestPayment.paidAt,
       title: "Fee payment received",
-      detail: `${studentName || "A parent"} · ${latestPayment.paidAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`,
-      timeLabel: latestPayment.paidAt.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      detail: `${studentName || "Student"}`,
     });
   }
+
+  if (latestLesson) {
+    recentActivityCandidates.push({
+      date: latestLesson.startTime,
+      title: "Lesson scheduled",
+      detail: `${latestLesson.name}${latestLesson.subject?.name ? ` · ${latestLesson.subject.name}` : ""}${latestLesson.class?.name ? ` · ${latestLesson.class.name}` : ""}`,
+    });
+  }
+
+  if (latestAssignment) {
+    recentActivityCandidates.push({
+      date: latestAssignment.dueDate,
+      title: "Assignment created",
+      detail: `${latestAssignment.title}${latestAssignment.lesson?.class?.name ? ` · ${latestAssignment.lesson.class.name}` : ""}`,
+    });
+  }
+
+  const recentActivities: RecentActivityItem[] = recentActivityCandidates
+    .sort((left, right) => right.date.getTime() - left.date.getTime())
+    .slice(0, 5)
+    .map((activity) => ({
+      title: activity.title,
+      detail: activity.detail,
+      timeLabel: formatRecentActivityTime(activity.date),
+    }));
 
   const currentDay = new Date();
   const currentDayIndex = currentDay.getDay();
