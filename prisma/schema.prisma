@@ -170,6 +170,7 @@ model Grade {
 
   classess Class[]
   students Student[]
+  subjects Subject[]
 }
 
 model Class {
@@ -184,6 +185,7 @@ model Class {
   students      Student[]
   gradeId       Int
   grade         Grade          @relation(fields: [gradeId], references: [id])
+  subjects      Subject[]
   events        Event[]
   announcements Announcement[]
   feeSchedules  FeeSchedule[]
@@ -310,10 +312,15 @@ enum FeeTerm {
 
 model Subject {
   id       Int       @id @default(autoincrement())
-  name     String    @unique
+  name     String
+  gradeId  Int
+  grade    Grade     @relation(fields: [gradeId], references: [id])
   teachers Teacher[]
+  classes  Class[]
   lessons  Lesson[]
   termlyReportLines TermlyReportSubjectLine[]
+
+  @@unique([gradeId, name])
 }
 
 enum Department {

@@ -42,8 +42,9 @@ async function main() {
   }
 
   // CLASS
-  const gradeRecords = await prisma.grade.findMany({ select: { id: true, level: true } });
-  const gradeByLevel = Object.fromEntries(gradeRecords.map((grade) => [grade.level, grade.id]));
+  const classGradeByLevel = Object.fromEntries(
+    (await prisma.grade.findMany({ select: { id: true, level: true } })).map((grade) => [grade.level, grade.id])
+  );
   const existingClassNames = new Set((await prisma.class.findMany({ select: { name: true } })).map((item) => item.name));
   const classSeeds = [
     { name: "Creche A", gradeLevel: "CRECHE", capacity: 20 },
@@ -55,7 +56,7 @@ async function main() {
       await prisma.class.create({
         data: {
           name: classSeed.name,
-          gradeId: gradeByLevel[classSeed.gradeLevel as keyof typeof gradeByLevel],
+          gradeId: classGradeByLevel[classSeed.gradeLevel as keyof typeof classGradeByLevel],
           capacity: classSeed.capacity,
         },
       });
@@ -89,23 +90,34 @@ async function main() {
 
   // SUBJECT
   const subjectData = [
-    { name: "Mathematics" },
-    { name: "Science" },
-    { name: "English" },
-    { name: "History" },
-    { name: "Geography" },
-    { name: "Physics" },
-    { name: "Chemistry" },
-    { name: "Biology" },
-    { name: "Computer Science" },
-    { name: "Art" },
+    { name: "Mathematics", gradeLevel: "PRIMARY" },
+    { name: "Science", gradeLevel: "PRIMARY" },
+    { name: "English", gradeLevel: "PRIMARY" },
+    { name: "History", gradeLevel: "PRIMARY" },
+    { name: "Geography", gradeLevel: "PRIMARY" },
+    { name: "Physics", gradeLevel: "JHS" },
+    { name: "Chemistry", gradeLevel: "JHS" },
+    { name: "Biology", gradeLevel: "JHS" },
+    { name: "Computer Science", gradeLevel: "JHS" },
+    { name: "Art", gradeLevel: "NURSERY" },
   ];
 
-  const existingSubjects = await prisma.subject.findMany({ select: { id: true, name: true } });
-  const existingSubjectNames = new Set(existingSubjects.map((subject) => subject.name));
+  const existingSubjects = await prisma.subject.findMany({ select: { id: true, name: true, gradeId: true } });
+  const existingSubjectKeys = new Set(existingSubjects.map((subject) => `${subject.gradeId}:${subject.name}`));
+  const subjectGradeByLevel = Object.fromEntries(
+    (await prisma.grade.findMany({ select: { id: true, level: true } })).map((grade) => [grade.level, grade.id])
+  );
   for (const subject of subjectData) {
-    if (!existingSubjectNames.has(subject.name)) {
-      await prisma.subject.create({ data: subject });
+    const gradeId = subjectGradeByLevel[subject.gradeLevel as keyof typeof subjectGradeByLevel];
+    const key = `${gradeId}:${subject.name}`;
+    if (!existingSubjectKeys.has(key)) {
+      await prisma.subject.create({
+        data: {
+          name: subject.name,
+          gradeId,
+        },
+      });
+      existingSubjectKeys.add(key);
     }
   }
 

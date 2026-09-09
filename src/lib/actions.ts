@@ -109,20 +109,24 @@ export const createSubject = async (
   data: SubjectSchema
 ) => {
   try {
+    if (!data.gradeId || Number.isNaN(data.gradeId) || data.gradeId < 1) {
+      return { success: false, error: true, message: "Grading level is required!" };
+    }
+
     await prisma.subject.create({
       data: {
         name: data.name,
+        gradeId: data.gradeId,
         teachers: {
           connect: data.teachers.map((teacherId) => ({ id: teacherId })),
         },
       },
     });
 
-    // revalidatePath("/list/subjects");
     return { success: true, error: false };
   } catch (err) {
     console.log(err);
-    return { success: false, error: true };
+    return { success: false, error: true, message: getErrorMessage(err) };
   }
 };
 
@@ -131,23 +135,31 @@ export const updateSubject = async (
   data: SubjectSchema
 ) => {
   try {
+    if (!data.id || Number.isNaN(data.id) || data.id < 1) {
+      return { success: false, error: true, message: "Subject is required!" };
+    }
+
+    if (!data.gradeId || Number.isNaN(data.gradeId) || data.gradeId < 1) {
+      return { success: false, error: true, message: "Grading level is required!" };
+    }
+
     await prisma.subject.update({
       where: {
         id: data.id,
       },
       data: {
         name: data.name,
+        gradeId: data.gradeId,
         teachers: {
           set: data.teachers.map((teacherId) => ({ id: teacherId })),
         },
       },
     });
 
-    // revalidatePath("/list/subjects");
     return { success: true, error: false };
   } catch (err) {
     console.log(err);
-    return { success: false, error: true };
+    return { success: false, error: true, message: getErrorMessage(err) };
   }
 };
 
@@ -209,12 +221,20 @@ export const createClass = async (
       return { success: false, error: true, message: "Selected grading level not found." };
     }
 
+    const matchingSubjects = await prisma.subject.findMany({
+      where: { gradeId: grade.id },
+      select: { id: true },
+    });
+
     const createPayload: any = {
       name: (data as any).name,
       capacity: Number((data as any).capacity) || 0,
       gradeId: Number((data as any).gradeId),
       gradingLevel: grade.level,
       supervisorId: (data as any).supervisorId || null,
+      subjects: {
+        connect: matchingSubjects.map((subject) => ({ id: subject.id })),
+      },
     };
 
     try {
@@ -277,12 +297,20 @@ export const updateClass = async (
       return { success: false, error: true, message: "Selected grading level not found." };
     }
 
+    const matchingSubjects = await prisma.subject.findMany({
+      where: { gradeId: grade.id },
+      select: { id: true },
+    });
+
     const updatePayload: any = {
       name: (data as any).name,
       capacity: Number((data as any).capacity) || undefined,
       gradeId: Number((data as any).gradeId),
       gradingLevel: grade.level,
       supervisorId: (data as any).supervisorId || null,
+      subjects: {
+        set: matchingSubjects.map((subject) => ({ id: subject.id })),
+      },
     };
 
     try {

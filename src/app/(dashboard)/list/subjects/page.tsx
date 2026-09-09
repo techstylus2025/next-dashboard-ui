@@ -8,7 +8,7 @@ import { Prisma, Subject, Teacher } from "@prisma/client";
 import Image from "next/image";
 import { auth } from "@clerk/nextjs/server";
 
-type SubjectList = Subject & { teachers: Teacher[] };
+type SubjectList = Subject & { teachers: Teacher[]; grade: { level: string; label?: string | null } | null };
 
 const SubjectListPage = async ({
   searchParams,
@@ -22,6 +22,11 @@ const SubjectListPage = async ({
     {
       header: "Subject Name",
       accessor: "name",
+    },
+    {
+      header: "Grading Level",
+      accessor: "grade",
+      className: "hidden md:table-cell",
     },
     {
       header: "Teachers",
@@ -40,6 +45,7 @@ const SubjectListPage = async ({
       className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-lamaPurpleLight"
     >
       <td className="flex items-center gap-4 p-4">{item.name}</td>
+      <td className="hidden md:table-cell">{item.grade ? item.grade.label || item.grade.level : "Unassigned"}</td>
       <td className="hidden md:table-cell">
         {item.teachers.map((teacher) => teacher.name).join(",")}
       </td>
@@ -90,6 +96,19 @@ const SubjectListPage = async ({
     prisma.subject.count({ where: query }),
   ]);
 
+  const gradeIds = [...new Set(data.map((subject) => subject.gradeId))];
+  const grades = gradeIds.length
+    ? await prisma.grade.findMany({
+        where: { id: { in: gradeIds } },
+        select: { id: true, level: true, label: true },
+      })
+    : [];
+  const gradeMap = new Map(grades.map((grade) => [grade.id, grade]));
+  const rows = data.map((subject) => ({
+    ...subject,
+    grade: gradeMap.get(subject.gradeId) ?? null,
+  }));
+
   return (
     <div className="bg-white p-4 rounded-md flex-1 m-4 mt-0">
       {/* TOP */}
@@ -111,7 +130,7 @@ const SubjectListPage = async ({
         </div>
       </div>
       {/* LIST */}
-      <Table columns={columns} renderRow={renderRow} data={data} />
+      <Table columns={columns} renderRow={renderRow} data={rows} />
       {/* PAGINATION */}
       <Pagination page={p} count={count} />
     </div>

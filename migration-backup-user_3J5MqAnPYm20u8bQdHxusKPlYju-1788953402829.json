@@ -1,0 +1,22 @@
+{
+  "admin": {
+    "id": "user_3J5MqAnPYm20u8bQdHxusKPlYju",
+    "username": "Mensah"
+  },
+  "teacher": {
+    "id": "user_3J5MqAnPYm20u8bQdHxusKPlYju",
+    "username": "Mensah",
+    "name": "Mensah",
+    "surname": "Gabriel",
+    "email": "mensahgabriel@gmail.com",
+    "phone": "0246574353",
+    "address": "GE-322-9478",
+    "img": null,
+    "bloodType": "O+",
+    "sex": "MALE",
+    "createdAt": "2026-09-09T09:37:43.452Z",
+    "birthday": "1993-12-20T00:00:00.000Z",
+    "isArchived": false,
+    "archivedAt": null
+  }
+}

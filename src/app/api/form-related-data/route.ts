@@ -28,7 +28,19 @@ export async function GET(request: Request) {
         where: { isArchived: false },
         select: { id: true, name: true, surname: true },
       });
-      relatedData = { teachers: subjectTeachers };
+      const gradeId = Number(url.searchParams.get("gradeId") || "0");
+      const subjectGrades = await prisma.grade.findMany({
+        orderBy: { id: "asc" },
+        select: { id: true, level: true, label: true },
+      });
+      const gradeSubjects = gradeId > 0
+        ? await prisma.subject.findMany({
+            where: { gradeId: gradeId },
+            select: { id: true, name: true },
+            orderBy: { name: "asc" },
+          })
+        : [];
+      relatedData = { teachers: subjectTeachers, grades: subjectGrades, subjects: gradeSubjects };
       break;
     }
     case "class": {

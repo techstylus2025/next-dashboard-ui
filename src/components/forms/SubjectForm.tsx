@@ -32,6 +32,10 @@ const SubjectForm = ({
     formState: { errors },
   } = useForm<SubjectSchema>({
     resolver: zodResolver(subjectSchema) as any,
+    defaultValues: {
+      gradeId: data?.gradeId ?? undefined,
+      teachers: data?.teachers?.map((teacher: any) => teacher.id ?? teacher) ?? [],
+    },
   });
 
   const [state, formAction] = useActionState(
@@ -59,7 +63,7 @@ const SubjectForm = ({
     }
   }, [state, router, type, setOpen]);
 
-  const { teachers } = relatedData;
+  const { teachers = [], grades = [] } = relatedData ?? {};
 
   return (
     <form className="flex flex-col gap-8" onSubmit={onSubmit}>
@@ -86,12 +90,34 @@ const SubjectForm = ({
           />
         )}
         <div className="flex flex-col gap-2 w-full md:w-1/4">
+          <label className="input-label">Grading Level</label>
+          <select
+            className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
+            {...register("gradeId", { valueAsNumber: true })}
+            defaultValue={data?.gradeId ?? ""}
+          >
+            <option value="" disabled>
+              Select grading level
+            </option>
+            {grades.map((grade: { id: number; level: string; label?: string | null }) => (
+              <option value={grade.id} key={grade.id}>
+                {grade.label ?? grade.level}
+              </option>
+            ))}
+          </select>
+          {errors.gradeId?.message && (
+            <p className="text-xs text-red-400">
+              {errors.gradeId.message.toString()}
+            </p>
+          )}
+        </div>
+        <div className="flex flex-col gap-2 w-full md:w-1/4">
           <label className="input-label">Teachers</label>
           <select
             multiple
             className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
             {...register("teachers")}
-            defaultValue={data?.teachers}
+            defaultValue={data?.teachers?.map((teacher: any) => teacher.id ?? teacher) ?? []}
           >
             {teachers.map(
               (teacher: { id: string; name: string; surname: string }) => (

@@ -206,7 +206,7 @@ export default function PasswordManagerTable({
               const isDirty = row.editingUsername !== row.username || row.newPassword.trim() !== '' || row.editingRole !== row.role;
               return (
                 <tr
-                  key={row.id}
+                  key={`${row.role}-${row.id}`}
                   className="border-b border-slate-200 even:bg-slate-50 hover:bg-slate-100"
                 >
                   <td className="px-4 py-3 align-top text-slate-800">

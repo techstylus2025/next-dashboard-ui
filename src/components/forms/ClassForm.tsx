@@ -8,6 +8,8 @@ import {
   startTransition,
   useActionState,
   useEffect,
+  useState,
+  useMemo,
 } from "react";
 import InputField from "../InputField";
 import {
@@ -42,6 +44,7 @@ const ClassForm = ({
     handleSubmit,
     formState: { errors },
     setValue,
+    watch,
   } = useForm<ClassSchema>({
     resolver: zodResolver(classSchema) as any,
   });
@@ -72,6 +75,34 @@ const ClassForm = ({
   }, [state, router, type, setOpen]);
 
   const { teachers = [], grades = [] } = relatedData ?? {};
+  const selectedGradeId = watch("gradeId");
+  const [gradeSubjects, setGradeSubjects] = useState<Array<{ id: number; name: string }>>([]);
+
+  useEffect(() => {
+    if (!selectedGradeId || Number(selectedGradeId) <= 0) {
+      setGradeSubjects([]);
+      return;
+    }
+
+    const loadGradeSubjects = async () => {
+      try {
+        const response = await fetch(`/api/form-related-data?table=subject&gradeId=${selectedGradeId}`);
+        if (!response.ok) throw new Error("Failed to load grade subjects");
+        const payload = await response.json();
+        setGradeSubjects(payload.subjects ?? []);
+      } catch (error) {
+        console.error("Unable to load grade subjects", error);
+        setGradeSubjects([]);
+      }
+    };
+
+    loadGradeSubjects();
+  }, [selectedGradeId]);
+
+  const gradeLabel = useMemo(() => {
+    const match = grades.find((grade: { id: number; level: string; label?: string | null }) => Number(grade.id) === Number(selectedGradeId));
+    return match ? (match.label || GRADING_LEVEL_LABELS[match.level as keyof typeof GRADING_LEVEL_LABELS] || match.level) : "";
+  }, [grades, selectedGradeId]);
 
   return (
     <form className="flex flex-col gap-8" onSubmit={onSubmit}>
@@ -151,6 +182,26 @@ const ClassForm = ({
               {errors.gradeId.message.toString()}
             </p>
           )}
+        </div>
+        <div className="flex flex-col gap-2 w-full">
+          <label className="input-label">Assigned Subjects</label>
+          <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600 min-h-[46px]">
+            {selectedGradeId ? (
+              gradeSubjects.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {gradeSubjects.map((subject) => (
+                    <span key={subject.id} className="rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700">
+                      {subject.name}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <span className="text-slate-500">No subjects have been assigned to {gradeLabel || "this grading level"} yet.</span>
+              )
+            ) : (
+              <span className="text-slate-500">Select a grading level to auto-load its subjects.</span>
+            )}
+          </div>
         </div>
       </div>
       {state.error && (

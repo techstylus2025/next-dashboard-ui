@@ -938,7 +938,7 @@ function FeesManagement(_a) {
           <div className="w-full max-w-2xl rounded-2xl bg-white p-8 shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
-                <image_1.default src="/logo.png" alt="TechStylus" width={32} height={32}/>
+                <image_1.default src="/logo.png" alt="TechStylus" width={32} height={32} loading="eager" style={{ width: "auto", height: "auto" }} />
                 <h2 className="text-2xl font-bold text-slate-800">TechStylus</h2>
               </div>
               <h3 className="text-lg font-semibold text-slate-600">PAYMENT RECEIPT</h3>
@@ -1016,7 +1016,7 @@ function FeesManagement(_a) {
           <div className="w-full max-w-2xl rounded-2xl bg-white p-8 shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
-                <image_1.default src="/logo.png" alt="TechStylus" width={32} height={32}/>
+                <image_1.default src="/logo.png" alt="TechStylus" width={32} height={32} loading="eager" style={{ width: "auto", height: "auto" }} />
                 <h2 className="text-2xl font-bold text-slate-800">TechStylus</h2>
               </div>
               <h3 className="text-lg font-semibold text-slate-600">PAYMENT RECEIPT</h3>
