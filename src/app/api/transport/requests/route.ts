@@ -1,16 +1,15 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { getCurrentAuthContext } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
 export async function GET() {
-  const { userId, sessionClaims } = await auth();
+  const { userId, role } = await getCurrentAuthContext();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const role = (sessionClaims?.metadata as { role?: string })?.role;
   if (role === "admin") {
     const requests = await prisma.transportRequest.findMany({
       orderBy: { createdAt: "desc" },
@@ -62,12 +61,11 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const { userId, sessionClaims } = await auth();
+  const { userId, role } = await getCurrentAuthContext();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const role = (sessionClaims?.metadata as { role?: string })?.role;
   if (role !== "parent") {
     return NextResponse.json({ error: "Only parents can create requests." }, { status: 403 });
   }

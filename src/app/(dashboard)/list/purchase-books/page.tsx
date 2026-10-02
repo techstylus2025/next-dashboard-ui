@@ -1,10 +1,9 @@
 import BooksManagement from "@/components/books/BooksManagement";
 import { loadPurchaseBooksPageData } from "@/lib/purchaseBooksData";
-import { auth } from "@clerk/nextjs/server";
+import { getCurrentAuthContext } from "@/lib/auth";
 
 export default async function PurchaseBooksPage() {
-  const { userId, sessionClaims } = await auth();
-  const role = (sessionClaims?.metadata as { role?: string })?.role;
+  const { userId, role } = await getCurrentAuthContext();
 
   try {
     const {
@@ -14,12 +13,12 @@ export default async function PurchaseBooksPage() {
       pendingOrderCount,
       canAdmin,
       isParent,
-    } = await loadPurchaseBooksPageData(role, userId ?? undefined);
+    } = await loadPurchaseBooksPageData(role ?? undefined, userId ?? undefined);
 
     return (
       <div className="flex-1 w-full p-4 min-h-[60vh] rounded-2xl bg-lamaSkyLight">
         <BooksManagement
-          role={role}
+          role={role ?? undefined}
           classes={classes}
           books={books}
           orders={orders}

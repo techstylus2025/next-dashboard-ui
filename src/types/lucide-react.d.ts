@@ -23,4 +23,8 @@ declare module "lucide-react" {
   export const PlusCircle: LucideIcon;
   export const MessageSquare: LucideIcon;
   export const NotebookPen: LucideIcon;
+  export const Eye: LucideIcon;
+  export const Pencil: LucideIcon;
+  export const Trash2: LucideIcon;
+  export const BadgeCheck: LucideIcon;
 }

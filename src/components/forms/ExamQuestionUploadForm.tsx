@@ -6,17 +6,20 @@ import { useRouter } from "next/navigation";
 import { Dispatch, SetStateAction, useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "react-toastify";
 import { examQuestionUploadSchema, ExamQuestionUploadSchema } from "@/lib/formValidationSchemas";
-import { uploadExamQuestion } from "@/lib/actions";
+import { updateExamQuestionUpload, uploadExamQuestion } from "@/lib/actions";
 import InputField from "../InputField";
+import type { ExamQuestionEditItem } from "@/components/exams/ExamQuestionUploadsPanel";
 
 const ExamQuestionUploadForm = ({
   setOpen,
   relatedData,
+  editingUpload,
 }: {
   setOpen: Dispatch<SetStateAction<boolean>>;
   relatedData?: {
     lessons: { id: number; name: string; subject: { name: string }; class: { name: string } }[];
   };
+  editingUpload?: ExamQuestionEditItem | null;
 }) => {
   const lessons = relatedData?.lessons ?? [];
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -31,11 +34,14 @@ const ExamQuestionUploadForm = ({
     formState: { errors },
   } = useForm<ExamQuestionUploadSchema>({
     resolver: zodResolver(examQuestionUploadSchema) as any,
+    defaultValues: editingUpload
+      ? { title: editingUpload.title, lessonId: editingUpload.lessonId }
+      : undefined,
   });
 
   const onSubmit = handleSubmit((data) => {
     const file = fileInputRef.current?.files?.[0];
-    if (!file) {
+    if (!editingUpload && !file) {
       setFileError("A document file is required.");
       return;
     }
@@ -44,14 +50,21 @@ const ExamQuestionUploadForm = ({
     setUploadError(null);
 
     startTransition(async () => {
-      const result = await uploadExamQuestion({
-        title: data.title,
-        lessonId: data.lessonId,
-        file,
-      });
+      const result = editingUpload
+        ? await updateExamQuestionUpload({
+            id: editingUpload.id,
+            title: data.title,
+            lessonId: data.lessonId,
+            file,
+          })
+        : await uploadExamQuestion({
+            title: data.title,
+            lessonId: data.lessonId,
+            file: file!,
+          });
 
       if (result.success) {
-        toast("Exam question document uploaded for admin review.");
+        toast(editingUpload ? "Exam question upload updated." : "Exam question document uploaded for admin review.");
         setOpen(false);
         router.refresh();
       } else {
@@ -62,7 +75,7 @@ const ExamQuestionUploadForm = ({
 
   return (
     <form className="flex flex-col gap-8" onSubmit={onSubmit}>
-      <h1 className="text-xl font-semibold">Upload exam question document</h1>
+      <h1 className="text-xl font-semibold">{editingUpload ? "Edit exam question document" : "Upload exam question document"}</h1>
 
       <div className="flex flex-col gap-4">
         <InputField
@@ -91,7 +104,7 @@ const ExamQuestionUploadForm = ({
         </div>
 
         <div className="flex flex-col gap-2 w-full md:w-1/2">
-          <label className="input-label">Document</label>
+            <label className="input-label">{editingUpload ? "Replace document (optional)" : "Document"}</label>
           <input
             ref={fileInputRef}
             type="file"
@@ -113,7 +126,7 @@ const ExamQuestionUploadForm = ({
           type="submit"
           disabled={isPending}
         >
-          {isPending ? "Uploading..." : "Upload for review"}
+          {isPending ? (editingUpload ? "Saving..." : "Uploading...") : (editingUpload ? "Save changes" : "Upload for review")}
         </button>
         <button
           type="button"

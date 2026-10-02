@@ -7,6 +7,15 @@ import { toast } from "react-toastify";
 import ExamQuestionUploadForm from "@/components/forms/ExamQuestionUploadForm";
 import ExamQuestionPreviewModal from "@/components/exams/ExamQuestionPreviewModal";
 import { approveExamQuestion, deleteExamQuestionUpload } from "@/lib/actions";
+import { BadgeCheck, Eye, Pencil, Trash2 } from "lucide-react";
+
+export type ExamQuestionEditItem = {
+  id: number;
+  title: string;
+  lessonId: number;
+  fileName: string;
+  fileUrl: string;
+};
 
 type LessonOption = {
   id: number;
@@ -17,6 +26,7 @@ type LessonOption = {
 
 type UploadRecord = {
   id: number;
+  lessonId: number;
   title: string;
   fileName: string;
   fileUrl: string;
@@ -26,6 +36,7 @@ type UploadRecord = {
     class: { name: string };
   };
   uploadedBy: {
+    id: string;
     name: string;
     surname: string;
   };
@@ -36,6 +47,7 @@ type UploadRecord = {
 
 type Props = {
   role?: string | null;
+  currentUserId?: string | null;
   lessons?: LessonOption[];
   pendingUploads?: UploadRecord[];
   approvedUploads?: UploadRecord[];
@@ -44,12 +56,14 @@ type Props = {
 
 const ExamQuestionUploadsPanel = ({
   role,
+  currentUserId,
   lessons = [],
   pendingUploads = [],
   approvedUploads = [],
   activeTermBadge,
 }: Props) => {
   const [open, setOpen] = useState(false);
+  const [editingUpload, setEditingUpload] = useState<ExamQuestionEditItem | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewTitle, setPreviewTitle] = useState("");
   const [previewUrl, setPreviewUrl] = useState("");
@@ -91,9 +105,26 @@ const ExamQuestionUploadsPanel = ({
   };
 
   const handleDelete = (id: number) => {
+    if (!window.confirm("Delete this exam question upload?")) return;
     startTransition(() => {
       deleteAction({ id });
     });
+  };
+
+  const handleEdit = (upload: UploadRecord) => {
+    setEditingUpload({
+      id: upload.id,
+      title: upload.title,
+      lessonId: upload.lessonId,
+      fileName: upload.fileName,
+      fileUrl: upload.fileUrl,
+    });
+    setOpen(true);
+  };
+
+  const closeModal = () => {
+    setOpen(false);
+    setEditingUpload(null);
   };
 
   const handlePreview = (upload: UploadRecord) => {
@@ -125,8 +156,12 @@ const ExamQuestionUploadsPanel = ({
         </div>
         {showTeacherUpload && (
           <button
+            type="button"
             className="bg-lamaYellow px-4 py-2 rounded-md text-sm font-medium"
-            onClick={() => setOpen(true)}
+            onClick={() => {
+              setEditingUpload(null);
+              setOpen(true);
+            }}
           >
             Upload exam question
           </button>
@@ -138,11 +173,11 @@ const ExamQuestionUploadsPanel = ({
           <div className="bg-white rounded-md w-full max-w-2xl p-6 relative">
             <div
               className="absolute top-4 right-4 cursor-pointer text-slate-500"
-              onClick={() => setOpen(false)}
+              onClick={closeModal}
             >
               ✕
             </div>
-            <ExamQuestionUploadForm setOpen={setOpen} relatedData={{ lessons }} />
+            <ExamQuestionUploadForm setOpen={setOpen} relatedData={{ lessons }} editingUpload={editingUpload} />
           </div>
         </div>
       )}
@@ -203,19 +238,23 @@ const ExamQuestionUploadsPanel = ({
                   <td className="py-3 flex flex-wrap gap-2">
                     <button
                       type="button"
-                      className="bg-slate-200 text-slate-700 px-3 py-1 rounded-md text-sm"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-slate-100 text-slate-700 hover:bg-slate-200"
                       onClick={() => handlePreview(upload)}
+                      aria-label="Preview exam question"
+                      title="Preview"
                     >
-                      Preview
+                      <Eye size={16} />
                     </button>
                     {role === "admin" && (
                       <button
                         type="button"
-                        className="btn-primary text-sm py-1"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-emerald-600 text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
                         onClick={() => handleApprove(upload.id)}
                         disabled={!previewedIds.includes(upload.id)}
+                        aria-label="Approve exam question"
+                        title={previewedIds.includes(upload.id) ? "Approve" : "Preview before approving"}
                       >
-                        Approve
+                        <BadgeCheck size={16} />
                       </button>
                     )}
                     {role === "admin" && previewedIds.includes(upload.id) && (
@@ -227,6 +266,12 @@ const ExamQuestionUploadsPanel = ({
                       <span className="text-xs text-slate-500 self-center">
                         Preview first
                       </span>
+                    )}
+                    {role === "teacher" && upload.uploadedBy.id === currentUserId && (
+                      <>
+                        <button type="button" onClick={() => handleEdit(upload)} className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-amber-100 text-amber-800 hover:bg-amber-200" aria-label="Edit exam question" title="Edit"><Pencil size={15} /></button>
+                        <button type="button" onClick={() => handleDelete(upload.id)} className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-rose-600 text-white hover:bg-rose-700" aria-label="Delete exam question" title="Delete"><Trash2 size={15} /></button>
+                      </>
                     )}
                   </td>
                 </tr>
@@ -288,19 +333,26 @@ const ExamQuestionUploadsPanel = ({
                     <td className="py-3 flex flex-wrap gap-2">
                       <button
                         type="button"
-                        className="bg-slate-200 text-slate-700 px-3 py-1 rounded-md text-sm"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-slate-100 text-slate-700 hover:bg-slate-200"
                         onClick={() => handlePreview(upload)}
+                        aria-label="Preview exam question"
+                        title="Preview"
                       >
-                        Preview
+                        <Eye size={16} />
                       </button>
-                      {role === "admin" && (
+                      {(role === "admin" || (role === "teacher" && upload.uploadedBy.id === currentUserId)) && (
                         <button
                           type="button"
-                          className="bg-red-500 text-white px-3 py-1 rounded-md text-sm"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-rose-600 text-white hover:bg-rose-700"
                           onClick={() => handleDelete(upload.id)}
+                          aria-label="Delete exam question"
+                          title="Delete"
                         >
-                          Delete
+                          <Trash2 size={15} />
                         </button>
+                      )}
+                      {role === "teacher" && upload.uploadedBy.id === currentUserId && (
+                        <button type="button" onClick={() => handleEdit(upload)} className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-amber-100 text-amber-800 hover:bg-amber-200" aria-label="Edit exam question" title="Edit"><Pencil size={15} /></button>
                       )}
                     </td>
                   </tr>

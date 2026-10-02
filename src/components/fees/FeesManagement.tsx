@@ -111,7 +111,10 @@ export default function FeesManagement({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
-  const [activeTab, setActiveTab] = useState<"overview" | "feeBills" | "payments">("overview");
+  const isViewer = role === "parent" || role === "student";
+  const [activeTab, setActiveTab] = useState<"overview" | "feeBills" | "payments">(
+    isViewer ? "payments" : "overview"
+  );
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [recordModalOpen, setRecordModalOpen] = useState(false);
   const [paymentSearch, setPaymentSearch] = useState("");
@@ -337,11 +340,14 @@ export default function FeesManagement({
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex w-full items-center justify-between gap-1 rounded-full bg-slate-100 p-1 sm:w-auto sm:justify-start sm:gap-2">
-          {[
-            { key: "overview", label: "Overview" },
-            { key: "feeBills", label: "Fee schedules" },
-            { key: "payments", label: "Payments" },
-          ].map((tab) => (
+          {(!isViewer
+            ? [
+                { key: "overview", label: "Overview" },
+                { key: "feeBills", label: "Fee schedules" },
+                { key: "payments", label: "Payments" },
+              ]
+            : [{ key: "payments", label: "Payments" }]
+          ).map((tab) => (
             <button
               key={tab.key}
               type="button"
@@ -367,7 +373,7 @@ export default function FeesManagement({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {canCollect && activeTab === "payments" && (
+          {canCollect && activeTab === "payments" && !isViewer && (
             <button
               type="button"
               onClick={() => setRecordModalOpen(true)}
@@ -380,7 +386,7 @@ export default function FeesManagement({
       </div>
 
       <div className="rounded-2xl bg-white/90 p-3 shadow-sm md:p-4">
-        {activeTab === "overview" && (
+        {activeTab === "overview" && !isViewer && (
           <div className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-6">
               <div className="rounded-3xl bg-gradient-to-br from-slate-50 via-white to-slate-100 p-5 shadow-sm">
@@ -539,7 +545,7 @@ export default function FeesManagement({
           </div>
         )}
 
-        {activeTab === "feeBills" && (
+        {activeTab === "feeBills" && !isViewer && (
           <div className="space-y-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -594,6 +600,41 @@ export default function FeesManagement({
 
         {activeTab === "payments" && (
           <div>
+            {/* If viewer (parent/student), show a compact student fee summary above payments */}
+            {isViewer && (
+              <div className="mb-4 grid gap-3 sm:grid-cols-2">
+                {assignmentOptions.length === 0 ? (
+                  <div className="rounded-2xl bg-white p-4 text-sm text-slate-600">No fee assignments found.</div>
+                ) : (
+                  assignmentOptions.map((a) => (
+                    <div key={a.id} className="rounded-2xl bg-white p-4">
+                      <p className="text-sm font-medium text-slate-900">{a.studentName}</p>
+                      <p className="text-xs text-slate-500">{a.className} • {a.academicYear} • {termLabel(a.term)}</p>
+                      <div className="mt-3 grid grid-cols-3 gap-2 items-center">
+                        <div>
+                          <p className="text-xs text-slate-500">Total bill</p>
+                          <p className="font-semibold">₵{a.totalBill.toFixed(2)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500">Outstanding</p>
+                          <p className="font-semibold text-amber-700">₵{a.balance.toFixed(2)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500">Last payment</p>
+                          <p className="font-semibold">{a.lastPaymentDate ? new Date(a.lastPaymentDate).toLocaleDateString() : "—"}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+
+                {/* Show active arrears relevant to viewer */}
+                <div className="rounded-2xl bg-rose-50 p-4">
+                  <p className="text-sm font-medium text-rose-700">Active arrears</p>
+                  <p className="mt-2 text-sm text-slate-700">{(activeTermArrears ?? []).filter(ar => assignmentOptions.some(a => a.studentName === ar.studentName)).length} student(s)</p>
+                </div>
+              </div>
+            )}
             <div className="mb-4 hidden md:block rounded-xl bg-slate-50 p-3">
               <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <h3 className="text-sm font-medium text-slate-700">Filters</h3>

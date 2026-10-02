@@ -1,6 +1,6 @@
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
+import { getCurrentAuthContext } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import { PrismaClient } from "@prisma/client";
@@ -23,9 +23,9 @@ type AuthCtx = {
 };
 
 async function getAuthCtx(): Promise<AuthCtx | null> {
-  const session = await auth();
-  const userId = session?.userId;
-  const role = (session?.sessionClaims?.metadata as { role?: string })?.role;
+  const session = await getCurrentAuthContext();
+  const userId = session.userId;
+  const role = session.role;
   if (!userId || !role) return null;
 
   const isAdmin = role === "admin";

@@ -67,7 +67,16 @@ const EventListPage = async ({
       key={item.id}
       className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-lamaPurpleLight"
     >
-      <td className="flex items-center gap-4 p-4">{item.title}</td>
+      <td className="p-4">
+        <details>
+          <summary className="cursor-pointer font-medium text-slate-900 hover:text-sky-700">
+            {item.title}
+          </summary>
+          <p className="mt-2 max-w-prose whitespace-pre-wrap text-sm text-slate-600">
+            {item.description || "No description provided."}
+          </p>
+        </details>
+      </td>
       <td>{item.class?.name || "-"}</td>
       <td className="hidden md:table-cell">
         {new Intl.DateTimeFormat("en-US").format(item.startTime)}
@@ -100,7 +109,6 @@ const EventListPage = async ({
   );
 
   const { page, search } = await searchParams;
-
   const p = page ? parseInt(page) : 1;
 
   // URL PARAMS CONDITION
@@ -194,14 +202,12 @@ const EventListPage = async ({
               </div>
               <div className="space-y-6">
                 {yearGroup.terms.map((termGroup) => (
-                  <div key={termGroup.termNumber} className="space-y-3">
-                    <div className="rounded-lg border border-slate-200 bg-white p-3">
-                      <h3 className="font-semibold text-slate-800">
-                        Term {termGroup.termNumber} ({termGroup.events.length} events)
-                      </h3>
-                    </div>
+                  <details key={termGroup.termNumber} className="space-y-3" open>
+                    <summary className="cursor-pointer rounded-lg border border-slate-200 bg-white p-3 font-semibold text-slate-800">
+                      Term {termGroup.termNumber} ({termGroup.events.length} events)
+                    </summary>
                     <Table columns={columns} renderRow={renderRow} data={termGroup.events} />
-                  </div>
+                  </details>
                 ))}
               </div>
             </div>

@@ -20,7 +20,7 @@ const getRoleFromSession = async () => {
 export async function GET() {
   const buses = await prisma.bus.findMany({
     orderBy: { id: "asc" },
-    include: { locations: { orderBy: { reportedAt: "desc" }, take: 1 } },
+    include: { locations: { orderBy: { reportedAt: "desc" }, take: 40 } },
   });
 
   return NextResponse.json({
@@ -30,6 +30,11 @@ export async function GET() {
       plateNumber: bus.plateNumber,
       driverName: bus.driverName,
       route: bus.route,
+      locationTrail: [...bus.locations].reverse().map((location) => ({
+        latitude: Number(location.latitude),
+        longitude: Number(location.longitude),
+        reportedAt: location.reportedAt.toISOString(),
+      })),
       latestLocation: bus.locations[0]
         ? {
             latitude: Number(bus.locations[0].latitude),

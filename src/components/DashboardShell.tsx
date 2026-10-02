@@ -1,32 +1,55 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import Menu from "@/components/Menu";
 import MessagesModal from "@/components/MessagesModal";
 import Navbar from "@/components/Navbar";
 import type { ReactNode } from "react";
+import type { DashboardUser } from "@/types/auth";
 
 export default function DashboardShell({
   children,
   homeHref,
   supervisorClassName,
-  authError,
+  customUser,
 }: {
   children: ReactNode;
   homeHref: string;
   supervisorClassName?: string | null;
-  authError?: string | null;
+  customUser?: DashboardUser | null;
 }) {
-  const [showAuthError, setShowAuthError] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   const [messagesOpen, setMessagesOpen] = useState(false);
+  const clerkSyncStarted = useRef(false);
   const { user } = useUser();
   const pathname = usePathname();
-  const role = user?.publicMetadata.role as string | undefined;
+  const router = useRouter();
+  const role = (user?.publicMetadata.role as string | undefined) ?? customUser?.role;
+
+  useEffect(() => {
+    if (role !== "admin" || !customUser || clerkSyncStarted.current) return;
+    clerkSyncStarted.current = true;
+
+    let active = true;
+    const syncClerkUsers = async () => {
+      try {
+        const response = await fetch("/api/admin/sync-clerk-users", { method: "POST" });
+        if (active && response.ok) router.refresh();
+      } catch {
+        // User synchronization can retry on the next dashboard load.
+      }
+    };
+
+    void syncClerkUsers();
+    return () => {
+      active = false;
+    };
+  }, [role, customUser, router]);
 
   useEffect(() => {
     setMenuOpen(false);
@@ -110,33 +133,12 @@ export default function DashboardShell({
         </div>
         <div className="flex-1 min-h-0 overflow-hidden">
           <div className="h-full overflow-hidden">
-            <Menu />
+            <Menu customUser={customUser} />
           </div>
         </div>
       </aside>
 
       <div className="flex min-h-0 flex-1 min-w-0 flex-col md:pl-0 lg:pl-0">
-        {/** Surface server-side auth errors from layout (e.g., Clerk misconfiguration) */}
-        {typeof authError !== "undefined" && authError && showAuthError && (
-          <div className="z-50 mx-4 mt-4 rounded-md border border-red-200 bg-red-50/90 px-4 py-3 text-sm text-red-800 shadow-sm sm:mx-6 lg:mx-8">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="font-semibold">Authentication configuration issue</p>
-                <p className="mt-1 text-xs">{authError}</p>
-                <p className="mt-1 text-xs">This commonly happens when Clerk publishable and secret keys do not match. Check your `.env.local` values and restart the dev server.</p>
-              </div>
-              <div>
-                <button
-                  type="button"
-                  onClick={() => setShowAuthError(false)}
-                  className="ml-2 rounded-md bg-red-100 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-200"
-                >
-                  Dismiss
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
         <div className="sticky top-0 z-40 flex items-center justify-center border-b border-slate-200 bg-white/90 px-2 py-2.5 backdrop-blur-md shadow-sm md:hidden">
           <Link href={homeHref} className="flex items-center gap-2">
             <Image src="/logo.png" alt="logo" width={28} height={28} />
@@ -144,17 +146,12 @@ export default function DashboardShell({
           </Link>
         </div>
 
-        <div className="sticky top-0 z-30 border-b border-slate-200 bg-slate-50/95 backdrop-blur-md px-0 py-0 shadow-sm">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              {supervisorClassName ? (
-                <div className="rounded-full bg-sky-600/10 px-2.5 py-1.5 text-xs font-medium text-sky-900 ring-1 ring-sky-200">
-                  Supervisor of {supervisorClassName}
-                </div>
-              ) : null}
-            </div>
-            <Navbar onMessagesOpen={() => setMessagesOpen(true)} />
-          </div>
+        <div className="sticky top-0 z-30 border-b border-slate-200 bg-slate-950 shadow-sm">
+          <Navbar
+            onMessagesOpen={() => setMessagesOpen(true)}
+            customUser={customUser}
+            supervisorClassName={supervisorClassName}
+          />
         </div>
 
         <main className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-slate-100/70 px-2.5 py-2 pb-24 sm:px-3 lg:px-4" style={{ WebkitOverflowScrolling: "touch" }}>

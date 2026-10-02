@@ -2,32 +2,30 @@ import Image from "next/image";
 import FormContainer from "@/components/FormContainer";
 import TableSearch from "@/components/TableSearch";
 import StudentsByClass from "@/components/students/StudentsByClass";
-
+import { getCurrentAuthContext } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-
-import { auth } from "@clerk/nextjs/server";
+import { Prisma } from "@prisma/client";
 
 type StudentListPageProps = {
   searchParams: Promise<{ [key: string]: string | undefined }>;
 };
 
 const StudentListPage = async ({ searchParams }: StudentListPageProps) => {
-  const { sessionClaims } = await auth();
-  const role = (sessionClaims?.metadata as { role?: string })?.role;
+  const { role, userId } = await getCurrentAuthContext();
 
   const { page, ...queryParams } = await searchParams;
   const p = page ? parseInt(page) : 1;
 
   // Build optional query filters (search/teacherId)
-  const studentQuery: any = {};
+  const studentQuery: Prisma.StudentWhereInput = { isArchived: false };
   if (queryParams) {
     for (const [key, value] of Object.entries(queryParams)) {
       if (value !== undefined) {
         switch (key) {
           case "teacherId":
-            studentQuery.class = {
-              lessons: { some: { teacherId: value } },
-            };
+            if (role === "admin") {
+              studentQuery.class = { lessons: { some: { teacherId: value } } };
+            }
             break;
           case "search":
             studentQuery.name = { contains: value, mode: "insensitive" };
@@ -39,8 +37,20 @@ const StudentListPage = async ({ searchParams }: StudentListPageProps) => {
     }
   }
 
+  const classScope: Prisma.ClassWhereInput = role === "admin"
+    ? {}
+    : role === "teacher" && userId
+      ? {
+          OR: [
+            { supervisorId: userId },
+            { lessons: { some: { teacherId: userId } } },
+          ],
+        }
+      : { id: { in: [] } };
+
   // Fetch classes with students grouped server-side
   const classRecords = await prisma.class.findMany({
+    where: classScope,
     include: {
       students: {
         where: studentQuery,
@@ -84,7 +94,11 @@ const StudentListPage = async ({ searchParams }: StudentListPageProps) => {
       </div>
 
       <div className="mt-4">
-        <StudentsByClass groups={classes.map((c) => ({ id: c.id, name: c.name, students: c.students }))} allClasses={allClasses} />
+        <StudentsByClass
+          groups={classes.map((c) => ({ id: c.id, name: c.name, students: c.students }))}
+          allClasses={allClasses}
+          canManage={role === "admin"}
+        />
       </div>
     </div>
   );

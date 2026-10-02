@@ -29,10 +29,13 @@ export default function QuickActionCard({ title, description, href = "#", icon, 
       className="group flex min-h-[72px] items-center rounded-lg bg-slate-50 p-3 transition-all duration-150 hover:-translate-y-0.5 hover:bg-white"
     >
       <div className="flex w-full items-center gap-3">
-        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${colors.bg} text-white shadow-sm ${colors.shadow}`}>
-          <span className="inline-flex h-4 w-4 items-center justify-center [&_svg]:h-4 [&_svg]:w-4 [&_svg]:shrink-0">
-            {icon}
-          </span>
+        <div className="relative overflow-visible">
+          <div className={`absolute -inset-3 rounded-lg bg-gradient-to-br ${colors.bg} opacity-0 transition-all duration-200 blur-2xl group-hover:opacity-80 group-hover:scale-105 pointer-events-none z-0`} />
+          <div className={`relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${colors.bg} text-white shadow-sm ${colors.shadow}`}>
+            <span className="inline-flex h-4 w-4 items-center justify-center [&_svg]:h-4 [&_svg]:w-4 [&_svg]:shrink-0">
+              {icon}
+            </span>
+          </div>
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-slate-900 leading-5">{title}</p>

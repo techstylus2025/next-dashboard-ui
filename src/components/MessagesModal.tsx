@@ -9,8 +9,7 @@ type MessagesThreadResponse = {
   currentUserId: string;
   currentName: string;
   threads: ChatThread[];
-  allParents: Array<{ id: string; name: string; surname: string }>;
-  allTeachers: Array<{ id: string; name: string; surname: string }>;
+  contacts: Array<{ id: string; name: string; role: Exclude<UserRoleSlug, "admin"> }>;
 };
 
 export default function MessagesModal({
@@ -63,7 +62,7 @@ export default function MessagesModal({
           <div>
             <p className="text-sm font-semibold text-slate-900">Messages</p>
             <p className="text-xs text-slate-500">
-              Chat with the school admin and teachers in a modal window.
+              Direct conversations between the school admin and each user.
             </p>
           </div>
           <button
@@ -87,8 +86,7 @@ export default function MessagesModal({
               currentUserId={data.currentUserId}
               currentName={data.currentName}
               initialThreads={data.threads}
-              allParents={data.allParents}
-              allTeachers={data.allTeachers}
+              contacts={data.contacts}
             />
           ) : (
             <div className="p-8 text-center text-slate-500">

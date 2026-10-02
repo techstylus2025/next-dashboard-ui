@@ -1,45 +1,43 @@
 import FeesManagement from "@/components/fees/FeesManagement";
+import { getCurrentAuthContext } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { auth } from "@clerk/nextjs/server";
 
 export default async function FeesPage() {
-  const { userId, sessionClaims } = await auth();
-  const role = (sessionClaims?.metadata as { role?: string })?.role;
+  const { userId, role } = await getCurrentAuthContext();
+
+  const studentScope = role === "parent" && userId
+    ? { parentId: userId, isArchived: false }
+    : role === "student" && userId
+      ? { id: userId, isArchived: false }
+      : null;
 
   const classes = await prisma.class.findMany({
+    where: role === "parent" && userId
+      ? { students: { some: { parentId: userId, isArchived: false } } }
+      : role === "student" && userId
+        ? { students: { some: { id: userId, isArchived: false } } }
+        : role === "admin" ? {} : { id: { in: [] } },
     orderBy: { name: "asc" },
     select: { id: true, name: true },
   });
 
   const allSchedules = await prisma.feeSchedule.findMany({
+    where: role === "parent" && userId
+      ? { class: { students: { some: { parentId: userId, isArchived: false } } } }
+      : role === "student" && userId
+        ? { class: { students: { some: { id: userId, isArchived: false } } } }
+        : role === "admin" ? {} : { id: { in: [] } },
     include: {
       class: { select: { id: true, name: true } },
-      assignments: { include: { payments: true } },
+      assignments: {
+        where: studentScope ? { student: studentScope } : {},
+        include: { payments: true },
+      },
     },
     orderBy: [{ academicYear: "desc" }, { term: "asc" }],
   });
 
-  let schedulesForCards = allSchedules;
-  if (role === "parent" && userId) {
-    const kids = await prisma.student.findMany({
-      where: { parentId: userId, isArchived: false },
-      select: { classId: true },
-    });
-    const classIds = new Set(kids.map((k) => k.classId));
-    schedulesForCards = allSchedules.filter((s) => classIds.has(s.classId));
-  } else if (role === "student" && userId) {
-    const st = await prisma.student.findUnique({
-      where: { id: userId },
-      select: { classId: true },
-    });
-    if (st) {
-      schedulesForCards = allSchedules.filter((s) => s.classId === st.classId);
-    } else {
-      schedulesForCards = [];
-    }
-  }
-
-  const classFeeCards = schedulesForCards.map((s) => {
+  const classFeeCards = allSchedules.map((s) => {
     const totalBill = Number(s.totalBillCedis);
     const studentCount = s.assignments.length;
     const totalCollected = s.assignments.reduce(
@@ -66,7 +64,7 @@ export default async function FeesPage() {
   });
 
   const allAssignments = await prisma.studentFeeAssignment.findMany({
-    where: role === "parent" && userId ? { student: { parentId: userId } } : role === "student" && userId ? { studentId: userId } : {},
+    where: studentScope ? { student: studentScope } : role === "admin" ? {} : { id: { in: [] } },
     include: {
       student: {
         select: {
@@ -106,6 +104,11 @@ export default async function FeesPage() {
     .filter((a) => a.balance > 0.009);
 
   const paymentsRaw = await prisma.feePayment.findMany({
+    where: role === "parent" && userId
+      ? { assignment: { student: { parentId: userId, isArchived: false } } }
+      : role === "student" && userId
+        ? { assignment: { student: { id: userId, isArchived: false } } }
+        : role === "admin" ? {} : { id: { in: [] } },
     include: {
       assignment: {
         include: {
@@ -136,19 +139,7 @@ export default async function FeesPage() {
     parentId: p.assignment.student.parentId,
   }));
 
-  let payments = paymentRowsFull.map(({ studentId: _sid, parentId: _pid, ...row }) => row);
-
-  if (role === "parent" && userId) {
-    payments = paymentRowsFull
-      .filter((r) => r.parentId === userId)
-      .map(({ studentId: _sid, parentId: _pid, ...row }) => row);
-  } else if (role === "student" && userId) {
-    payments = paymentRowsFull
-      .filter((r) => r.studentId === userId)
-      .map(({ studentId: _sid, parentId: _pid, ...row }) => row);
-  } else if (role !== "admin") {
-    payments = [];
-  }
+  const payments = paymentRowsFull.map(({ studentId: _sid, parentId: _pid, ...row }) => row);
 
   const canAdmin = role === "admin";
   const canCollect = role === "admin";
@@ -193,6 +184,7 @@ export default async function FeesPage() {
     const prevTermEnum = prevTermNumber >= 1 ? `TERM_${prevTermNumber}` : null;
 
     const allAssigns = await prisma.studentFeeAssignment.findMany({
+      where: studentScope ? { student: studentScope } : role === "admin" ? {} : { id: { in: [] } },
       include: {
         student: { select: { name: true, surname: true, class: { select: { name: true } } } },
         feeSchedule: { select: { academicYear: true, term: true, totalBillCedis: true, class: { select: { name: true } } } },
@@ -215,7 +207,7 @@ export default async function FeesPage() {
   return (
     <div className="flex-1 p-2 min-h-[60vh] rounded-xl bg-slate-50">
       <FeesManagement
-        role={role}
+        role={role ?? undefined}
         classes={classes}
         classFeeCards={classFeeCards}
         // show assignment options for parents and students as well as admins

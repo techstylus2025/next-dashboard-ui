@@ -1,7 +1,7 @@
 import PasswordManagerTable from '@/components/password-manager/PasswordManagerTable';
 import Pagination from '@/components/Pagination';
 import prisma from '@/lib/prisma';
-import { auth } from '@clerk/nextjs/server';
+import { getServerSession } from '@/lib/auth';
 import { ITEM_PER_PAGE } from '@/lib/settings';
 
 type PasswordManagerItem = {
@@ -19,8 +19,8 @@ export default async function PasswordManagerPage({
 }: {
   searchParams: Promise<{ [key: string]: string | undefined }>;
 }) {
-  const { sessionClaims } = await auth();
-  const role = (sessionClaims?.metadata as { role?: string })?.role;
+  const session = await getServerSession();
+  const role = session?.user?.role ? String(session.user.role).toLowerCase() : null;
   if (role !== 'admin') {
     return <div className="bg-white p-4 rounded-md m-4">Unauthorized</div>;
   }
@@ -32,11 +32,12 @@ export default async function PasswordManagerPage({
   const direction = params.direction === 'desc' ? 'desc' : 'asc';
   const page = params.page ? parseInt(params.page, 10) || 1 : 1;
 
-  const [admins, teachers, parents, students] = await Promise.all([
+  const [admins, teachers, parents, students, canonicalUsers] = await Promise.all([
     prisma.admin.findMany({ select: { id: true, username: true } }),
     prisma.teacher.findMany({ where: { isArchived: false }, select: { id: true, username: true, name: true, surname: true, email: true } }),
     prisma.parent.findMany({ where: { isArchived: false }, select: { id: true, username: true, name: true, surname: true, email: true } }),
     prisma.student.findMany({ where: { isArchived: false }, select: { id: true, username: true, name: true, surname: true, email: true } }),
+    prisma.user.findMany({ select: { id: true, username: true, email: true, role: true } }),
   ]);
 
   const allUsers: PasswordManagerItem[] = [
@@ -69,6 +70,20 @@ export default async function PasswordManagerPage({
       email: item.email,
     })),
   ];
+
+  const listedIds = new Set(allUsers.map((item) => item.id));
+  for (const item of canonicalUsers) {
+    const normalizedRole = item.role.toLowerCase();
+    if (listedIds.has(item.id) || !roleOptions.includes(normalizedRole as typeof roleOptions[number])) continue;
+
+    allUsers.push({
+      id: item.id,
+      role: normalizedRole as PasswordManagerItem['role'],
+      username: item.username || item.id,
+      displayName: item.username || item.id,
+      email: item.email,
+    });
+  }
 
   const filteredUsers = allUsers.filter((item) => {
     const normalizedQuery = search.toLowerCase();

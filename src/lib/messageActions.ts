@@ -1,4 +1,3 @@
-import { currentUser } from "@clerk/nextjs/server";
 import { MessageType, UserRole } from "@prisma/client";
 import prisma from "./prisma";
 
@@ -30,6 +29,12 @@ export type ChatThread = {
   counterpartRole: UserRoleSlug;
 };
 
+export type MessageContact = {
+  id: string;
+  name: string;
+  role: Exclude<UserRoleSlug, "admin">;
+};
+
 const roleToEnum = (role: UserRoleSlug): UserRole => {
   switch (role) {
     case "admin":
@@ -59,9 +64,6 @@ const enumToClientRole = (role: UserRole): UserRoleSlug => {
 const enumToClientMessageType = (type: MessageType): ClientMessageType =>
   type === MessageType.COMPLAINT ? "complaint" : "message";
 
-const isAdminRole = (role: string | undefined): role is "admin" =>
-  role === "admin";
-
 const formatTime = (date: Date) =>
   date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 
@@ -69,12 +71,13 @@ const getSenderName = (
   senderId: string,
   senderRole: UserRoleSlug,
   parentMap: Map<string, string>,
-  teacherMap: Map<string, string>
+  teacherMap: Map<string, string>,
+  studentMap: Map<string, string>
 ) => {
   if (senderRole === "admin") return "Admin";
   if (senderRole === "parent") return parentMap.get(senderId) ?? "Parent";
   if (senderRole === "teacher") return teacherMap.get(senderId) ?? "Teacher";
-  return "User";
+  return studentMap.get(senderId) ?? "Student";
 };
 
 export async function getUnreadMessageCount(
@@ -100,12 +103,16 @@ export async function getUnreadMessageCount(
 }
 
 export async function getAdminMessageThreads(): Promise<ChatThread[]> {
-  const [parents, teachers] = await Promise.all([
+  const [parents, teachers, students] = await Promise.all([
     prisma.parent.findMany({
       where: { isArchived: false },
       select: { id: true, name: true, surname: true },
     }),
     prisma.teacher.findMany({
+      where: { isArchived: false },
+      select: { id: true, name: true, surname: true },
+    }),
+    prisma.student.findMany({
       where: { isArchived: false },
       select: { id: true, name: true, surname: true },
     }),
@@ -117,6 +124,9 @@ export async function getAdminMessageThreads(): Promise<ChatThread[]> {
   const teacherMap = new Map<string, string>(
     teachers.map((teacher) => [teacher.id, `${teacher.name} ${teacher.surname}`])
   );
+  const studentMap = new Map<string, string>(
+    students.map((student) => [student.id, `${student.name} ${student.surname}`])
+  );
 
   const messages = await prisma.message.findMany({
     where: {
@@ -124,11 +134,12 @@ export async function getAdminMessageThreads(): Promise<ChatThread[]> {
         {
           senderId: ADMIN_ID,
           senderRole: UserRole.ADMIN,
+          recipientRole: { not: UserRole.ADMIN },
         },
         {
           recipientId: ADMIN_ID,
           recipientRole: UserRole.ADMIN,
-          readAt: null,
+          senderRole: { not: UserRole.ADMIN },
         },
       ],
     },
@@ -157,9 +168,6 @@ export async function getAdminMessageThreads(): Promise<ChatThread[]> {
     }
   };
 
-  // Do NOT pre-register all parents and teachers - only show unread threads
-
-
   for (const message of messages) {
     const isOutgoing = message.senderId === ADMIN_ID;
     const counterpartId = isOutgoing ? message.recipientId : message.senderId;
@@ -169,17 +177,16 @@ export async function getAdminMessageThreads(): Promise<ChatThread[]> {
     const threadKey = `${counterpartRole}-${counterpartId}`;
 
     if (!threadsByKey.has(threadKey)) {
-      const title =
-        counterpartRole === "parent"
-          ? parentMap.get(counterpartId)
-          : teacherMap.get(counterpartId);
+      const title = counterpartRole === "parent"
+        ? parentMap.get(counterpartId)
+        : counterpartRole === "teacher"
+          ? teacherMap.get(counterpartId)
+          : studentMap.get(counterpartId);
       registerPeer(
         counterpartId,
         counterpartRole,
         title ?? "Unknown user",
-        counterpartRole === "parent"
-          ? "Parent conversation"
-          : "Teacher conversation"
+        `${counterpartRole[0].toUpperCase()}${counterpartRole.slice(1)} conversation`
       );
     }
 
@@ -187,7 +194,8 @@ export async function getAdminMessageThreads(): Promise<ChatThread[]> {
       message.senderId,
       enumToClientRole(message.senderRole),
       parentMap,
-      teacherMap
+      teacherMap,
+      studentMap
     );
     const thread = threadsByKey.get(threadKey)!;
     thread.messages.push({
@@ -202,9 +210,7 @@ export async function getAdminMessageThreads(): Promise<ChatThread[]> {
       createdAt: formatTime(message.createdAt),
     });
 
-    if (message.recipientId === ADMIN_ID && !message.readAt) {
-      thread.unread += 1;
-    }
+    if (message.recipientId === ADMIN_ID && !message.readAt) thread.unread += 1;
   }
 
   return Array.from(threadsByKey.values()).sort((a, b) => {
@@ -220,30 +226,20 @@ export async function getUserMessageThreads(
   const messages = await prisma.message.findMany({
     where: {
       OR: [
-        { senderId: userId },
-        { recipientId: userId },
-        { senderId: ADMIN_ID, recipientId: userId },
-        { senderId: userId, recipientId: ADMIN_ID },
+        { senderId: ADMIN_ID, senderRole: UserRole.ADMIN, recipientId: userId, recipientRole: roleToEnum(role) },
+        { senderId: userId, senderRole: roleToEnum(role), recipientId: ADMIN_ID, recipientRole: UserRole.ADMIN },
       ],
     },
     orderBy: { createdAt: "asc" },
   });
 
   const adminMessages: ChatMessage[] = [];
-  const complaintMessages: ChatMessage[] = [];
+  let unread = 0;
 
   for (const message of messages) {
-    if (
-      message.senderId !== ADMIN_ID &&
-      message.recipientId !== ADMIN_ID &&
-      message.senderId !== userId &&
-      message.recipientId !== userId
-    ) {
-      continue;
-    }
-
     const senderRole = enumToClientRole(message.senderRole);
     const senderName = senderRole === "admin" ? "Admin" : "You";
+    if (message.recipientId === userId && !message.readAt) unread += 1;
     const formatted: ChatMessage = {
       id: message.id,
       senderId: message.senderId,
@@ -256,11 +252,7 @@ export async function getUserMessageThreads(
       createdAt: formatTime(message.createdAt),
     };
 
-    if (message.type === MessageType.COMPLAINT) {
-      complaintMessages.push(formatted);
-    } else {
-      adminMessages.push(formatted);
-    }
+    adminMessages.push(formatted);
   }
 
   const threads: ChatThread[] = [
@@ -268,25 +260,12 @@ export async function getUserMessageThreads(
       id: "admin",
       title: "School Admin",
       subtitle: "Chat with the administration team",
-      unread: adminMessages.filter((msg) => msg.recipientId === userId).length,
+      unread,
       messages: adminMessages,
       counterpartId: ADMIN_ID,
       counterpartRole: "admin",
     },
   ];
-
-  if (role === "parent") {
-    threads.push({
-      id: "complaint",
-      title: "Complaints",
-      subtitle: "Report a concern to the admin",
-      unread: complaintMessages.filter((msg) => msg.recipientId === ADMIN_ID).length,
-      messages: complaintMessages,
-      isComplaint: true,
-      counterpartId: ADMIN_ID,
-      counterpartRole: "admin",
-    });
-  }
 
   return threads;
 }
@@ -299,6 +278,21 @@ export async function createMessage(input: {
   text: string;
   type: ClientMessageType;
 }) {
+  if (
+    (input.senderRole === "admin" && (input.senderId !== ADMIN_ID || input.recipientRole === "admin")) ||
+    (input.senderRole !== "admin" && (input.recipientId !== ADMIN_ID || input.recipientRole !== "admin"))
+  ) {
+    throw new Error("Conversations must be between an administrator and one other user.");
+  }
+
+  if (input.senderRole === "admin") {
+    if (input.recipientRole === "admin") throw new Error("Admin conversations must have one non-admin recipient.");
+    const recipientExists = await findNonAdminUser(input.recipientId, input.recipientRole);
+    if (!recipientExists) throw new Error("Conversation recipient was not found.");
+  } else if (!(await findNonAdminUser(input.senderId, input.senderRole))) {
+    throw new Error("Conversation sender was not found.");
+  }
+
   const message = await prisma.message.create({
     data: {
       senderId: input.senderId,
@@ -324,25 +318,48 @@ export async function createMessage(input: {
   };
 }
 
-export async function getCurrentMessages(userId: string, role: UserRoleSlug) {
-  const user = await currentUser();
-  if (!user) return [];
-
-  if (role === "admin") {
-    return getAdminMessageThreads();
-  }
-  return getUserMessageThreads(userId, role);
-}
-
-export async function markMessageAsRead(messageId: number): Promise<void> {
-  await prisma.message.update({
-    where: { id: messageId },
+export async function markMessageAsRead(messageId: number, userId: string, role: UserRoleSlug): Promise<boolean> {
+  const recipientId = role === "admin" ? ADMIN_ID : userId;
+  const result = await prisma.message.updateMany({
+    where: {
+      id: messageId,
+      recipientId,
+      recipientRole: roleToEnum(role),
+      senderId: role === "admin" ? { not: ADMIN_ID } : ADMIN_ID,
+    },
     data: { readAt: new Date() },
   });
+  return result.count > 0;
 }
 
-export async function getAllParentsAndTeachers() {
-  const [parents, teachers] = await Promise.all([
+export async function findNonAdminUser(userId: string, role: Exclude<UserRoleSlug, "admin">) {
+  if (role === "parent") {
+    return prisma.parent.findFirst({ where: { id: userId, isArchived: false }, select: { id: true } });
+  }
+  if (role === "teacher") {
+    return prisma.teacher.findFirst({ where: { id: userId, isArchived: false }, select: { id: true } });
+  }
+  return prisma.student.findFirst({ where: { id: userId, isArchived: false }, select: { id: true } });
+}
+
+export async function getMessageUserName(userId: string, role: UserRoleSlug): Promise<string> {
+  if (role === "admin") return "School Administration";
+  const user = await findNonAdminUser(userId, role);
+  if (!user) return "User";
+  if (role === "parent") {
+    const parent = await prisma.parent.findUnique({ where: { id: userId }, select: { name: true, surname: true } });
+    return `${parent?.name ?? ""} ${parent?.surname ?? ""}`.trim() || "Parent";
+  }
+  if (role === "teacher") {
+    const teacher = await prisma.teacher.findUnique({ where: { id: userId }, select: { name: true, surname: true } });
+    return `${teacher?.name ?? ""} ${teacher?.surname ?? ""}`.trim() || "Teacher";
+  }
+  const student = await prisma.student.findUnique({ where: { id: userId }, select: { name: true, surname: true } });
+  return `${student?.name ?? ""} ${student?.surname ?? ""}`.trim() || "Student";
+}
+
+export async function getAllConversationUsers(): Promise<MessageContact[]> {
+  const [parents, teachers, students] = await Promise.all([
     prisma.parent.findMany({
       where: { isArchived: false },
       select: { id: true, name: true, surname: true },
@@ -351,7 +368,15 @@ export async function getAllParentsAndTeachers() {
       where: { isArchived: false },
       select: { id: true, name: true, surname: true },
     }),
+    prisma.student.findMany({
+      where: { isArchived: false },
+      select: { id: true, name: true, surname: true },
+    }),
   ]);
-  return { parents, teachers };
+  return [
+    ...parents.map((person) => ({ id: person.id, name: `${person.name} ${person.surname}`, role: "parent" as const })),
+    ...teachers.map((person) => ({ id: person.id, name: `${person.name} ${person.surname}`, role: "teacher" as const })),
+    ...students.map((person) => ({ id: person.id, name: `${person.name} ${person.surname}`, role: "student" as const })),
+  ].sort((a, b) => a.name.localeCompare(b.name));
 }
 

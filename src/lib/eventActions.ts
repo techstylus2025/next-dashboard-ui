@@ -1,6 +1,6 @@
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
+import { getCurrentAuthContext } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import prisma from "./prisma";
 
@@ -14,8 +14,7 @@ export async function createEvent(input: {
   endTime: string;
   classId?: number | null;
 }) {
-  const { sessionClaims } = await auth();
-  const role = (sessionClaims?.metadata as { role?: string })?.role;
+  const { role } = await getCurrentAuthContext();
   if (role !== "admin") {
     return { success: false, error: "Only administrators can create events." };
   }
@@ -56,8 +55,7 @@ export async function updateEvent(input: {
   endTime: string;
   classId?: number | null;
 }) {
-  const { sessionClaims } = await auth();
-  const role = (sessionClaims?.metadata as { role?: string })?.role;
+  const { role } = await getCurrentAuthContext();
   if (role !== "admin") {
     return { success: false, error: "Only administrators can update events." };
   }
@@ -86,8 +84,7 @@ export async function updateEvent(input: {
 }
 
 export async function deleteEvent(input: { id: number }) {
-  const { sessionClaims } = await auth();
-  const role = (sessionClaims?.metadata as { role?: string })?.role;
+  const { role } = await getCurrentAuthContext();
   if (role !== "admin") {
     return { success: false, error: "Only administrators can delete events." };
   }

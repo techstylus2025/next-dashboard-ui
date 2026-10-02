@@ -2,8 +2,10 @@ import AttendanceManager, {
   type AttendancePerson,
   type AttendanceRecord,
 } from "@/components/AttendanceManager";
+import ClassAttendanceBoard from "@/components/attendance/ClassAttendanceBoard";
+import ParentAttendanceRecords from "@/components/attendance/ParentAttendanceRecords";
+import { getCurrentAuthContext } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { currentUser } from "@clerk/nextjs/server";
 
 const AttendancePage = async ({
   searchParams,
@@ -21,9 +23,71 @@ const AttendancePage = async ({
   const dateEnd = new Date(dateStart);
   dateEnd.setDate(dateEnd.getDate() + 1);
 
-  const user = await currentUser();
-  const role = (user?.publicMetadata?.role as string) ?? "parent";
-  const currentUserId = user?.id ?? "";
+  const authContext = await getCurrentAuthContext();
+  const role = authContext.role ?? "guest";
+  const currentUserId = authContext.userId;
+
+  if ((role === "admin" || role === "teacher") && currentUserId) {
+    const classes = await prisma.class.findMany({
+      where: role === "admin" ? {} : { supervisorId: currentUserId },
+      select: {
+        id: true,
+        name: true,
+        students: {
+          where: { isArchived: false },
+          select: {
+            id: true,
+            name: true,
+            surname: true,
+            attendances: {
+              where: {
+                isArchived: false,
+                teacherId: null,
+                date: { gte: dateStart, lt: dateEnd },
+              },
+              select: { id: true, present: true },
+              orderBy: { date: "desc" },
+              take: 1,
+            },
+          },
+          orderBy: [{ surname: "asc" }, { name: "asc" }],
+        },
+      },
+      orderBy: { name: "asc" },
+    });
+    const teachers = role === "admin"
+      ? await prisma.teacher.findMany({
+          where: { isArchived: false },
+          select: {
+            id: true,
+            name: true,
+            surname: true,
+            attendances: {
+              where: {
+                isArchived: false,
+                studentId: null,
+                date: { gte: dateStart, lt: dateEnd },
+              },
+              select: { id: true, present: true },
+              orderBy: { date: "desc" },
+              take: 1,
+            },
+          },
+          orderBy: [{ surname: "asc" }, { name: "asc" }],
+        })
+      : [];
+
+    return (
+      <div className="min-h-full bg-slate-50 p-4 sm:p-6">
+        <ClassAttendanceBoard
+          role={role}
+          selectedDate={selectedDateString}
+          classes={classes}
+          teachers={teachers}
+        />
+      </div>
+    );
+  }
 
   const attendanceData = {
     records: [] as AttendanceRecord[],
@@ -156,7 +220,7 @@ const AttendancePage = async ({
     }));
   } else if (role === "parent") {
     const students = await prisma.student.findMany({
-      where: { parentId: currentUserId },
+      where: { parentId: currentUserId ?? "", isArchived: false },
       include: { class: true },
       orderBy: { name: "asc" },
     });
@@ -165,35 +229,39 @@ const AttendancePage = async ({
       where: {
         studentId: { in: studentIds },
         teacherId: null,
-        date: {
-          gte: dateStart,
-          lt: dateEnd,
+        isArchived: false,
+        student: {
+          parentId: currentUserId ?? "",
+          isArchived: false,
         },
       },
       orderBy: { date: "desc" },
       include: {
         student: {
-          select: { name: true, surname: true, class: { select: { name: true } } },
+          select: { id: true, name: true, surname: true, class: { select: { name: true } } },
         },
       },
     });
 
-    attendanceData.students = students.map((student) => ({
-      id: student.id,
-      name: student.name,
-      surname: student.surname,
-      classId: student.classId,
-      className: student.class.name,
-    }));
-
-    attendanceData.records = records.map((item) => ({
-      id: item.id,
-      date: item.date.toISOString().slice(0, 10),
-      present: item.present,
-      recordType: "student",
-      personName: `${item.student?.name} ${item.student?.surname}`,
-      className: item.student?.class?.name ?? "",
-    }));
+    return (
+      <div className="min-h-full bg-slate-50 p-4 sm:p-6">
+        <ParentAttendanceRecords
+          students={students.map((student) => ({
+            id: student.id,
+            name: `${student.name} ${student.surname}`,
+            className: student.class.name,
+          }))}
+          records={records.flatMap((item) => item.student ? [{
+            id: item.id,
+            studentId: item.student.id,
+            studentName: `${item.student.name} ${item.student.surname}`,
+            className: item.student.class.name,
+            date: item.date.toISOString().slice(0, 10),
+            present: item.present,
+          }] : [])}
+        />
+      </div>
+    );
   } else {
     // Fallback: no data for other roles
   }

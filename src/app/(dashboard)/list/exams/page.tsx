@@ -5,12 +5,12 @@ import FormContainer from "@/components/FormContainer";
 import Pagination from "@/components/Pagination";
 import Table from "@/components/Table";
 import TableSearch from "@/components/TableSearch";
+import { getCurrentAuthContext } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { getActiveAcademicPeriod } from "@/lib/academicContext";
 import { ITEM_PER_PAGE } from "@/lib/settings";
 import { Class, Exam, Prisma, Subject, Teacher } from "@prisma/client";
 import Image from "next/image";
-import { auth } from "@clerk/nextjs/server";
 
 type ExamList = Exam & {
   lesson: {
@@ -26,9 +26,7 @@ const ExamListPage = async ({
   searchParams: Promise<{ [key: string]: string | undefined }>;
 }) => {
 
-  const { userId, sessionClaims } = await auth();
-  const role = (sessionClaims?.metadata as { role?: string })?.role;
-  const currentUserId = userId;
+  const { userId: currentUserId, role } = await getCurrentAuthContext();
 
   const adminClasses =
     role === "admin"
@@ -191,6 +189,7 @@ const renderRow = (item: ExamList) => {
       ? {
           academicYearLabel: activePeriod.yearLabel,
           termNumber: activePeriod.termNumber,
+          documentType: "EXAM_QUESTION",
           status: "PENDING",
           ...(role === "teacher" ? { uploadedById: currentUserId! } : {}),
         }
@@ -201,6 +200,7 @@ const renderRow = (item: ExamList) => {
       ? {
           academicYearLabel: activePeriod.yearLabel,
           termNumber: activePeriod.termNumber,
+          documentType: "EXAM_QUESTION",
           status: "APPROVED",
           ...(role === "teacher" ? { uploadedById: currentUserId! } : {}),
         }
@@ -212,6 +212,7 @@ const renderRow = (item: ExamList) => {
       include: {
         lesson: {
           select: {
+            id: true,
             subject: { select: { name: true } },
             teacher: { select: { name: true, surname: true } },
             class: { select: { name: true } },
@@ -227,11 +228,12 @@ const renderRow = (item: ExamList) => {
       include: {
         lesson: {
           select: {
+            id: true,
             subject: { select: { name: true } },
             class: { select: { name: true } },
           },
         },
-        uploadedBy: { select: { name: true, surname: true } },
+        uploadedBy: { select: { id: true, name: true, surname: true } },
       },
       orderBy: { createdAt: "desc" },
     }),
@@ -240,11 +242,12 @@ const renderRow = (item: ExamList) => {
       include: {
         lesson: {
           select: {
+            id: true,
             subject: { select: { name: true } },
             class: { select: { name: true } },
           },
         },
-        uploadedBy: { select: { name: true, surname: true } },
+        uploadedBy: { select: { id: true, name: true, surname: true } },
       },
       orderBy: { approvedAt: "desc" },
     }),
@@ -289,6 +292,7 @@ const renderRow = (item: ExamList) => {
     fileName: upload.fileName,
     fileUrl: upload.fileUrl,
     status: upload.status,
+    lessonId: upload.lesson.id,
     lesson: upload.lesson,
     uploadedBy: upload.uploadedBy,
     createdAt: upload.createdAt.toISOString(),
@@ -300,6 +304,7 @@ const renderRow = (item: ExamList) => {
     fileName: upload.fileName,
     fileUrl: upload.fileUrl,
     status: upload.status,
+    lessonId: upload.lesson.id,
     lesson: upload.lesson,
     uploadedBy: upload.uploadedBy,
     approvedBy: upload.approvedBy,
@@ -340,6 +345,7 @@ const renderRow = (item: ExamList) => {
       {(role === "admin" || role === "teacher") && (
         <ExamQuestionUploadsPanel
           role={role}
+          currentUserId={currentUserId}
           lessons={lessonOptions}
           pendingUploads={serializedPendingUploads}
           approvedUploads={serializedApprovedUploads}

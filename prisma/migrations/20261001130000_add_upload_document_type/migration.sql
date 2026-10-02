@@ -1,0 +1,2 @@
+ALTER TABLE "ExamQuestionUpload"
+ADD COLUMN "documentType" TEXT NOT NULL DEFAULT 'EXAM_QUESTION';

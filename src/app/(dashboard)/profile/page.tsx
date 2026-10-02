@@ -1,12 +1,16 @@
-import { currentUser } from "@clerk/nextjs/server";
 import Avatar from "@/components/Avatar";
 import ProfileUpdateForm from "@/components/ProfileUpdateForm";
+import { getCurrentAuthContext } from "@/lib/auth";
 import { getProfilePageData, getUserPendingPasswordRequest } from "@/lib/profileActions";
 import type { UserRoleSlug } from "@/lib/messageActions";
 
 const ProfilePage = async () => {
-  const user = await currentUser();
-  if (!user) {
+  const { userId, role: authRole } = await getCurrentAuthContext();
+  const role = authRole && ["admin", "teacher", "parent", "student"].includes(authRole)
+    ? authRole as UserRoleSlug
+    : null;
+
+  if (!userId || !role) {
     return (
       <div className="p-4">
         <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
@@ -16,9 +20,8 @@ const ProfilePage = async () => {
     );
   }
 
-  const role = (user.publicMetadata.role as UserRoleSlug | undefined) ?? "parent";
-  const profileData = await getProfilePageData(user.id, role);
-  const pendingRequest = await getUserPendingPasswordRequest(user.id);
+  const profileData = await getProfilePageData(userId, role);
+  const pendingRequest = await getUserPendingPasswordRequest(userId);
 
   if (!profileData) {
     return (
@@ -30,16 +33,16 @@ const ProfilePage = async () => {
     );
   }
 
-  const displayName = [user.firstName, user.lastName].filter(Boolean).join(" ") || user.fullName || user.username || "User";
   const profile = profileData.profile;
+  const displayName = [profile.name, profile.surname].filter(Boolean).join(" ") || profile.fullName || profile.username || "User";
 
-  type DetailRow = { label: string; value: string | number };
+  type DetailRow = { key: string; label: string; value: string | number };
   type DetailSection = { title: string; rows: DetailRow[] };
 
   const summaryItems = [
     { label: "Role", value: profileData.role },
     { label: "Username", value: profile.username },
-    { label: "Email", value: profile.email ?? user.emailAddresses?.[0]?.emailAddress ?? "Not set" },
+    { label: "Email", value: profile.email ?? "Not set" },
     { label: "Phone", value: profile.phone ?? "Not set" },
     { label: "Birthday", value: profile.birthday ? new Date(profile.birthday).toLocaleDateString() : "Not set" },
   ];
@@ -71,6 +74,7 @@ const ProfilePage = async () => {
     detailSections.push({
       title: "Recent grades",
       rows: profile.results?.map((result: any) => ({
+        key: String(result.id),
         label: result.lesson?.subject?.name ?? "Subject",
         value: `Score: ${result.score} • ${result.remark ?? "No remark"}`,
       })) ?? [],
@@ -78,6 +82,7 @@ const ProfilePage = async () => {
     detailSections.push({
       title: "Recent attendance",
       rows: profile.attendances?.map((attendance: any) => ({
+        key: String(attendance.id),
         label: new Date(attendance.date).toLocaleDateString(),
         value: attendance.present ? "Present" : "Absent",
       })) ?? [],
@@ -85,6 +90,7 @@ const ProfilePage = async () => {
     detailSections.push({
       title: "Fee assignments",
       rows: profile.feeAssignments?.map((assignment: any) => ({
+        key: String(assignment.id),
         label: `${assignment.feeSchedule?.class?.name ?? "Class"} • ${assignment.feeSchedule?.academicYear}`,
         value: `${assignment.feeSchedule?.term ?? "Term"} • ₵${assignment.totalBillCedis}`,
       })) ?? [],
@@ -95,6 +101,7 @@ const ProfilePage = async () => {
     detailSections.push({
       title: "Pending lesson uploads",
       rows: profile.examQuestionUploads?.slice(0, 6).map((upload: any) => ({
+        key: String(upload.id),
         label: upload.title,
         value: upload.status.toLowerCase(),
       })) ?? [],
@@ -102,6 +109,7 @@ const ProfilePage = async () => {
     detailSections.push({
       title: "Recent lessons",
       rows: profile.lessons?.slice(0, 6).map((lesson: any) => ({
+        key: String(lesson.id),
         label: lesson.title ?? "Lesson",
         value: lesson.class?.name ?? "Class not set",
       })) ?? [],
@@ -112,6 +120,7 @@ const ProfilePage = async () => {
     detailSections.push({
       title: "Children",
       rows: profile.students?.map((student: any) => ({
+        key: String(student.id),
         label: `${student.name} ${student.surname}`,
         value: `${student.class?.name ?? "Class"} • Grade ${student.grade?.level ?? "?"}`,
       })) ?? [],
@@ -119,6 +128,7 @@ const ProfilePage = async () => {
     detailSections.push({
       title: "Recent book orders",
       rows: profile.bookOrders?.map((order: any) => ({
+        key: String(order.id),
         label: `Order #${order.id}`,
         value: `${order.status} • ${new Date(order.createdAt).toLocaleDateString()}`,
       })) ?? [],
@@ -179,7 +189,7 @@ const ProfilePage = async () => {
                 <div className="space-y-3">
                   {section.rows.length > 0 ? (
                     section.rows.map((row) => (
-                      <div key={`${row.label}-${row.value}`} className="rounded-3xl bg-slate-50 p-4">
+                      <div key={row.key} className="rounded-3xl bg-slate-50 p-4">
                         <p className="text-sm font-medium text-slate-900">{row.label}</p>
                         <p className="mt-1 text-sm text-slate-500">{row.value}</p>
                       </div>

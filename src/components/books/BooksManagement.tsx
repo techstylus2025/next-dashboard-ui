@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { Fragment, useMemo, useState, useTransition } from "react";
 import { toast } from "react-toastify";
 import {
   cancelBookOrder,
@@ -62,6 +62,7 @@ export default function BooksManagement({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [adminTab, setAdminTab] = useState<"books" | "orders">("books");
+  const [collapsedClassIds, setCollapsedClassIds] = useState<Set<number>>(new Set());
 
   const [bookFormOpen, setBookFormOpen] = useState(false);
   const [editingBook, setEditingBook] = useState<BookRow | null>(null);
@@ -78,55 +79,65 @@ export default function BooksManagement({
   type GroupedBookSet = {
     title: string;
     publication: string;
-    classNames: string[];
     books: BookRow[];
   };
 
-  const groupedBooks = useMemo<GroupedBookSet[]>(() => {
-    const grouped = new Map<string, GroupedBookSet>();
+  const booksByClass = useMemo(() => {
+    const sections = new Map<number, { classId: number; className: string; books: BookRow[] }>();
 
     books.forEach((book) => {
-      const key = `${book.title}::${book.publication || ""}`.toLowerCase();
-      const existing = grouped.get(key);
-      if (existing) {
-        existing.books.push(book);
-        existing.classNames = Array.from(
-          new Set([...existing.classNames, book.className])
-        );
-      } else {
-        grouped.set(key, {
-          title: book.title,
-          publication: book.publication || "",
-          classNames: [book.className],
-          books: [book],
-        });
-      }
+      const section = sections.get(book.classId) ?? {
+        classId: book.classId,
+        className: book.className,
+        books: [],
+      };
+      section.books.push(book);
+      sections.set(book.classId, section);
     });
 
-    return Array.from(grouped.values()).sort((a, b) => {
-      const titleDiff = a.title.localeCompare(b.title);
-      return titleDiff !== 0 ? titleDiff : a.publication.localeCompare(b.publication);
-    });
-  }, [books]);
-
-  const groupedBooksByClass = useMemo(() => {
-    const sections = new Map<string, GroupedBookSet[]>();
-
-    groupedBooks.forEach((group) => {
-      group.classNames.forEach((className) => {
-        const current = sections.get(className) ?? [];
-        current.push(group);
-        sections.set(className, current);
-      });
-    });
-
-    return Array.from(sections.entries())
-      .map(([className, groups]) => ({
-        className,
-        groups: groups.sort((a, b) => a.title.localeCompare(b.title)),
+    return Array.from(sections.values())
+      .map((section) => ({
+        ...section,
+        books: section.books.sort((a, b) => a.title.localeCompare(b.title)),
       }))
       .sort((a, b) => a.className.localeCompare(b.className));
-  }, [groupedBooks]);
+  }, [books]);
+
+  const groupedBooksByClass = useMemo(
+    () => booksByClass.map((section) => {
+      const groups = new Map<string, GroupedBookSet>();
+
+      section.books.forEach((book) => {
+        const key = `${book.title}::${book.publication || ""}`.toLowerCase();
+        const group = groups.get(key) ?? {
+          title: book.title,
+          publication: book.publication || "",
+          books: [],
+        };
+        group.books.push(book);
+        groups.set(key, group);
+      });
+
+      return {
+        classId: section.classId,
+        className: section.className,
+        groups: Array.from(groups.values()).sort((a, b) => {
+          const titleDiff = a.title.localeCompare(b.title);
+          return titleDiff !== 0 ? titleDiff : a.publication.localeCompare(b.publication);
+        }),
+      };
+    }),
+    [booksByClass]
+  );
+
+  const toggleClass = (classId: number) => {
+    setCollapsedClassIds((current) => {
+      const next = new Set(current);
+      if (next.has(classId)) next.delete(classId);
+      else next.add(classId);
+      return next;
+    });
+  };
 
   const resetBookForm = () => {
     setTitle("");
@@ -295,7 +306,9 @@ export default function BooksManagement({
             ? "Manage inventory, supplier details, and parent book orders."
             : isParent
               ? "Browse available books and send your order to the school."
-              : "School book catalog."}
+              : role === "teacher"
+                ? "Browse available books and prices. Ordering is available to parents."
+                : "Browse available books and prices."}
         </p>
       </div>
 
@@ -464,41 +477,63 @@ export default function BooksManagement({
                   </tr>
                 </thead>
                 <tbody>
-                  {books.map((book) => (
-                    <tr
-                      key={book.id}
-                      className="border-b border-slate-100 hover:bg-slate-50/80"
-                    >
-                      <td className="py-3 pr-2 font-medium">{book.title}</td>
-                      <td className="py-3 pr-2 text-slate-600">{book.publication || "—"}</td>
-                      <td className="py-3 pr-2">{book.className}</td>
-                      <td className="py-3 pr-2 text-right">
-                        {book.price.toFixed(2)}
-                      </td>
-                      <td className="py-3 pr-2 text-center">{book.quantity}</td>
-                      <td className="py-3 pr-2">{book.supplierName}</td>
-                      <td className="py-3 pr-2">{book.supplierContact}</td>
-                      <td className="py-3">
-                        <div className="flex justify-center gap-2">
+                  {booksByClass.map((section) => (
+                    <Fragment key={section.classId}>
+                      <tr className="border-b border-slate-200 bg-slate-50">
+                        <th colSpan={8} className="py-2.5 text-left font-semibold text-slate-800">
                           <button
                             type="button"
-                            title="Edit"
-                            onClick={() => openEditBook(book)}
-                            className="rounded-lg p-2 hover:bg-sky-100"
+                            onClick={() => toggleClass(section.classId)}
+                            aria-expanded={!collapsedClassIds.has(section.classId)}
+                            className="flex w-full items-center justify-between gap-4 text-left"
                           >
-                            <Image src="/edit.svg" alt="" width={16} height={16} />
+                            <span>
+                              {section.className}
+                              <span className="ml-2 text-xs font-medium text-slate-500">
+                                {section.books.length} book{section.books.length === 1 ? "" : "s"}
+                              </span>
+                            </span>
+                            <span className="text-xs font-medium text-sky-700">
+                              {collapsedClassIds.has(section.classId) ? "Expand" : "Collapse"}
+                            </span>
                           </button>
-                          <button
-                            type="button"
-                            title="Delete"
-                            onClick={() => handleDeleteBook(book.id)}
-                            className="rounded-lg p-2 hover:bg-red-100"
-                          >
-                            <Image src="/delete.svg" alt="" width={16} height={16} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+                        </th>
+                      </tr>
+                      {!collapsedClassIds.has(section.classId) && section.books.map((book) => (
+                        <tr
+                          key={book.id}
+                          className="border-b border-slate-100 hover:bg-slate-50/80"
+                        >
+                          <td className="py-3 pr-2 font-medium">{book.title}</td>
+                          <td className="py-3 pr-2 text-slate-600">{book.publication || "—"}</td>
+                          <td className="py-3 pr-2">{book.className}</td>
+                          <td className="py-3 pr-2 text-right">{book.price.toFixed(2)}</td>
+                          <td className="py-3 pr-2 text-center">{book.quantity}</td>
+                          <td className="py-3 pr-2">{book.supplierName}</td>
+                          <td className="py-3 pr-2">{book.supplierContact}</td>
+                          <td className="py-3">
+                            <div className="flex justify-center gap-2">
+                              <button
+                                type="button"
+                                title="Edit"
+                                onClick={() => openEditBook(book)}
+                                className="rounded-lg p-2 hover:bg-sky-100"
+                              >
+                                <Image src="/edit.svg" alt="" width={16} height={16} />
+                              </button>
+                              <button
+                                type="button"
+                                title="Delete"
+                                onClick={() => handleDeleteBook(book.id)}
+                                className="rounded-lg p-2 hover:bg-red-100"
+                              >
+                                <Image src="/delete.svg" alt="" width={16} height={16} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>
@@ -596,18 +631,22 @@ export default function BooksManagement({
               <p className="text-sm text-slate-500">No books available right now.</p>
             ) : (
               <div className="space-y-6">
-                {groupedBooksByClass.map(({ className, groups }) => (
-                  <div key={className} className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-base font-semibold text-slate-800">
-                        {className}
-                      </h3>
-                      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-                        {groups.length} book set{groups.length === 1 ? "" : "s"}
-                      </p>
-                    </div>
-                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                      {groups.map((group) => (
+                {groupedBooksByClass.map(({ classId, className, groups }) => (
+                  <section key={classId} className="space-y-3">
+                    <button
+                      type="button"
+                      onClick={() => toggleClass(classId)}
+                      aria-expanded={!collapsedClassIds.has(classId)}
+                      className="flex w-full items-center justify-between gap-3 border-b border-slate-200 pb-2 text-left"
+                    >
+                      <span className="text-base font-semibold text-slate-800">{className}</span>
+                      <span className="shrink-0 text-xs font-medium text-slate-500">
+                        {groups.length} book set{groups.length === 1 ? "" : "s"} · {collapsedClassIds.has(classId) ? "Show" : "Hide"}
+                      </span>
+                    </button>
+                    {!collapsedClassIds.has(classId) && (
+                      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                        {groups.map((group) => (
                         <div
                           key={`${group.title}-${group.publication}`}
                           className="rounded-xl border border-slate-200 bg-white p-4"
@@ -620,9 +659,7 @@ export default function BooksManagement({
                               </p>
                             </div>
                             <span className="rounded-full bg-sky-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-sky-700">
-                              {group.classNames.length > 1
-                                ? `${group.classNames.length} classes`
-                                : group.classNames[0]}
+                              {group.books.length} option{group.books.length === 1 ? "" : "s"}
                             </span>
                           </div>
 
@@ -674,8 +711,9 @@ export default function BooksManagement({
                           </div>
                         </div>
                       ))}
-                    </div>
-                  </div>
+                      </div>
+                    )}
+                  </section>
                 ))}
               </div>
             )}
@@ -751,22 +789,41 @@ export default function BooksManagement({
       {!canAdmin && !isParent && (
         <section className="rounded-2xl border border-white/60 bg-white/90 backdrop-blur-sm p-6 shadow-sm">
           <p className="text-sm text-slate-500">
-            Book purchasing is available for parents. Please sign in as a parent
-            to place orders.
+            {role === "teacher"
+              ? "Teacher access is view-only. Parents can place book orders from their account."
+              : "Book orders can be placed from a parent account."}
           </p>
-          {books.length > 0 && (
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              {books.map((book) => (
-                <div
-                  key={book.id}
-                  className="rounded-lg border border-slate-200 p-3 text-sm"
-                >
-                  <p className="font-medium">{book.title}</p>
-                  <p className="text-slate-500">{book.className}</p>
-                  <p className="text-sky-700">₵{book.price.toFixed(2)}</p>
-                </div>
+          {books.length > 0 ? (
+            <div className="mt-5 space-y-6">
+              {booksByClass.map((section) => (
+                <section key={section.classId} aria-label={`${section.className} books`}>
+                  <button
+                    type="button"
+                    onClick={() => toggleClass(section.classId)}
+                    aria-expanded={!collapsedClassIds.has(section.classId)}
+                    className="mb-3 flex w-full items-center justify-between gap-3 border-b border-slate-200 pb-2 text-left"
+                  >
+                    <span className="font-semibold text-slate-800">{section.className}</span>
+                    <span className="shrink-0 text-xs text-slate-500">
+                      {section.books.length} book{section.books.length === 1 ? "" : "s"} · {collapsedClassIds.has(section.classId) ? "Show" : "Hide"}
+                    </span>
+                  </button>
+                  {!collapsedClassIds.has(section.classId) && (
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                      {section.books.map((book) => (
+                        <div key={book.id} className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
+                          <p className="font-medium text-slate-800">{book.title}</p>
+                          <p className="mt-1 text-slate-500">{book.publication || "General publication"}</p>
+                          <p className="mt-2 font-semibold text-sky-700">₵{book.price.toFixed(2)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
               ))}
             </div>
+          ) : (
+            <p className="mt-4 text-sm text-slate-500">No books are available right now.</p>
           )}
         </section>
       )}

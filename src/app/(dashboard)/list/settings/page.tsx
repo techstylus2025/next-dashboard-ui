@@ -1,12 +1,11 @@
 import SettingsManagement from "@/components/settings/SettingsManagement";
 import { loadGradingLevels, loadGradingScaleEntries } from "@/lib/gradingData";
 import { loadSettingsPageData } from "@/lib/settingsData";
-import { auth } from "@clerk/nextjs/server";
+import { getCurrentAuthContext } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
 export default async function SettingsPage() {
-  const { sessionClaims } = await auth();
-  const role = (sessionClaims?.metadata as { role?: string })?.role;
+  const { role } = await getCurrentAuthContext();
 
   if (role !== "admin") {
     redirect(`/${role || "sign-in"}`);

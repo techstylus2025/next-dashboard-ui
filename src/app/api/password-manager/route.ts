@@ -136,6 +136,7 @@ export async function POST(request: NextRequest) {
         break;
     }
 
+    const userRecord = await prisma.user.findUnique({ where: { id } });
     const transition = buildRoleTransition(normalizedOriginalRole, normalizedRole, currentRecord);
 
     if (transition.shouldMigrate) {
@@ -175,6 +176,27 @@ export async function POST(request: NextRequest) {
               await tx.student.create({ data: { ...(transition.createPayload ?? {}), username } as any });
             }
             break;
+        }
+
+        if (userRecord) {
+          await tx.user.update({
+            where: { id },
+            data: {
+              username,
+              email: currentRecord?.email ?? userRecord.email ?? null,
+              role: normalizedRole,
+            },
+          });
+        } else {
+          await tx.user.create({
+            data: {
+              id,
+              username,
+              email: currentRecord?.email ?? null,
+              role: normalizedRole,
+              password: null,
+            },
+          });
         }
 
         switch (normalizedOriginalRole) {
@@ -226,6 +248,27 @@ export async function POST(request: NextRequest) {
             }
           });
           break;
+      }
+
+      if (userRecord) {
+        await prisma.user.update({
+          where: { id },
+          data: {
+            username,
+            email: currentRecord?.email ?? userRecord.email ?? null,
+            role: normalizedRole,
+          },
+        });
+      } else {
+        await prisma.user.create({
+          data: {
+            id,
+            username,
+            email: currentRecord?.email ?? null,
+            role: normalizedRole,
+            password: null,
+          },
+        });
       }
     }
 

@@ -7,6 +7,7 @@ import MenuPanel, {
 import { getDashboardPath } from "@/lib/dashboard";
 import { useClerk, useUser } from "@clerk/nextjs";
 import { useEffect, useMemo, useState } from "react";
+import type { DashboardUser } from "@/types/auth";
 
 /** Gradient + shadow for icon tiles (icons are inverted to white) */
 const navIconAccent: Record<string, string> = {
@@ -92,7 +93,7 @@ const menuSections: { items: RawItem[] }[] = [
         icon: "/parent.svg",
         label: "Parents",
         href: "/list/parents",
-        visible: ["admin", "teacher"],
+        visible: ["admin"],
       },
       {
         icon: "/subject.svg",
@@ -237,7 +238,7 @@ function toMenuItem(
   };
 }
 
-const Menu = () => {
+const Menu = ({ customUser }: { customUser?: DashboardUser | null }) => {
   const { user } = useUser();
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -256,8 +257,18 @@ const Menu = () => {
     fetchCount();
   }, [user]);
 
-  const role = user?.publicMetadata.role as string | undefined;
+  const role = (user?.publicMetadata.role as string | undefined) ?? customUser?.role;
   const clerk = useClerk();
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      if (user) {
+        await clerk.signOut();
+      }
+    } finally {
+      window.location.replace("/sign-in");
+    }
+  };
 
   const sections: MenuSection[] = useMemo(() => {
     if (!role) return [];
@@ -265,10 +276,10 @@ const Menu = () => {
       .map((section) => ({
         items: section.items
           .filter((item) => item.visible.includes(role))
-          .map((item) => toMenuItem(item, role, unreadCount, clerk.signOut)),
+            .map((item) => toMenuItem(item, role, unreadCount, handleLogout)),
       }))
       .filter((section) => section.items.length > 0);
-  }, [role, unreadCount, clerk]);
+        }, [role, unreadCount, handleLogout]);
 
   if (!role) {
     return null;

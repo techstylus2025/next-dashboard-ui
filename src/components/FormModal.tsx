@@ -46,55 +46,55 @@ const deleteActionMap = {
 // import StudentForm from "./forms/StudentForm";
 
 const TeacherForm = dynamic(
-  () => import("./forms/TeacherForm.js").then((mod) => mod.default as any),
+  () => import("./forms/TeacherForm").then((mod) => mod.default as any),
   {
     loading: () => <h1>Loading...</h1>,
   }
 ) as any;
 const StudentForm = dynamic(
-  () => import("./forms/StudentForm.js").then((mod) => mod.default as any),
+  () => import("./forms/StudentForm").then((mod) => mod.default as any),
   {
     loading: () => <h1>Loading...</h1>,
   }
 ) as any;
 const SubjectForm = dynamic(
-  () => import("./forms/SubjectForm.js").then((mod) => mod.default as any),
+  () => import("./forms/SubjectForm").then((mod) => mod.default as any),
   {
     loading: () => <h1>Loading...</h1>,
   }
 ) as any;
 const ClassForm = dynamic(
-  () => import("./forms/ClassForm.js").then((mod) => mod.default as any),
+  () => import("./forms/ClassForm").then((mod) => mod.default as any),
   {
     loading: () => <h1>Loading...</h1>,
   }
 ) as any;
 const ExamForm = dynamic(
-  () => import("./forms/ExamForm.js").then((mod) => mod.default as any),
+  () => import("./forms/ExamForm").then((mod) => mod.default as any),
   {
     loading: () => <h1>Loading...</h1>,
   }
 ) as any;
 const AttendanceForm = dynamic(
-  () => import("./forms/AttendanceForm.js").then((mod) => mod.default as any),
+  () => import("./forms/AttendanceForm").then((mod) => mod.default as any),
   {
     loading: () => <h1>Loading...</h1>,
   }
 ) as any;
 const ParentForm = dynamic(
-  () => import("./forms/ParentForm.js").then((mod) => mod.default as any),
+  () => import("./forms/ParentForm").then((mod) => mod.default as any),
   {
     loading: () => <h1>Loading...</h1>,
   }
 ) as any;
 const EventForm = dynamic(
-  () => import("./forms/EventForm.js").then((mod) => mod.default as any),
+  () => import("./forms/EventForm").then((mod) => mod.default as any),
   {
     loading: () => <h1>Loading...</h1>,
   }
 ) as any;
 const AssignmentForm = dynamic(
-  () => import("./forms/AssignmentForm.js").then((mod) => mod.default as any),
+  () => import("./forms/AssignmentForm").then((mod) => mod.default as any),
   {
     loading: () => <h1>Loading...</h1>,
   }

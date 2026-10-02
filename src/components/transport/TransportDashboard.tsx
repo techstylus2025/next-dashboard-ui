@@ -1,6 +1,12 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
+
+const TransportMap = dynamic(() => import("./TransportMap"), {
+  ssr: false,
+  loading: () => <div className="grid h-full min-h-[360px] place-items-center text-sm text-slate-500">Loading live map...</div>,
+});
 
 type TransportRole = "admin" | "teacher" | "parent" | "student" | undefined;
 
@@ -35,6 +41,7 @@ type BusItem = {
   driverName: string;
   route: string;
   latestLocation: BusLocation | null;
+  locationTrail: BusLocation[];
 };
 
 type BusRegistration = {
@@ -57,11 +64,6 @@ type TransportRequest = {
   status: string;
   createdAt: string;
   updatedAt: string;
-};
-
-const normalize = (value: number, min: number, max: number) => {
-  if (max === min) return 0.5;
-  return Math.min(1, Math.max(0, (value - min) / (max - min)));
 };
 
 const formatDateTime = (value: string) => new Date(value).toLocaleString(undefined, {
@@ -202,29 +204,6 @@ const TransportDashboard = ({
       }
     };
   }, []);
-
-  const locationBounds = useMemo(() => {
-    const locations = buses
-      .map((bus) => bus.latestLocation)
-      .filter((location): location is BusLocation => location !== null);
-    if (locations.length === 0) {
-      return null;
-    }
-    const minLat = Math.min(...locations.map((item) => item.latitude));
-    const maxLat = Math.max(...locations.map((item) => item.latitude));
-    const minLng = Math.min(...locations.map((item) => item.longitude));
-    const maxLng = Math.max(...locations.map((item) => item.longitude));
-    return { minLat, maxLat, minLng, maxLng };
-  }, [buses]);
-
-  const markerPosition = (location: BusLocation | null) => {
-    if (!location || !locationBounds) {
-      return { left: "50%", top: "50%" };
-    }
-    const x = normalize(location.longitude, locationBounds.minLng, locationBounds.maxLng);
-    const y = 1 - normalize(location.latitude, locationBounds.minLat, locationBounds.maxLat);
-    return { left: `${Math.round(x * 100)}%`, top: `${Math.round(y * 100)}%` };
-  };
 
   const handleCreateBus = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -515,30 +494,15 @@ const TransportDashboard = ({
           </div>
 
           <div className="mt-6 grid gap-4">
-            <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-slate-900 px-4 py-4">
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.18),_transparent_30%)]" />
-              <div className="relative h-[360px] overflow-hidden rounded-3xl bg-slate-800/70">
-                <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[length:80px_80px]" />
-                {buses.some((bus) => bus.latestLocation) ? (
-                  buses.map((bus) => {
-                    const { left, top } = markerPosition(bus.latestLocation);
-                    return (
-                      <div
-                        key={bus.id}
-                        className="absolute z-10 inline-flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-full bg-cyan-400/95 px-3 py-2 text-xs font-semibold text-slate-950 shadow-lg shadow-cyan-500/20"
-                        style={{ left, top }}
-                      >
-                        <span className="block h-2.5 w-2.5 rounded-full bg-slate-950" />
-                        <span>{bus.name}</span>
-                      </div>
-                    );
-                  })
-                ) : (
-                  <div className="absolute inset-0 grid place-items-center text-slate-500">
-                    No live bus positions yet.
-                  </div>
-                )}
+            <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-slate-100">
+              <div className="h-[360px] md:h-[460px]">
+                <TransportMap buses={buses} />
               </div>
+              {!buses.some((bus) => bus.latestLocation) ? (
+                <div className="absolute left-3 top-3 rounded-lg border border-slate-200 bg-white/95 px-3 py-2 text-xs font-medium text-slate-600 shadow-sm">
+                  Waiting for live GPS positions
+                </div>
+              ) : null}
             </div>
 
             <div className="grid gap-3 md:grid-cols-2">

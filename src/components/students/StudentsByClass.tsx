@@ -43,7 +43,7 @@ type ClassGroup = {
   students: Student[];
 };
 
-const StudentsByClass = ({ groups, allClasses }: { groups: ClassGroup[]; allClasses: { id: number; name: string }[] }) => {
+const StudentsByClass = ({ groups, allClasses, canManage = false }: { groups: ClassGroup[]; allClasses: { id: number; name: string }[]; canManage?: boolean }) => {
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
   const [targetByClass, setTargetByClass] = useState<Record<number, number | "">>({});
   const [promotionHistory, setPromotionHistory] = useState<PromotionHistory[]>([]);
@@ -148,7 +148,7 @@ const StudentsByClass = ({ groups, allClasses }: { groups: ClassGroup[]; allClas
         </div>
       ) : null}
 
-      {promotionHistory.length > 0 ? (
+      {canManage && promotionHistory.length > 0 ? (
         <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
           <div className="flex items-center justify-between gap-3">
             <div>
@@ -202,7 +202,7 @@ const StudentsByClass = ({ groups, allClasses }: { groups: ClassGroup[]; allClas
                   </button>
                 </div>
 
-                <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                {canManage ? <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <select
                     value={targetByClass[group.id] ?? ""}
                     onChange={(e) => setTargetByClass((s) => ({ ...s, [group.id]: e.target.value ? Number(e.target.value) : "" }))}
@@ -227,7 +227,7 @@ const StudentsByClass = ({ groups, allClasses }: { groups: ClassGroup[]; allClas
                   >
                     Promote all
                   </button>
-                </div>
+                </div> : null}
               </div>
 
               <div
@@ -274,8 +274,10 @@ const StudentsByClass = ({ groups, allClasses }: { groups: ClassGroup[]; allClas
                                 <Link href={`/list/students/${s.id}`} className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200">
                                   <Image src="/view.svg" alt="View" width={15} height={15} />
                                 </Link>
-                                <FormContainer table="student" type="update" data={s} />
-                                <FormContainer table="student" type="delete" id={s.id} />
+                                {canManage ? <>
+                                  <FormContainer table="student" type="update" data={s} />
+                                  <FormContainer table="student" type="delete" id={s.id} />
+                                </> : null}
                               </div>
                             </td>
                           </tr>
@@ -309,12 +311,14 @@ const StudentsByClass = ({ groups, allClasses }: { groups: ClassGroup[]; allClas
                             <Link href={`/list/students/${s.id}`} className="flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-slate-200">
                               <Image src="/view.svg" alt="View" width={15} height={15} />
                             </Link>
-                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-slate-200">
-                              <FormContainer table="student" type="update" data={s} />
-                            </div>
-                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-slate-200">
-                              <FormContainer table="student" type="delete" id={s.id} />
-                            </div>
+                            {canManage ? <>
+                              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-slate-200">
+                                <FormContainer table="student" type="update" data={s} />
+                              </div>
+                              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-slate-200">
+                                <FormContainer table="student" type="delete" id={s.id} />
+                              </div>
+                            </> : null}
                           </div>
                         ) : null}
                       </div>

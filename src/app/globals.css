@@ -218,6 +218,97 @@ textarea {
 .chat-thread-item-active {
   @apply border border-sky-400 bg-sky-50 shadow-sm;
 }
+
+.login-page {
+  position: relative;
+  min-height: 100vh;
+  width: 100%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  background: #f7f7f7;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.decorative-shape { position: absolute; pointer-events: none; z-index: 0; border-radius: 50%; background: #2d25fe; }
+.decorative-shape-top { width: 390px; height: 390px; top: -190px; left: -100px; box-shadow: inset -28px -5px 0 rgba(0, 9, 190, 0.55); }
+.decorative-shape-bottom { width: 300px; height: 300px; right: -150px; bottom: -175px; box-shadow: inset 25px 20px 0 rgba(0, 9, 190, 0.55); }
+.login-card { position: relative; z-index: 1; width: min(930px, 100%); min-height: 535px; display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; background: #fff; border-radius: 16px; box-shadow: 0 25px 55px rgba(0, 0, 0, 0.14), 0 8px 20px rgba(0, 0, 0, 0.06); }
+.login-panel { display: flex; justify-content: center; align-items: center; background: #fff; padding: 45px 55px; }
+.login-content { width: 100%; max-width: 340px; }
+.school-brand { display: flex; align-items: center; justify-content: center; gap: 13px; margin-bottom: 14px; }
+.logo-wrapper { width: 57px; height: 74px; display: flex; align-items: center; justify-content: center; }
+.school-logo, .large-school-logo { width: 100%; height: 100%; object-fit: contain; }
+.brand-name { display: flex; flex-direction: column; }
+.welcome-text { margin-bottom: 4px; color: #777; font-size: 10px; font-weight: 500; letter-spacing: 1.7px; }
+.brand-name h1 { margin: 0; color: #2825ee; font-size: 19px; font-weight: 700; line-height: 1.1; letter-spacing: 0.5px; }
+.brand-name h1 span, .branding-content h2 span { display: block; margin-top: 3px; font-size: 11px; letter-spacing: 1px; }
+.login-description { margin: 0 0 25px; color: #999; text-align: center; font-size: 11px; line-height: 1.65; }
+.login-form { width: 100%; }
+.input-group { position: relative; display: flex; align-items: center; width: 100%; height: 40px; margin-bottom: 11px; border: 1px solid #dedede; border-radius: 22px; background: #fff; transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+.input-group:focus-within { border-color: #f52b24; box-shadow: 0 0 0 3px rgba(245, 43, 36, 0.08); }
+.input-icon { flex-shrink: 0; margin-left: 14px; color: #999; }
+.input-group input { width: 100%; height: 100%; padding: 0 42px 0 10px; border: none; outline: none; background: transparent; color: #333; font-size: 12px; }
+.input-group input::placeholder { color: #aaa; }
+.password-toggle { position: absolute; right: 10px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border: none; background: transparent; color: #aaa; cursor: pointer; }
+.password-toggle:hover, .forgot-password:hover { color: #ef2922; }
+.form-options { display: flex; justify-content: flex-end; margin: -2px 5px 12px; }
+.forgot-password, .signup-text button { border: none; background: none; color: #999; font-size: 10px; cursor: pointer; }
+.login-error { margin: 0 0 10px; color: #c5221f; text-align: center; font-size: 11px; line-height: 1.4; }
+.sign-in-button { width: 100%; height: 38px; border: none; border-radius: 22px; background: linear-gradient(90deg, #5555f6, #161df5); color: #fff; font-size: 12px; font-weight: 700; letter-spacing: 0.5px; cursor: pointer; box-shadow: 0 6px 12px rgba(242, 36, 29, 0.18); transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease; }
+.sign-in-button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 9px 18px rgba(242, 36, 29, 0.25); }
+.sign-in-button:disabled { opacity: 0.65; cursor: not-allowed; }
+.signup-text { margin-top: 14px; text-align: center; color: #888; font-size: 10px; }
+.signup-text button { color: #2563eb; font-weight: 600; }
+.signup-text button:hover { text-decoration: underline; }
+.divider { display: flex; align-items: center; gap: 10px; margin: 22px 0 18px; }
+.divider span { flex: 1; height: 1px; background: #e9e9e9; }
+.divider p, .social-title { margin: 0; color: #aaa; font-size: 10px; }
+.social-title { margin-bottom: 12px; text-align: center; }
+.social-buttons { display: flex; align-items: center; justify-content: center; gap: 13px; }
+.social-button { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: none; border-radius: 50%; background: #fff; color: #1877f2; box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12); cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.social-button:hover { transform: translateY(-2px); box-shadow: 0 6px 14px rgba(0, 0, 0, 0.16); }
+.social-button.google { color: #ea4335; font-weight: 700; font-size: 15px; }
+.social-button.linkedin { color: #0a66c2; }
+.social-button.help { color: #777; }
+.branding-panel { position: relative; min-height: 535px; display: flex; align-items: center; justify-content: center; overflow: hidden; background: linear-gradient(rgba(239, 37, 30, 0.86), rgba(46, 13, 210, 0.699)), url("/school_building.jpg"); background-size: cover; background-position: center; }
+.branding-overlay { position: absolute; inset: 0; background: linear-gradient(135deg, rgba(251, 65, 55, 0.28), rgba(160, 0, 0, 0.18)); }
+.branding-content { position: relative; z-index: 1; width: 80%; text-align: center; color: #fff; }
+.large-logo { width: 105px; height: 125px; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 5px 10px rgba(0, 0, 0, 0.18)); }
+.branding-content h2 { margin: 0; font-size: 25px; font-weight: 700; letter-spacing: 0.8px; line-height: 1.15; }
+.branding-content h2 span { margin-top: 5px; font-size: 14px; letter-spacing: 2px; }
+.branding-divider { width: 95px; height: 2px; margin: 17px auto; background: rgba(255, 255, 255, 0.7); }
+.branding-content > p { max-width: 330px; margin: 0 auto; color: rgba(255, 255, 255, 0.9); font-size: 11px; line-height: 1.7; }
+.motto { display: flex; flex-direction: column; margin-top: 20px; font-size: 9px; font-weight: 700; letter-spacing: 1.5px; }
+.motto span + span { margin-top: 4px; }
+
+@media (max-width: 850px) {
+  .login-page { padding: 25px; }
+  .login-card { max-width: 760px; }
+  .login-panel { padding: 40px 35px; }
+  .brand-name h1 { font-size: 16px; }
+  .branding-content h2 { font-size: 21px; }
+  .branding-content h2 span { font-size: 12px; }
+}
+
+@media (max-width: 680px) {
+  .login-page { min-height: 100dvh; padding: 20px 15px; }
+  .decorative-shape-top { width: 250px; height: 250px; top: -145px; left: -100px; }
+  .decorative-shape-bottom { width: 220px; height: 220px; right: -130px; bottom: -135px; }
+  .login-card { display: block; width: 100%; max-width: 440px; min-height: auto; }
+  .branding-panel { display: none; }
+  .login-panel { min-height: 620px; padding: 40px 28px; }
+  .login-content { max-width: 360px; }
+}
+
+@media (max-width: 380px) {
+  .login-panel { padding: 35px 20px; }
+  .brand-name h1 { font-size: 15px; }
+  .brand-name h1 span { font-size: 9px; }
+  .welcome-text { font-size: 8px; }
+}
 .chat-thread-title {
   @apply text-sm font-semibold text-slate-900 truncate;
 }

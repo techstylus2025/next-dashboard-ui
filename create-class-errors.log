@@ -239,3 +239,203 @@ keys=id,name,capacity,gradeId,supervisorId
   gradingLevel: 'JHS',
   supervisorId: 'user_3Iy7ibaJ9OHLGqiKW5XUwpoolqv'
 }
+[enter-createClass] 2026-10-01T13:35:30.910Z payload={
+  name: 'Basic 7',
+  capacity: 25,
+  gradeId: 5,
+  supervisorId: 'user_3E2MdhyckuIVXRj8kAvXNUd5Cy4',
+  subjectIds: []
+}
+keys=name,capacity,gradeId,supervisorId,subjectIds
+[create-payload] 2026-10-01T13:35:31.348Z payload={
+  name: 'Basic 7',
+  capacity: 25,
+  gradeId: 5,
+  gradingLevel: 'JHS',
+  supervisorId: 'user_3E2MdhyckuIVXRj8kAvXNUd5Cy4',
+  subjects: { connect: [ { id: 1 } ] }
+}
+[caught] 2026-10-01T13:35:36.562Z Error [PrismaClientKnownRequestError]: 
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$prisma$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["default"].class.create()` invocation in
+D:\School-Management-System\.next\dev\server\chunks\ssr\[root-of-the-server]__0gbpdgx._.js:748:149
+
+  745         depth: 3
+  746     })}\n`);
+  747 } catch  {}
+→ 748 await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$prisma$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["default"].class.create(
+The column `(not available)` does not exist in the current database.
+    at <unknown> (src\lib\actions.ts:273:24)
+    at async createClass (src\lib\actions.ts:273:5)
+  271 |     } catch {}
+  272 |
+> 273 |     await prisma.class.create({ data: createPayload });
+      |                        ^
+  274 |
+  275 |     // revalidatePath("/list/class");
+  276 |     return { success: true, error: false }; {
+  code: 'P2022',
+  meta: {
+    modelName: 'Class',
+    driverAdapterError: Error [DriverAdapterError]: ColumnNotFound
+        at async createClass (src\lib\actions.ts:273:5)
+      271 |     } catch {}
+      272 |
+    > 273 |     await prisma.class.create({ data: createPayload });
+          |     ^
+      274 |
+      275 |     // revalidatePath("/list/class");
+      276 |     return { success: true, error: false }; {
+      [cause]: {
+        originalCode: '42703',
+        originalMessage: 'tsvector column "search_vector" does not exist',
+        kind: 'ColumnNotFound',
+        column: undefined
+      }
+    }
+  },
+  clientVersion: '7.8.0'
+}
+[enter-createClass] 2026-10-01T13:44:07.036Z payload={
+  name: 'Basic 7',
+  capacity: 25,
+  gradeId: 5,
+  supervisorId: 'user_3E2MdhyckuIVXRj8kAvXNUd5Cy4',
+  subjectIds: []
+}
+keys=name,capacity,gradeId,supervisorId,subjectIds
+[create-payload] 2026-10-01T13:44:08.834Z payload={
+  name: 'Basic 7',
+  capacity: 25,
+  gradeId: 5,
+  gradingLevel: 'JHS',
+  supervisorId: 'user_3E2MdhyckuIVXRj8kAvXNUd5Cy4',
+  subjects: { connect: [ { id: 1 } ] }
+}
+[caught] 2026-10-01T13:44:17.009Z Error [PrismaClientKnownRequestError]: 
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$prisma$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["default"].class.create()` invocation in
+D:\School-Management-System\.next\dev\server\chunks\ssr\[root-of-the-server]__0gbpdgx._.js:748:149
+
+  745         depth: 3
+  746     })}\n`);
+  747 } catch  {}
+→ 748 await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$prisma$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["default"].class.create(
+The column `(not available)` does not exist in the current database.
+    at <unknown> (src\lib\actions.ts:273:24)
+    at async createClass (src\lib\actions.ts:273:5)
+  271 |     } catch {}
+  272 |
+> 273 |     await prisma.class.create({ data: createPayload });
+      |                        ^
+  274 |
+  275 |     // revalidatePath("/list/class");
+  276 |     return { success: true, error: false }; {
+  code: 'P2022',
+  meta: {
+    modelName: 'Class',
+    driverAdapterError: Error [DriverAdapterError]: ColumnNotFound
+        at async createClass (src\lib\actions.ts:273:5)
+      271 |     } catch {}
+      272 |
+    > 273 |     await prisma.class.create({ data: createPayload });
+          |     ^
+      274 |
+      275 |     // revalidatePath("/list/class");
+      276 |     return { success: true, error: false }; {
+      [cause]: {
+        originalCode: '42703',
+        originalMessage: 'tsvector column "search_vector" does not exist',
+        kind: 'ColumnNotFound',
+        column: undefined
+      }
+    }
+  },
+  clientVersion: '7.8.0'
+}
+[enter-createClass] 2026-10-01T13:46:02.193Z payload={
+  name: 'Basic 7',
+  capacity: 25,
+  gradeId: 5,
+  supervisorId: 'user_3E2MdhyckuIVXRj8kAvXNUd5Cy4',
+  subjectIds: []
+}
+keys=name,capacity,gradeId,supervisorId,subjectIds
+[create-payload] 2026-10-01T13:46:02.619Z payload={
+  name: 'Basic 7',
+  capacity: 25,
+  gradeId: 5,
+  gradingLevel: 'JHS',
+  supervisorId: 'user_3E2MdhyckuIVXRj8kAvXNUd5Cy4',
+  subjects: { connect: [ { id: 1 } ] }
+}
+[caught] 2026-10-01T13:46:04.798Z Error [PrismaClientKnownRequestError]: 
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$prisma$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["default"].class.create()` invocation in
+D:\School-Management-System\.next\dev\server\chunks\ssr\[root-of-the-server]__0gbpdgx._.js:748:149
+
+  745         depth: 3
+  746     })}\n`);
+  747 } catch  {}
+→ 748 await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$prisma$2e$ts__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["default"].class.create(
+The column `(not available)` does not exist in the current database.
+    at <unknown> (src\lib\actions.ts:273:24)
+    at async createClass (src\lib\actions.ts:273:5)
+  271 |     } catch {}
+  272 |
+> 273 |     await prisma.class.create({ data: createPayload });
+      |                        ^
+  274 |
+  275 |     // revalidatePath("/list/class");
+  276 |     return { success: true, error: false }; {
+  code: 'P2022',
+  meta: {
+    modelName: 'Class',
+    driverAdapterError: Error [DriverAdapterError]: ColumnNotFound
+        at async createClass (src\lib\actions.ts:273:5)
+      271 |     } catch {}
+      272 |
+    > 273 |     await prisma.class.create({ data: createPayload });
+          |     ^
+      274 |
+      275 |     // revalidatePath("/list/class");
+      276 |     return { success: true, error: false }; {
+      [cause]: {
+        originalCode: '42703',
+        originalMessage: 'tsvector column "search_vector" does not exist',
+        kind: 'ColumnNotFound',
+        column: undefined
+      }
+    }
+  },
+  clientVersion: '7.8.0'
+}
+[enter-createClass] 2026-10-01T13:55:11.553Z payload={
+  name: 'Basic 7',
+  capacity: 25,
+  gradeId: 5,
+  supervisorId: 'user_3E2MdhyckuIVXRj8kAvXNUd5Cy4',
+  subjectIds: []
+}
+keys=name,capacity,gradeId,supervisorId,subjectIds
+[create-payload] 2026-10-01T13:55:11.982Z payload={
+  name: 'Basic 7',
+  capacity: 25,
+  gradeId: 5,
+  gradingLevel: 'JHS',
+  supervisorId: 'user_3E2MdhyckuIVXRj8kAvXNUd5Cy4',
+  subjects: { connect: [ { id: 1 } ] }
+}
+[enter-createClass] 2026-10-01T14:51:56.813Z payload={
+  name: 'Basic 6',
+  capacity: 30,
+  gradeId: 4,
+  supervisorId: 'user_3DzHKhUOvEqMwLQqD7vFZ1WHZtL',
+  subjectIds: []
+}
+keys=name,capacity,gradeId,supervisorId,subjectIds
+[create-payload] 2026-10-01T14:51:57.252Z payload={
+  name: 'Basic 6',
+  capacity: 30,
+  gradeId: 4,
+  gradingLevel: 'PRIMARY',
+  supervisorId: 'user_3DzHKhUOvEqMwLQqD7vFZ1WHZtL',
+  subjects: { connect: [ { id: 2 } ] }
+}

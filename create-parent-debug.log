@@ -53,3 +53,14 @@ Clerk Trace ID: c9cc88e6f85a16b6bf0de69aabdc842d
 2026-09-01T12:55:30.500Z after-clerk-createUser
 2026-09-01T12:55:30.502Z before-prisma-create-parent
 2026-09-01T12:55:30.821Z after-prisma-create-parent
+2026-10-01T14:42:20.504Z enter-createParent
+2026-10-01T14:42:20.521Z before-username-check
+2026-10-01T14:42:20.737Z after-username-check
+2026-10-01T14:42:21.167Z before-clerk-client
+2026-10-01T14:42:21.187Z after-clerk-client
+2026-10-01T14:42:21.190Z before-clerk-username-check
+2026-10-01T14:42:21.195Z clerk-check-error:TypeError: Cannot read properties of undefined (reading 'request')
+2026-10-01T14:42:21.197Z before-clerk-createUser
+2026-10-01T14:42:22.210Z after-clerk-createUser
+2026-10-01T14:42:22.213Z before-prisma-create-parent
+2026-10-01T14:42:23.723Z after-prisma-create-parent

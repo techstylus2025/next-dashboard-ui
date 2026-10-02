@@ -1,6 +1,6 @@
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
+import { getCurrentAuthContext } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import { buildAnnouncementWhere } from "@/lib/announcementQueries";
@@ -8,11 +8,10 @@ import { buildAnnouncementWhere } from "@/lib/announcementQueries";
 const ANNOUNCEMENTS_PATH = "/list/announcements";
 
 export async function getAnnouncementCount(): Promise<number> {
-  const { userId, sessionClaims } = await auth();
-  const role = (sessionClaims?.metadata as { role?: string })?.role;
+  const { userId, role } = await getCurrentAuthContext();
 
   return prisma.announcement.count({
-    where: buildAnnouncementWhere(role, userId ?? undefined),
+    where: buildAnnouncementWhere(role ?? undefined, userId ?? undefined),
   });
 }
 
@@ -22,8 +21,7 @@ export async function createAnnouncement(input: {
   date: string;
   classId?: number | null;
 }): Promise<{ success: boolean; error: string | null }> {
-  const { sessionClaims } = await auth();
-  const role = (sessionClaims?.metadata as { role?: string })?.role;
+  const { role } = await getCurrentAuthContext();
   if (role !== "admin") {
     return { success: false, error: "Only administrators can create announcements." };
   }
@@ -59,8 +57,7 @@ export async function updateAnnouncement(input: {
   date: string;
   classId?: number | null;
 }): Promise<{ success: boolean; error: string | null }> {
-  const { sessionClaims } = await auth();
-  const role = (sessionClaims?.metadata as { role?: string })?.role;
+  const { role } = await getCurrentAuthContext();
   if (role !== "admin") {
     return { success: false, error: "Only administrators can update announcements." };
   }
@@ -87,8 +84,7 @@ export async function updateAnnouncement(input: {
 export async function deleteAnnouncement(
   id: number
 ): Promise<{ success: boolean; error: string | null }> {
-  const { sessionClaims } = await auth();
-  const role = (sessionClaims?.metadata as { role?: string })?.role;
+  const { role } = await getCurrentAuthContext();
   if (role !== "admin") {
     return { success: false, error: "Only administrators can delete announcements." };
   }

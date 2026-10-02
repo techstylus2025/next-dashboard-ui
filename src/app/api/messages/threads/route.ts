@@ -1,43 +1,40 @@
 import { NextResponse } from "next/server";
-import { currentUser } from "@clerk/nextjs/server";
+import { getCurrentAuthContext } from "@/lib/auth";
 import {
   ADMIN_ID,
   getAdminMessageThreads,
-  getAllParentsAndTeachers,
+  getAllConversationUsers,
+  getMessageUserName,
   getUserMessageThreads,
   type UserRoleSlug,
 } from "@/lib/messageActions";
 
 export async function GET() {
-  const user = await currentUser();
-  if (!user) {
+  const { userId, role: currentRole } = await getCurrentAuthContext();
+  const roles: UserRoleSlug[] = ["admin", "teacher", "parent", "student"];
+  if (!userId || !currentRole || !roles.includes(currentRole as UserRoleSlug)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const role = (user.publicMetadata?.role as UserRoleSlug | undefined) ?? "parent";
-  const displayName =
-    [user.firstName, user.lastName].filter(Boolean).join(" ").trim() ||
-    user.fullName ||
-    user.username ||
-    "User";
-  const currentUserId = role === "admin" ? ADMIN_ID : user.id;
+  const role = currentRole as UserRoleSlug;
+  const currentUserId = role === "admin" ? ADMIN_ID : userId;
+  const displayName = await getMessageUserName(userId, role);
 
   const threads =
     role === "admin"
       ? await getAdminMessageThreads()
       : await getUserMessageThreads(currentUserId, role);
 
-  const { parents, teachers } =
+  const contacts =
     role === "admin"
-      ? await getAllParentsAndTeachers()
-      : { parents: [], teachers: [] };
+      ? await getAllConversationUsers()
+      : [];
 
   return NextResponse.json({
     role,
     currentUserId,
     currentName: displayName,
     threads,
-    allParents: parents,
-    allTeachers: teachers,
+    contacts,
   });
 }

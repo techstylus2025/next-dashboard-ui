@@ -2,6 +2,7 @@
 
 import prisma from "@/lib/prisma";
 import { auth } from "@clerk/nextjs/server";
+import { getCurrentAuthContext } from "@/lib/auth";
 
 export type LessonInput = {
   id?: number;
@@ -45,8 +46,7 @@ const createLessonDateTime = (dayString: string, timeString: string): Date => {
 
 export async function createLesson(input: LessonInput) {
   try {
-    const { userId, sessionClaims } = await auth();
-    const role = (sessionClaims?.metadata as { role?: string })?.role;
+    const { userId, role } = await getCurrentAuthContext();
 
     if (role !== "admin") {
       return { success: false, error: "Only admins can create lessons" };
@@ -151,8 +151,7 @@ export async function createLesson(input: LessonInput) {
 
 export async function updateLesson(input: LessonInput) {
   try {
-    const { userId, sessionClaims } = await auth();
-    const role = (sessionClaims?.metadata as { role?: string })?.role;
+    const { userId, role } = await getCurrentAuthContext();
 
     if (role !== "admin") {
       return { success: false, error: "Only admins can update lessons" };
@@ -261,8 +260,7 @@ export async function updateLesson(input: LessonInput) {
 
 export async function deleteLesson(id: number) {
   try {
-    const { userId, sessionClaims } = await auth();
-    const role = (sessionClaims?.metadata as { role?: string })?.role;
+    const { userId, role } = await getCurrentAuthContext();
 
     if (role !== "admin") {
       return { success: false, error: "Only admins can delete lessons" };

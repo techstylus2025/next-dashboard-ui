@@ -1,6 +1,6 @@
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
+import { getCurrentAuthContext } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import prisma from "./prisma";
@@ -11,10 +11,10 @@ const db = prisma as unknown as PrismaClient;
 const BOOKS_PATH = "/list/purchase-books";
 
 async function getRole(): Promise<{ role?: string; userId?: string }> {
-  const session = await auth();
+  const session = await getCurrentAuthContext();
   return {
-    role: (session?.sessionClaims?.metadata as { role?: string })?.role,
-    userId: session?.userId ?? undefined,
+    role: session.role ?? undefined,
+    userId: session.userId ?? undefined,
   };
 }
 

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { auth } from "@clerk/nextjs/server";
 import prisma from "@/lib/prisma";
+import { getCurrentAuthContext } from "@/lib/auth";
 import TransportDashboard from "@/components/transport/TransportDashboard";
 
 export const metadata: Metadata = {
@@ -8,15 +8,10 @@ export const metadata: Metadata = {
 };
 
 export default async function TransportPage() {
-  const { userId, sessionClaims } = await auth();
-  const rawRole = (sessionClaims?.metadata as { role?: string })?.role;
-  const role =
-    rawRole === "admin" ||
-    rawRole === "teacher" ||
-    rawRole === "parent" ||
-    rawRole === "student"
-      ? rawRole
-      : undefined;
+  const { userId, role: authRole } = await getCurrentAuthContext();
+  const role = authRole === "admin" || authRole === "teacher" || authRole === "parent" || authRole === "student"
+    ? authRole
+    : undefined;
 
   const parentName = role === "parent" && userId
     ? await prisma.parent

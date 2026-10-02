@@ -1,6 +1,6 @@
 "use server";
 
-import { auth, clerkClient } from "@clerk/nextjs/server";
+import { getCurrentAuthContext } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import { PrismaClient } from "@prisma/client";
@@ -9,19 +9,7 @@ const SETTINGS_PATH = "/list/settings";
 const db = prisma as unknown as PrismaClient;
 
 async function requireAdmin(): Promise<{ ok: true } | { ok: false; error: string }> {
-  const session = await auth();
-  let role = (session?.sessionClaims?.metadata as { role?: string })?.role ?? null;
-
-  // Fallback: if role not present in session claims, try fetching the user's public metadata
-  if (!role && session?.userId) {
-    try {
-      const client = await clerkClient();
-      const user = await client.users.getUser(session.userId);
-      role = (user?.publicMetadata as { role?: string })?.role ?? null;
-    } catch (e) {
-      console.warn("requireAdmin: failed to read Clerk user metadata", e);
-    }
-  }
+  const { role } = await getCurrentAuthContext();
 
   if (role !== "admin") {
     return { ok: false, error: "Only administrators can manage settings." };

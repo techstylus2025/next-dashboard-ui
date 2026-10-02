@@ -2,11 +2,11 @@ import LessonUploadsPanel from "@/components/lessons/LessonUploadsPanel";
 import LessonCalendar from "@/components/LessonCalendar";
 import TableSearch from "@/components/TableSearch";
 import TimetableManagement from "@/components/TimetableManagement";
+import { getCurrentAuthContext } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { getActiveAcademicPeriod } from "@/lib/academicContext";
 import { Prisma } from "@prisma/client";
 import Image from "next/image";
-import { auth } from "@clerk/nextjs/server";
 
 type FilterOption = {
   id: number;
@@ -58,9 +58,7 @@ const LessonListPage = async ({
 }: {
   searchParams: Promise<{ [key: string]: string | undefined }>;
 }) => {
-  const { userId, sessionClaims } = await auth();
-  const role = (sessionClaims?.metadata as { role?: string })?.role;
-  const currentUserId = userId;
+  const { userId: currentUserId, role } = await getCurrentAuthContext();
 
   const activePeriod = await getActiveAcademicPeriod();
   const activeAcademicYear = activePeriod.yearLabel ?? null;
@@ -72,7 +70,9 @@ const LessonListPage = async ({
   const params = await searchParams;
   const { page, ...queryParams } = params;
 
-  const uploadFilter: Prisma.ExamQuestionUploadWhereInput = {};
+  const uploadFilter: Prisma.ExamQuestionUploadWhereInput = {
+    documentType: "LESSON_DOCUMENT",
+  };
 
   if (activePeriod.yearLabel && activePeriod.termNumber !== null) {
     uploadFilter.academicYearLabel = activePeriod.yearLabel;

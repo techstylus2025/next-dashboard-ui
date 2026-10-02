@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { hash as argon2Hash } from "argon2";
 import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Day, PrismaClient, UserSex } from "@prisma/client";
@@ -12,7 +13,37 @@ const pool = new Pool({ connectionString });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
+async function ensureAuthUsers() {
+  const defaultUsers = [
+    { id: "admin", username: "admin", email: "admin@school.local", password: "admin123", role: "ADMIN" },
+    { id: "teacher1", username: "teacher1", email: "teacher1@example.com", password: "teacher123", role: "TEACHER" },
+    { id: "student1", username: "student1", email: "student1@example.com", password: "student123", role: "STUDENT" },
+    { id: "parentId1", username: "parentId1", email: "parent1@example.com", password: "parent123", role: "PARENT" },
+  ] as const;
+
+  for (const user of defaultUsers) {
+    const hashedPassword = await argon2Hash(user.password);
+    await prisma.user.upsert({
+      where: { username: user.username },
+      update: {
+        email: user.email,
+        password: hashedPassword,
+        role: user.role,
+      },
+      create: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        password: hashedPassword,
+        role: user.role,
+      },
+    });
+  }
+}
+
 async function main() {
+  await ensureAuthUsers();
+
   // ADMIN
   await prisma.admin.upsert({
     where: { id: "admin1" },

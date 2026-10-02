@@ -17,7 +17,33 @@ import {
   teacherSchema,
 } from "./formValidationSchemas";
 import prisma from "./prisma";
-import { clerkClient, auth } from "@clerk/nextjs/server";
+import { clerkClient } from "@clerk/nextjs/server";
+import { getCurrentAuthContext, getServerSession, hashPassword } from "./auth";
+
+async function syncCanonicalUser(data: {
+  id: string;
+  username?: string | null;
+  email?: string | null;
+  password?: string | null;
+  role: string;
+}) {
+  await prisma.user.upsert({
+    where: { id: data.id },
+    update: {
+      username: data.username ?? null,
+      email: data.email ?? null,
+      ...(data.password ? { password: await hashPassword(data.password) } : {}),
+      role: data.role.toUpperCase(),
+    },
+    create: {
+      id: data.id,
+      username: data.username ?? null,
+      email: data.email ?? null,
+      password: data.password ? await hashPassword(data.password) : null,
+      role: data.role.toUpperCase(),
+    },
+  });
+}
 
 const getUserRole = async (
   userId: string | null,
@@ -404,6 +430,13 @@ export const createTeacher = async (
         },
       },
     });
+    await syncCanonicalUser({
+      id: user.id,
+      username: validTeacherData.username,
+      email: validTeacherData.email || null,
+      password: validTeacherData.password,
+      role: "teacher",
+    });
 
     return { success: true, error: false };
   } catch (err) {
@@ -434,6 +467,25 @@ export const updateTeacher = async (
   if (!validTeacherData.id) {
     return { success: false, error: true, message: "Teacher id is required." };
   }
+
+  const phone = validTeacherData.phone?.trim() || null;
+  if (phone) {
+    const existingTeacher = await prisma.teacher.findFirst({
+      where: {
+        phone,
+        id: { not: validTeacherData.id },
+      },
+      select: { id: true },
+    });
+    if (existingTeacher) {
+      return {
+        success: false,
+        error: true,
+        message: "This phone number is already assigned to another teacher.",
+      };
+    }
+  }
+
   try {
     const client = await clerkClient();
     const primaryEmail = validTeacherData.email?.trim() || undefined;
@@ -456,7 +508,7 @@ export const updateTeacher = async (
         name: validTeacherData.name,
         surname: validTeacherData.surname,
         email: validTeacherData.email || null,
-        phone: validTeacherData.phone || null,
+        phone,
         address: validTeacherData.address,
         img: validTeacherData.img || null,
         bloodType: validTeacherData.bloodType,
@@ -472,6 +524,18 @@ export const updateTeacher = async (
     return { success: true, error: false };
   } catch (err) {
     console.log(err);
+    const prismaError = err as { code?: string; meta?: { target?: string[] | string } };
+    const target = prismaError.meta?.target;
+    if (
+      prismaError.code === "P2002" &&
+      (Array.isArray(target) ? target.includes("phone") : target?.includes("phone"))
+    ) {
+      return {
+        success: false,
+        error: true,
+        message: "This phone number is already assigned to another teacher.",
+      };
+    }
     return {
       success: false,
       error: true,
@@ -576,6 +640,12 @@ export const createStudent = async (
         declarationDate: data.declarationDate ? new Date(data.declarationDate) : null,
       },
     });
+    await syncCanonicalUser({
+      id: user.id,
+      username: data.username,
+      password: data.password,
+      role: "student",
+    });
 
     // revalidatePath("/list/students");
     return { success: true, error: false };
@@ -589,6 +659,11 @@ export const updateStudent = async (
   currentState: CurrentState,
   data: StudentSchema
 ) => {
+  const { role } = await getCurrentAuthContext();
+  if (role !== "admin") {
+    return { success: false, error: true };
+  }
+
   if (!data.id) {
     return { success: false, error: true };
   }
@@ -657,6 +732,11 @@ export const promoteStudents = async (
   currentState: CurrentState,
   data: { studentIds?: string[]; fromClassId?: number; toClassId?: number; promoteAll?: boolean }
 ) => {
+  const { role } = await getCurrentAuthContext();
+  if (role !== "admin") {
+    return { success: false, error: true };
+  }
+
   try {
     if (data.promoteAll && data.fromClassId && data.toClassId) {
       if (data.fromClassId === data.toClassId) {
@@ -691,6 +771,11 @@ export const deleteStudent = async (
   currentState: CurrentState,
   data: FormData
 ) => {
+  const { role } = await getCurrentAuthContext();
+  if (role !== "admin") {
+    return { success: false, error: true };
+  }
+
   const id = data.get("id") as string;
   try {
     const client = await clerkClient();
@@ -821,6 +906,13 @@ export const createParent = async (
         phone: data.phone,
         address: data.address,
       },
+    });
+    await syncCanonicalUser({
+      id: user.id,
+      username: data.username,
+      email: data.email || null,
+      password: data.password,
+      role: "parent",
     });
     await debugLog("after-prisma-create-parent");
 
@@ -956,8 +1048,7 @@ export const createAttendance = async (
   const studentId = data.studentId ?? undefined;
   const teacherId = data.teacherId ?? undefined;
 
-  const { userId, sessionClaims } = await auth();
-  const role = await getUserRole(userId, sessionClaims as any);
+  const { userId, role } = await getCurrentAuthContext();
 
   if (!userId || !type || !dateValue) {
     return { success: false, error: true };
@@ -974,43 +1065,69 @@ export const createAttendance = async (
         return { success: false, error: true };
       }
 
-      const selectedTeacherIds =
+      const selectedTeacherIds = [...new Set(
         data.teacherIds && data.teacherIds.length > 0
           ? data.teacherIds
           : teacherId
           ? [teacherId]
-          : [];
+          : []
+      )];
 
       if (selectedTeacherIds.length === 0) {
         return { success: false, error: true };
       }
 
-      if (selectedTeacherIds.length === 1) {
-        await prisma.attendance.create({
-          data: {
-            date: parsedDate,
-            present,
-            teacher: {
-              connect: { id: selectedTeacherIds[0] },
-            },
-          },
+      const activeTeachers = await prisma.teacher.findMany({
+        where: { id: { in: selectedTeacherIds }, isArchived: false },
+        select: { id: true },
+      });
+      if (activeTeachers.length !== selectedTeacherIds.length) {
+        return { success: false, error: true };
+      }
+
+      const dayStart = new Date(`${dateValue.slice(0, 10)}T00:00:00.000Z`);
+      const dayEnd = new Date(dayStart);
+      dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
+      const existingAttendance = await prisma.attendance.findMany({
+        where: {
+          teacherId: { in: selectedTeacherIds },
+          studentId: null,
+          isArchived: false,
+          date: { gte: dayStart, lt: dayEnd },
+        },
+        select: { id: true, teacherId: true },
+      });
+
+      if (existingAttendance.length) {
+        await prisma.attendance.updateMany({
+          where: { id: { in: existingAttendance.map((record) => record.id) } },
+          data: { present },
         });
-      } else {
+      }
+
+      const existingTeacherIds = new Set(existingAttendance.map((record) => record.teacherId));
+      const teachersToCreate = selectedTeacherIds.filter((selectedId) => !existingTeacherIds.has(selectedId));
+      if (teachersToCreate.length) {
         await prisma.attendance.createMany({
-          data: selectedTeacherIds.map((selectedTeacherId) => ({
-            date: parsedDate,
+          data: teachersToCreate.map((selectedTeacherId) => ({
+            date: dayStart,
             present,
             teacherId: selectedTeacherId,
           })),
         });
       }
     } else {
-      const selectedStudentIds =
+      if (role !== "admin" && role !== "teacher") {
+        return { success: false, error: true };
+      }
+
+      const selectedStudentIds = [...new Set(
         data.studentIds && data.studentIds.length > 0
           ? data.studentIds
           : studentId
           ? [studentId]
-          : [];
+            : []
+      )];
 
       if (selectedStudentIds.length === 0) {
         return { success: false, error: true };
@@ -1020,29 +1137,42 @@ export const createAttendance = async (
         const supervised = await prisma.student.findMany({
           where: {
             id: { in: selectedStudentIds },
+            isArchived: false,
             class: {
               supervisorId: userId,
             },
           },
+          select: { id: true },
         });
         if (supervised.length !== selectedStudentIds.length) {
           return { success: false, error: true };
         }
       }
 
-      if (selectedStudentIds.length === 1) {
-        await prisma.attendance.create({
-          data: {
-            date: parsedDate,
-            present,
-            student: {
-              connect: { id: selectedStudentIds[0] },
-            },
-          },
+      const nextDate = new Date(parsedDate);
+      nextDate.setDate(nextDate.getDate() + 1);
+      const existingAttendance = await prisma.attendance.findMany({
+        where: {
+          studentId: { in: selectedStudentIds },
+          teacherId: null,
+          isArchived: false,
+          date: { gte: parsedDate, lt: nextDate },
+        },
+        select: { id: true, studentId: true },
+      });
+
+      if (existingAttendance.length) {
+        await prisma.attendance.updateMany({
+          where: { id: { in: existingAttendance.map((record) => record.id) } },
+          data: { present },
         });
-      } else {
+      }
+
+      const existingStudentIds = new Set(existingAttendance.map((record) => record.studentId));
+      const studentsToCreate = selectedStudentIds.filter((selectedStudentId) => !existingStudentIds.has(selectedStudentId));
+      if (studentsToCreate.length) {
         await prisma.attendance.createMany({
-          data: selectedStudentIds.map((selectedStudentId) => ({
+          data: studentsToCreate.map((selectedStudentId) => ({
             date: parsedDate,
             present,
             studentId: selectedStudentId,
@@ -1073,8 +1203,9 @@ export const updateAttendance = async (
   const studentId = data.studentId ?? undefined;
   const teacherId = data.teacherId ?? undefined;
 
-  const { userId, sessionClaims } = await auth();
-  const role = await getUserRole(userId, sessionClaims as any);
+  const session = await getServerSession();
+  const userId = session?.userId ?? null;
+  const role = session?.user?.role ? String(session.user.role).toLowerCase() : undefined;
 
   if (!userId || !type || !dateValue) {
     return { success: false, error: true };
@@ -1140,7 +1271,9 @@ export const deleteAttendance = async (
     return { success: false, error: true };
   }
 
-  const { userId, sessionClaims } = await auth();
+  const serverSession = await getServerSession();
+  const userId = serverSession?.userId ?? null;
+  const sessionClaims = { metadata: { role: serverSession?.user?.role } };
   const role = (sessionClaims?.metadata as { role?: string })?.role;
 
   if (role !== "admin") {
@@ -1167,7 +1300,9 @@ export const deleteAssignment = async (
   const id = data.get("id") as string;
   if (!id) return { success: false, error: true };
 
-  const { userId, sessionClaims } = await auth();
+  const serverSession = await getServerSession();
+  const userId = serverSession?.userId ?? null;
+  const sessionClaims = { metadata: { role: serverSession?.user?.role } };
   const role = (sessionClaims?.metadata as { role?: string })?.role;
 
   try {
@@ -1284,7 +1419,9 @@ export const createExamTimetable = async (
     endTime: string;
   }
 ) => {
-  const { userId, sessionClaims } = await auth();
+  const serverSession = await getServerSession();
+  const userId = serverSession?.userId ?? null;
+  const sessionClaims = { metadata: { role: serverSession?.user?.role } };
   const role = await getUserRole(userId, sessionClaims as any);
 
   if (role !== "admin") {
@@ -1377,8 +1514,7 @@ export const uploadExamQuestion = async (data: {
     } as any;
   }
 
-  const { userId, sessionClaims } = await auth();
-  const role = await getUserRole(userId, sessionClaims as any);
+  const { userId, role } = await getCurrentAuthContext();
 
   if (role !== "teacher") {
     return {
@@ -1424,6 +1560,7 @@ export const uploadExamQuestion = async (data: {
 
     await prisma.examQuestionUpload.create({
       data: {
+        documentType: "EXAM_QUESTION",
         title,
         fileName: (file as File).name,
         fileUrl: `/uploads/exam-questions/${safeFileName}`,
@@ -1474,14 +1611,24 @@ export const uploadLessonDocument = async (data: {
     } as any;
   }
 
-  const { userId, sessionClaims } = await auth();
-  const role = await getUserRole(userId, sessionClaims as any);
-
-  if (role !== "teacher") {
+  const { userId } = await getCurrentAuthContext();
+  if (!userId) {
     return {
       success: false,
       error: true,
-      message: "Only teachers may upload lesson documents.",
+      message: "Sign in with a teacher account to upload lesson documents.",
+    } as any;
+  }
+
+  const teacherProfile = await prisma.teacher.findFirst({
+    where: { id: userId, isArchived: false },
+    select: { id: true },
+  });
+  if (!teacherProfile) {
+    return {
+      success: false,
+      error: true,
+      message: "Only teacher accounts may upload lesson documents.",
     } as any;
   }
 
@@ -1501,7 +1648,7 @@ export const uploadLessonDocument = async (data: {
 
   if (
     !lesson ||
-    (lesson.teacherId !== userId && lesson.class.supervisorId !== userId)
+    (lesson.teacherId !== teacherProfile.id && lesson.class.supervisorId !== teacherProfile.id)
   ) {
     return {
       success: false,
@@ -1521,6 +1668,7 @@ export const uploadLessonDocument = async (data: {
 
     await prisma.examQuestionUpload.create({
       data: {
+        documentType: "LESSON_DOCUMENT",
         title,
         fileName: (file as File).name,
         fileUrl: `/uploads/exam-questions/${safeFileName}`,
@@ -1575,14 +1723,16 @@ export const updateLessonDocument = async (
     } as any;
   }
 
-  const { userId, sessionClaims } = await auth();
+  const serverSession = await getServerSession();
+  const userId = serverSession?.userId ?? null;
+  const sessionClaims = { metadata: { role: serverSession?.user?.role } };
   const role = await getUserRole(userId, sessionClaims as any);
 
   const existingUpload = await prisma.examQuestionUpload.findUnique({
     where: { id: uploadId },
   });
 
-  if (!existingUpload) {
+  if (!existingUpload || existingUpload.documentType !== "LESSON_DOCUMENT") {
     return { success: false, error: true, message: "Upload not found." } as any;
   }
 
@@ -1622,7 +1772,7 @@ export const updateLessonDocument = async (
 
   try {
     await prisma.examQuestionUpload.update({
-      where: { id: uploadId },
+      where: { id: uploadId, documentType: "LESSON_DOCUMENT" },
       data: {
         title,
         weekNumber,
@@ -1645,16 +1795,21 @@ export const approveLessonDocument = async (
   currentState: CurrentState,
   data: { id: number }
 ) => {
-  const { userId, sessionClaims } = await auth();
-  const role = await getUserRole(userId, sessionClaims as any);
+  const { userId, role } = await getCurrentAuthContext();
 
   if (role !== "admin") {
     return { success: false, error: true };
   }
 
   try {
+    const existingUpload = await prisma.examQuestionUpload.findFirst({
+      where: { id: data.id, documentType: "LESSON_DOCUMENT" },
+      select: { id: true },
+    });
+    if (!existingUpload) return { success: false, error: true };
+
     await prisma.examQuestionUpload.update({
-      where: { id: data.id },
+      where: { id: data.id, documentType: "LESSON_DOCUMENT" },
       data: {
         status: "APPROVED",
         approvedBy: userId || undefined,
@@ -1674,7 +1829,9 @@ export const deleteLessonDocumentUpload = async (
   currentState: CurrentState,
   data: { id: number }
 ) => {
-  const { userId, sessionClaims } = await auth();
+  const serverSession = await getServerSession();
+  const userId = serverSession?.userId ?? null;
+  const sessionClaims = { metadata: { role: serverSession?.user?.role } };
   const role = await getUserRole(userId, sessionClaims as any);
 
   try {
@@ -1682,7 +1839,7 @@ export const deleteLessonDocumentUpload = async (
       where: { id: data.id },
     });
 
-    if (!existingUpload) {
+    if (!existingUpload || existingUpload.documentType !== "LESSON_DOCUMENT") {
       return { success: false, error: true };
     }
 
@@ -1708,7 +1865,7 @@ export const deleteLessonDocumentUpload = async (
     }
 
     await prisma.examQuestionUpload.delete({
-      where: { id: data.id },
+      where: { id: data.id, documentType: "LESSON_DOCUMENT" },
     });
 
     revalidatePath("/list/lessons");
@@ -1723,16 +1880,21 @@ export const approveExamQuestion = async (
   currentState: CurrentState,
   data: { id: number }
 ) => {
-  const { userId, sessionClaims } = await auth();
-  const role = await getUserRole(userId, sessionClaims as any);
+  const { userId, role } = await getCurrentAuthContext();
 
   if (role !== "admin") {
     return { success: false, error: true };
   }
 
   try {
+    const existingUpload = await prisma.examQuestionUpload.findFirst({
+      where: { id: data.id, documentType: "EXAM_QUESTION" },
+      select: { id: true },
+    });
+    if (!existingUpload) return { success: false, error: true };
+
     await prisma.examQuestionUpload.update({
-      where: { id: data.id },
+      where: { id: data.id, documentType: "EXAM_QUESTION" },
       data: {
         status: "APPROVED",
         approvedBy: userId || undefined,
@@ -1747,14 +1909,78 @@ export const approveExamQuestion = async (
   }
 };
 
+export const updateExamQuestionUpload = async (data: {
+  id: number;
+  title: string;
+  lessonId: number;
+  file?: File | Blob;
+}) => {
+  const { userId, role } = await getCurrentAuthContext();
+  if (!userId || (role !== "admin" && role !== "teacher")) {
+    return { success: false, error: true, message: "You are not authorized to edit this upload." } as any;
+  }
+
+  const title = data.title.trim();
+  const lessonId = Number(data.lessonId);
+  if (!title || lessonId <= 0 || (data.file && typeof data.file.arrayBuffer !== "function")) {
+    return { success: false, error: true, message: "Enter a title, select a lesson, and choose a valid document." } as any;
+  }
+
+  const existingUpload = await prisma.examQuestionUpload.findFirst({
+    where: {
+      id: data.id,
+      documentType: "EXAM_QUESTION",
+      ...(role === "teacher" ? { uploadedById: userId } : {}),
+    },
+  });
+  if (!existingUpload) {
+    return { success: false, error: true, message: "Exam question upload not found or unauthorized." } as any;
+  }
+
+  const lesson = await prisma.lesson.findUnique({
+    where: { id: lessonId },
+    include: { class: true },
+  });
+  if (!lesson || (role === "teacher" && lesson.teacherId !== userId && lesson.class.supervisorId !== userId)) {
+    return { success: false, error: true, message: "You are not authorized to use the selected lesson." } as any;
+  }
+
+  const fileUpdate: { fileName?: string; fileUrl?: string } = {};
+  if (data.file) {
+    const file = data.file as File;
+    const uploadsDir = path.join(process.cwd(), "public", "uploads", "exam-questions");
+    await fs.mkdir(uploadsDir, { recursive: true });
+    const safeFileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9_.-]/g, "_")}`;
+    const filePath = path.join(uploadsDir, safeFileName);
+    await fs.writeFile(filePath, Buffer.from(await data.file.arrayBuffer()));
+    fileUpdate.fileName = file.name;
+    fileUpdate.fileUrl = `/uploads/exam-questions/${safeFileName}`;
+  }
+
+  try {
+    await prisma.examQuestionUpload.update({
+      where: { id: data.id, documentType: "EXAM_QUESTION" },
+      data: {
+        title,
+        lessonId,
+        ...fileUpdate,
+        ...(role === "teacher" ? { status: "PENDING", approvedBy: null, approvedAt: null } : {}),
+      },
+    });
+    revalidatePath("/list/exams");
+    return { success: true, error: false };
+  } catch (error) {
+    console.error("updateExamQuestionUpload error:", error);
+    return { success: false, error: true, message: "Unable to update the exam question upload." } as any;
+  }
+};
+
 export const deleteExamQuestionUpload = async (
   currentState: CurrentState,
   data: { id: number }
 ) => {
-  const { userId, sessionClaims } = await auth();
-  const role = await getUserRole(userId, sessionClaims as any);
-
-  if (role !== "admin") {
+  const { userId, role } = await getCurrentAuthContext();
+  if (!userId || (role !== "admin" && role !== "teacher")) {
     return { success: false, error: true };
   }
 
@@ -1762,6 +1988,14 @@ export const deleteExamQuestionUpload = async (
     const existingUpload = await prisma.examQuestionUpload.findUnique({
       where: { id: data.id },
     });
+
+    if (
+      !existingUpload ||
+      existingUpload.documentType !== "EXAM_QUESTION" ||
+      (role === "teacher" && existingUpload.uploadedById !== userId)
+    ) {
+      return { success: false, error: true };
+    }
 
     if (existingUpload?.fileUrl) {
       const filePath = path.join(
@@ -1778,7 +2012,7 @@ export const deleteExamQuestionUpload = async (
     }
 
     await prisma.examQuestionUpload.delete({
-      where: { id: data.id },
+      where: { id: data.id, documentType: "EXAM_QUESTION" },
     });
 
     return { success: true, error: false };

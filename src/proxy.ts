@@ -1,66 +1,82 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { clerkMiddleware } from "@clerk/nextjs/server";
 import { getDashboardPath } from "./lib/dashboard";
 import { routeAccessMap } from "./lib/settings";
-import { NextResponse } from "next/server";
 
-const matchers = Object.keys(routeAccessMap).map((route) => ({
-  matcher: createRouteMatcher([route]),
-  allowedRoles: routeAccessMap[route],
-}));
+const SESSION_COOKIE_NAME = "session_token";
+const SESSION_ROLE_COOKIE_NAME = "session_role";
 
-export default clerkMiddleware(async (auth, req) => {
-  // Dev bypass: if a dev user header is present, skip clerk middleware checks
-  const devUserId = req.headers.get("x-dev-user-id");
-  if (devUserId) {
+const PUBLIC_PATHS = [
+  "/sign-in",
+  "/",
+  "/api/auth/login",
+  "/api/auth/logout",
+  "/api/auth/health",
+  "/api/auth/request-reset",
+  "/api/auth/reset",
+  "/api/auth/sync-clerk",
+  "/api/session/role",
+  "/api/auth/me",
+  "/_next",
+  "/favicon.ico",
+];
+
+const pathMatches = (pathname: string, pattern: string) => {
+  if (pattern.endsWith("(.*)")) {
+    return pathname.startsWith(pattern.slice(0, -4));
+  }
+  return pathname === pattern;
+};
+
+export const proxy = clerkMiddleware(async (_auth, req: NextRequest) => {
+  const { pathname } = req.nextUrl;
+
+  if (
+    pathname.startsWith("/_next") ||
+    pathname.includes(".") ||
+    PUBLIC_PATHS.some((path) => path === pathname || pathname.startsWith(`${path}/`))
+  ) {
     return NextResponse.next();
   }
-  const pathname = decodeURIComponent(req.nextUrl.pathname);
 
-  // Legacy URL with space — redirect to canonical route
-  if (
-    pathname === "/list/purchase books" ||
-    pathname === "/list/purchase%20books"
-  ) {
-    return NextResponse.redirect(new URL("/list/purchase-books", req.url));
+  const token = req.cookies.get(SESSION_COOKIE_NAME)?.value;
+  const role = req.cookies.get(SESSION_ROLE_COOKIE_NAME)?.value?.toLowerCase() || null;
+
+  if (pathname === "/sign-in") {
+    return NextResponse.next();
   }
 
-  if (pathname === "/settings") {
-    return NextResponse.redirect(new URL("/list/settings", req.url));
+  if (!token && pathname !== "/") {
+    return NextResponse.redirect(new URL("/sign-in", req.url));
   }
 
-  const { sessionClaims, userId } = await auth();
-  const role = (sessionClaims?.metadata as { role?: string })?.role;
-
-  if (pathname === "/" || pathname === "") {
-    if (userId && role) {
+  if (pathname === "/") {
+    if (role) {
       return NextResponse.redirect(new URL(getDashboardPath(role), req.url));
     }
     return NextResponse.next();
   }
 
-  for (const { matcher, allowedRoles } of matchers) {
-    if (!matcher(req)) continue;
+  for (const [pattern, allowedRoles] of Object.entries(routeAccessMap)) {
+    if (!pathMatches(pathname, pattern)) continue;
 
     if (!role) {
-      // If there's a userId but no role yet, allow the request to proceed.
-      // This handles a race where the client is signed in but server-side
-      // session claims (metadata) haven't propagated yet.
-      if (userId) {
-        return NextResponse.next();
-      }
-
       return NextResponse.redirect(new URL("/sign-in", req.url));
     }
 
     if (!allowedRoles.includes(role)) {
-      return NextResponse.redirect(new URL(`/${role}`, req.url));
+      return NextResponse.redirect(new URL(getDashboardPath(role), req.url));
     }
+
+    return NextResponse.next();
   }
+
+  return NextResponse.next();
 });
 
 export const config = {
   matcher: [
-    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
-    "/(api|trpc)(.*)",
+    "/((?!_next|api/auth/health|api/auth/login|api/auth/logout|api/auth/request-reset|api/auth/reset|api/session/role|api/auth/me|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|svg|webp|css|js|ico|woff2?|ttf|map)$).*)",
   ],
 };

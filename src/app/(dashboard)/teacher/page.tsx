@@ -1,17 +1,14 @@
 import Announcements from "@/components/Announcements";
 import BigCalendarContainer from "@/components/BigCalendarContainer";
 import EventCalendarContainer from "@/components/EventCalendarContainer";
-import QuickActionCard from "@/components/dashboard/QuickActionCard";
-import RoleShell from "@/components/dashboard/RoleShell";
-import SectionCard from "@/components/dashboard/SectionCard";
-import StatCard from "@/components/dashboard/StatCard";
+import { getCurrentAuthContext } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { auth } from "@clerk/nextjs/server";
-import type { ReactNode } from "react";
-import { ClipboardCheck, FileText, GraduationCap, MessageSquare, NotebookPen, Sparkles, Users } from "lucide-react";
+import { Day } from "@prisma/client";
+import Link from "next/link";
+import { ClipboardCheck, FileText, GraduationCap, MessageSquare, NotebookPen, Users } from "lucide-react";
 
 const TeacherPage = async ({ searchParams }: { searchParams: Promise<{ [key: string]: string | undefined }> }) => {
-  const { userId } = await auth();
+  const { userId } = await getCurrentAuthContext();
 
   if (!userId) {
     return (
@@ -21,16 +18,93 @@ const TeacherPage = async ({ searchParams }: { searchParams: Promise<{ [key: str
     );
   }
 
-  let teacher;
-  try {
-    teacher = await prisma.teacher.findUnique({
-      where: { id: userId },
-      include: { subjects: true },
-    });
-  } catch (error) {
-    console.warn("Failed to load teacher dashboard data:", error);
-    teacher = null;
-  }
+  const teacher = await prisma.teacher.findUnique({
+    where: { id: userId },
+    select: { name: true },
+  });
+  const today = new Date();
+  const todayName = new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(today).toUpperCase() as Day;
+
+  const [classes, lessonCount, examCount, assignmentCount, todayLessons] = await Promise.all([
+    prisma.class.findMany({
+      where: {
+        OR: [
+          { supervisorId: userId },
+          { lessons: { some: { teacherId: userId } } },
+        ],
+      },
+      select: {
+        id: true,
+        name: true,
+        _count: { select: { students: { where: { isArchived: false } } } },
+      },
+      orderBy: { name: "asc" },
+    }),
+    prisma.lesson.count({ where: { teacherId: userId } }),
+    prisma.exam.count({ where: { isArchived: false, lesson: { teacherId: userId } } }),
+    prisma.assignment.count({ where: { isArchived: false, lesson: { teacherId: userId } } }),
+    prisma.lesson.findMany({
+      where: { teacherId: userId, day: todayName },
+      select: {
+        id: true,
+        name: true,
+        startTime: true,
+        endTime: true,
+        class: { select: { name: true } },
+        subject: { select: { name: true } },
+      },
+      orderBy: { startTime: "asc" },
+    }),
+  ]);
+
+  const classIds = classes.map((classItem) => classItem.id);
+  const [performance, recentAttendance] = await Promise.all([
+    Promise.all(classes.map(async (classItem) => {
+      const reportStats = await prisma.termlyReport.aggregate({
+        where: {
+          classId: classItem.id,
+          overallPercentage: { not: null },
+          student: { isArchived: false },
+        },
+        _avg: { overallPercentage: true },
+        _count: { _all: true },
+      });
+      return {
+        classId: classItem.id,
+        className: classItem.name,
+        averagePercentage: reportStats._avg.overallPercentage,
+        reportCount: reportStats._count._all,
+      };
+    })),
+    classIds.length
+      ? prisma.attendance.findMany({
+          where: {
+            isArchived: false,
+            studentId: { not: null },
+            student: { classId: { in: classIds }, isArchived: false },
+            date: { lte: today },
+          },
+          select: {
+            id: true,
+            date: true,
+            present: true,
+            student: {
+              select: {
+                name: true,
+                surname: true,
+                class: { select: { name: true } },
+              },
+            },
+          },
+          orderBy: { date: "desc" },
+          take: 4,
+        })
+      : Promise.resolve([]),
+  ]);
+
+  const totalStudents = classes.reduce((total, classItem) => total + classItem._count.students, 0);
+  const assessments = examCount + assignmentCount;
+  const performanceRows = performance.filter((item) => item.reportCount > 0 && item.averagePercentage !== null);
 
   const currentDate = new Date().toLocaleDateString("en-US", {
     weekday: "long",
@@ -38,125 +112,194 @@ const TeacherPage = async ({ searchParams }: { searchParams: Promise<{ [key: str
     day: "numeric",
     year: "numeric",
   });
+  const teacherFirstName = teacher?.name?.trim().split(/\s+/)[0] || "there";
+  const teacherActions = [
+    { title: "Plan a lesson", description: "Prepare upcoming teaching", href: "/list/lessons", icon: <NotebookPen size={18} />, color: "bg-sky-100 text-sky-700" },
+    { title: "Create an assessment", description: "Set exams and assignments", href: "/list/exams", icon: <ClipboardCheck size={18} />, color: "bg-amber-100 text-amber-700" },
+    { title: "Enter results", description: "Record student progress", href: "/list/results", icon: <FileText size={18} />, color: "bg-emerald-100 text-emerald-700" },
+    { title: "Message families", description: "Contact parents and students", href: "/list/messages", icon: <MessageSquare size={18} />, color: "bg-rose-100 text-rose-700" },
+  ];
 
   return (
-    <RoleShell
-      title={`Good ${new Date().getHours() < 12 ? "morning" : new Date().getHours() < 18 ? "afternoon" : "evening"}, ${teacher?.name ?? "Teacher"}!`}
-      subtitle="Teach • Guide • Inspire"
-      badge={<div className="rounded-full border border-white/15 bg-white/10 px-3 py-2 text-sm text-slate-200">{currentDate}</div>}
-    >
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="My Classes" value="Basic 4" detail="4 classes assigned" accent="from-sky-500 to-blue-600" icon={<Users size={18} />} />
-        <StatCard title="Total Students" value="120" detail="Across your teaching groups" accent="from-violet-500 to-indigo-600" icon={<GraduationCap size={18} />} />
-        <StatCard title="Lesson Plans" value="8" detail="Prepared for the week" accent="from-emerald-500 to-teal-600" icon={<NotebookPen size={18} />} />
-        <StatCard title="Assessments" value="6" detail="Pending review" accent="from-amber-500 to-orange-500" icon={<ClipboardCheck size={18} />} />
-      </div>
+    <div className="space-y-6">
+      <header className="relative overflow-hidden rounded-xl bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 px-5 py-6 text-white shadow-sm sm:px-8 sm:py-8">
+        <div className="relative flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
+          <div>
+            <p className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-amber-200">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-300" /> Teacher workspace
+            </p>
+            <h1 className="text-2xl font-semibold sm:text-3xl">Good {new Date().getHours() < 12 ? "morning" : new Date().getHours() < 18 ? "afternoon" : "evening"}, {teacherFirstName}</h1>
+            <p className="mt-2 max-w-xl text-sm text-slate-300 sm:text-base">
+              Your classes, teaching day, and student progress at a glance.
+            </p>
+          </div>
+          <div className="border-t border-white/15 pt-4 sm:border-l sm:border-t-0 sm:pl-5 sm:pt-0">
+            <p className="text-xs font-medium uppercase tracking-[0.16em] text-amber-200">Today</p>
+            <p className="mt-1 text-sm font-medium text-white">{currentDate}</p>
+          </div>
+        </div>
+      </header>
 
-      <div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
-        <SectionCard title="My Classes" subtitle="Review the classes attached to your teaching portfolio">
-          <div className="grid gap-3 md:grid-cols-2">
-            {["Basic 4", "Basic 5", "Basic 6", "Basic 7"].map((name) => (
-              <div key={name} className="rounded-[22px] border border-slate-200/80 bg-slate-50 p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="font-semibold text-slate-900">{name}</p>
-                    <p className="text-sm text-slate-500">{name === "Basic 4" ? "32 Students" : name === "Basic 5" ? "28 Students" : name === "Basic 6" ? "30 Students" : "30 Students"}</p>
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Teaching overview">
+        <div className="flex items-center gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-700"><Users size={20} /></div>
+          <div><p className="text-sm text-slate-500">Classes</p><p className="mt-0.5 text-2xl font-semibold text-slate-950">{classes.length}</p></div>
+        </div>
+        <div className="flex items-center gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700"><GraduationCap size={20} /></div>
+          <div><p className="text-sm text-slate-500">Active students</p><p className="mt-0.5 text-2xl font-semibold text-slate-950">{totalStudents}</p></div>
+        </div>
+        <div className="flex items-center gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700"><NotebookPen size={20} /></div>
+          <div><p className="text-sm text-slate-500">Teaching lessons</p><p className="mt-0.5 text-2xl font-semibold text-slate-950">{lessonCount}</p></div>
+        </div>
+        <div className="flex items-center gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-rose-100 text-rose-700"><ClipboardCheck size={20} /></div>
+          <div>
+            <p className="text-sm text-slate-500">Assessments</p>
+            <p className="mt-0.5 text-2xl font-semibold text-slate-950">{assessments}</p>
+            <p className="mt-0.5 text-xs text-slate-500">{examCount} exams · {assignmentCount} assignments</p>
+          </div>
+        </div>
+      </section>
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(300px,0.85fr)_minmax(0,1.15fr)]">
+        <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5" aria-labelledby="today-heading">
+          <div className="mb-4">
+            <h2 id="today-heading" className="text-lg font-semibold text-slate-950">Today&apos;s schedule</h2>
+            <p className="mt-1 text-sm text-slate-500">{today.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</p>
+          </div>
+          {todayLessons.length ? (
+            <ol className="space-y-1">
+              {todayLessons.map((lesson) => (
+                <li key={lesson.id} className="flex gap-3 rounded-lg px-2 py-3 transition-colors hover:bg-slate-50">
+                  <div className="w-[4.5rem] shrink-0 pt-0.5 text-xs font-semibold text-slate-600">
+                    {lesson.startTime.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                    <span className="mt-1 block font-normal text-slate-400">{lesson.endTime.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span>
                   </div>
-                  <button type="button" className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700">View</button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </SectionCard>
+                  <div className="min-w-0 flex-1 border-l-2 border-amber-300 pl-3">
+                    <p className="truncate text-sm font-semibold text-slate-900">{lesson.subject.name}</p>
+                    <p className="mt-1 text-sm text-slate-500">{lesson.class.name}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <div className="rounded-lg bg-slate-50 px-4 py-7 text-center">
+              <NotebookPen className="mx-auto text-slate-400" size={22} />
+              <p className="mt-3 text-sm font-medium text-slate-700">No lessons on your schedule today.</p>
+            </div>
+          )}
+        </section>
 
-        <SectionCard title="Today's Schedule" subtitle="Your lessons for the day">
-          <div className="space-y-3">
-            {[
-              ["08:00 – 09:00", "Basic 4 · English Language"],
-              ["09:00 – 10:00", "Basic 5 · Mathematics"],
-              ["10:30 – 11:30", "Basic 6 · Science"],
-              ["12:00 – 01:00", "Basic 7 · Social Studies"],
-            ].map(([time, lesson]) => (
-              <div key={time} className="rounded-[20px] border border-slate-200/80 bg-slate-50 p-3">
-                <p className="text-sm font-semibold text-slate-900">{time}</p>
-                <p className="mt-1 text-sm text-slate-500">{lesson}</p>
-              </div>
-            ))}
+        <section className="min-w-0 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5" aria-labelledby="classes-heading">
+          <div className="mb-4 flex items-end justify-between gap-3">
+            <div>
+              <h2 id="classes-heading" className="text-lg font-semibold text-slate-950">Your classes</h2>
+              <p className="mt-1 text-sm text-slate-500">Classes you teach or supervise</p>
+            </div>
+            <span className="text-sm font-medium text-slate-500">{classes.length} total</span>
           </div>
-        </SectionCard>
+          {classes.length ? (
+            <ul className="divide-y divide-slate-100">
+              {classes.map((classItem) => (
+                <li key={classItem.id} className="flex items-center gap-3 py-3 first:pt-1 last:pb-1">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-800"><Users size={18} /></div>
+                  <p className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-900">{classItem.name}</p>
+                  <span className="shrink-0 text-xs text-slate-500">{classItem._count.students} students</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="rounded-lg bg-slate-50 px-4 py-7 text-center text-sm text-slate-500">No classes are currently assigned to you.</p>
+          )}
+        </section>
       </div>
 
-      <SectionCard title="Student Performance" subtitle="View progress for your assigned classes">
-        <div className="rounded-[24px] border border-slate-200/70 bg-slate-50 p-4">
-          <div className="flex flex-col gap-3">
-            {[
-              ["Basic 4", 84],
-              ["Basic 5", 80],
-              ["Basic 6", 87],
-              ["Basic 7", 82],
-            ].map(([label, value]) => (
-              <div key={label}>
-                <div className="mb-1 flex items-center justify-between text-sm text-slate-600">
-                  <span>{label}</span>
-                  <span className="font-semibold text-slate-900">{value}%</span>
-                </div>
-                <div className="h-2.5 rounded-full bg-slate-200">
-                  <div className="h-2.5 rounded-full bg-gradient-to-r from-sky-500 to-blue-600" style={{ width: `${value}%` }} />
-                </div>
-              </div>
-            ))}
+      <div className="grid gap-6 xl:grid-cols-2">
+        <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5" aria-labelledby="performance-heading">
+          <div className="mb-4">
+            <h2 id="performance-heading" className="text-lg font-semibold text-slate-950">Student performance</h2>
+            <p className="mt-1 text-sm text-slate-500">Average term report percentage by class</p>
           </div>
+          {performanceRows.length ? (
+            <div className="space-y-4">
+              {performanceRows.map((row) => (
+                <div key={row.classId}>
+                  <div className="mb-1.5 flex items-center justify-between gap-3 text-sm">
+                    <span className="truncate text-slate-600">{row.className}</span>
+                    <span className="shrink-0 font-semibold text-slate-900">{Number(row.averagePercentage).toFixed(1)}%</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-slate-100">
+                    <div className="h-2 rounded-full bg-emerald-600" style={{ width: `${Math.min(100, Math.max(0, Number(row.averagePercentage)))}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-lg bg-slate-50 px-4 py-7 text-center text-sm text-slate-500">Student results will appear here when they are recorded.</p>
+          )}
+        </section>
+
+        <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5" aria-labelledby="attendance-heading">
+          <div className="mb-4 flex items-end justify-between gap-3">
+            <div>
+              <h2 id="attendance-heading" className="text-lg font-semibold text-slate-950">Recent attendance</h2>
+              <p className="mt-1 text-sm text-slate-500">Latest records across your classes</p>
+            </div>
+            <Link href="/list/attendance" className="shrink-0 text-sm font-medium text-emerald-800 hover:text-emerald-950">View attendance</Link>
+          </div>
+          {recentAttendance.length ? (
+            <ul className="divide-y divide-slate-100">
+              {recentAttendance.map((record) => (
+                <li key={record.id} className="flex items-center gap-3 py-3 first:pt-1 last:pb-1">
+                  <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xs font-semibold ${record.present ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"}`}>
+                    {record.present ? "P" : "A"}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-slate-900">{record.student?.name} {record.student?.surname}</p>
+                    <p className="mt-0.5 truncate text-xs text-slate-500">{record.student?.class.name} · {record.present ? "Present" : "Absent"}</p>
+                  </div>
+                  <time className="shrink-0 text-xs text-slate-500">{record.date.toLocaleDateString()}</time>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="rounded-lg bg-slate-50 px-4 py-7 text-center text-sm text-slate-500">No recent attendance records for your classes.</p>
+          )}
+        </section>
+      </div>
+
+      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5" aria-labelledby="actions-heading">
+        <div className="mb-4">
+          <h2 id="actions-heading" className="text-lg font-semibold text-slate-950">Quick access</h2>
+          <p className="mt-1 text-sm text-slate-500">Common teaching tasks</p>
         </div>
-      </SectionCard>
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          {teacherActions.map((action) => (
+            <Link key={action.title} href={action.href} className="group flex min-w-0 items-center gap-3 rounded-lg border border-slate-100 p-3 transition-colors hover:border-slate-200 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700">
+              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${action.color}`}>{action.icon}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-semibold text-slate-900">{action.title}</span>
+                <span className="mt-0.5 block truncate text-xs text-slate-500">{action.description}</span>
+              </span>
+            </Link>
+          ))}
+        </div>
+      </section>
 
-      <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
-        <SectionCard title="Quick Actions" subtitle="Daily teacher tasks">
-          <div className="grid gap-3 md:grid-cols-2">
-            {[
-              { title: "Create Lesson Plan", description: "Plan upcoming teaching", href: "/list/lessons", icon: <NotebookPen size={18} /> },
-              { title: "Record Assessment", description: "Track class progress", href: "/list/exams", icon: <ClipboardCheck size={18} /> },
-              { title: "Enter Results", description: "Submit performance outcomes", href: "/list/results", icon: <FileText size={18} /> },
-              { title: "Send Message", description: "Communicate with families", href: "/list/messages", icon: <MessageSquare size={18} /> },
-            ].map((action, index) => (
-              <QuickActionCard key={action.title} title={action.title} description={action.description} href={action.href} icon={action.icon} colorVariant={index as 0 | 1 | 2 | 3} />
-            ))}
-          </div>
-        </SectionCard>
-
-        <SectionCard title="Recent Activities" subtitle="Teaching updates and progress">
-          <div className="space-y-3">
-            {[
-              ["Attendance recorded", "Basic 4", "10m ago"],
-              ["Assessment submitted", "Science", "1h ago"],
-              ["Lesson plan created", "English", "2h ago"],
-            ].map(([activity, subject, time]) => (
-              <div key={activity} className="flex items-start gap-3 rounded-2xl border border-slate-200/80 bg-slate-50 p-3">
-                <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-full bg-sky-100 text-sky-700"><Sparkles size={16} /></div>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-slate-900">{activity}</p>
-                  <p className="text-sm text-slate-500">{subject}</p>
-                </div>
-                <span className="text-xs font-medium text-slate-400">{time}</span>
-              </div>
-            ))}
-          </div>
-        </SectionCard>
-      </div>
-
-      <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
-        <div className="rounded-[28px] border border-slate-200/80 bg-white p-4 shadow-[0_22px_45px_-24px_rgba(7,26,73,0.2)]">
+      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(300px,0.85fr)]">
+        <section className="min-w-0 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5" aria-label="Teaching calendar">
           <BigCalendarContainer type="teacherId" id={userId} />
-        </div>
-        <div className="flex flex-col gap-5">
-          <div className="rounded-[28px] border border-slate-200/80 bg-white p-4 shadow-[0_22px_45px_-24px_rgba(7,26,73,0.2)]">
+        </section>
+        <div className="flex min-w-0 flex-col gap-6">
+          <section className="min-w-0 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5" aria-label="School events">
             <EventCalendarContainer searchParams={searchParams} />
-          </div>
-          <div className="rounded-[28px] border border-slate-200/80 bg-white p-4 shadow-[0_22px_45px_-24px_rgba(7,26,73,0.2)]">
-            <Announcements />
-          </div>
+          </section>
+          <Announcements />
         </div>
       </div>
-    </RoleShell>
+    </div>
   );
 };
 

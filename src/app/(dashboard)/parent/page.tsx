@@ -1,17 +1,14 @@
 import Announcements from "@/components/Announcements";
 import EventCalendar from "@/components/EventCalendar";
 import ParentChildSelector from "@/components/ParentChildSelector";
-import QuickActionCard from "@/components/dashboard/QuickActionCard";
-import RoleShell from "@/components/dashboard/RoleShell";
-import SectionCard from "@/components/dashboard/SectionCard";
-import StatCard from "@/components/dashboard/StatCard";
+import { getCurrentAuthContext } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { auth } from "@clerk/nextjs/server";
-import { CalendarDays, ClipboardCheck, FileText, MessageSquare, School, Sparkles, Users } from "lucide-react";
+import Link from "next/link";
+import { CalendarDays, ClipboardCheck, FileText, MessageSquare, School, Users } from "lucide-react";
 import { notFound } from "next/navigation";
 
 const ParentPage = async () => {
-  const { userId } = await auth();
+  const { userId } = await getCurrentAuthContext();
 
   if (!userId) {
     return (
@@ -48,100 +45,133 @@ const ParentPage = async () => {
     day: "numeric",
     year: "numeric",
   });
+  const parentFirstName = parent.name?.trim().split(/\s+/)[0] || "there";
+  const classCount = new Set(
+    students.map((student) => student.class?.id).filter((classId): classId is number => classId !== undefined)
+  ).size;
+  const scheduledStudentCount = students.filter((student) => student.class).length;
+
+  const parentActions = [
+    { title: "Academic reports", description: "Review learning progress", href: "/list/grades", icon: <FileText size={18} />, color: "bg-sky-100 text-sky-700" },
+    { title: "Attendance", description: "Check recent records", href: "/list/attendance", icon: <ClipboardCheck size={18} />, color: "bg-emerald-100 text-emerald-700" },
+    { title: "Messages", description: "Contact the school", href: "/list/messages", icon: <MessageSquare size={18} />, color: "bg-amber-100 text-amber-700" },
+    { title: "School calendar", description: "See dates and events", href: "/list/events", icon: <CalendarDays size={18} />, color: "bg-rose-100 text-rose-700" },
+  ];
 
   return (
-    <RoleShell
-      title={`Welcome back, ${parent.name ?? "Parent"}!`}
-      subtitle="Stay close to your child’s learning journey"
-      badge={<div className="rounded-full border border-white/15 bg-white/10 px-3 py-2 text-sm text-slate-200">{currentDate}</div>}
-    >
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Children" value={String(students.length)} detail="Assigned to your profile" accent="from-sky-500 to-blue-600" icon={<Users size={18} />} />
-        <StatCard title="Classes" value={students.length > 0 ? students[0]?.class?.name ?? "-" : "-"} detail="Current class overview" accent="from-violet-500 to-indigo-600" icon={<School size={18} />} />
-        <StatCard title="Upcoming Events" value="3" detail="School activities this week" accent="from-emerald-500 to-teal-600" icon={<CalendarDays size={18} />} />
-        <StatCard title="Attendance" value="96%" detail="This term so far" accent="from-amber-500 to-orange-500" icon={<ClipboardCheck size={18} />} />
+    <div className="space-y-6">
+      <header className="relative overflow-hidden rounded-xl bg-gradient-to-br from-emerald-950 via-emerald-900 to-teal-800 px-5 py-6 text-white shadow-sm sm:px-8 sm:py-8">
+        <div className="relative flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
+          <div>
+            <p className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-200">
+              <span className="h-1.5 w-1.5 rounded-full bg-lime-300" /> Family dashboard
+            </p>
+            <h1 className="text-2xl font-semibold sm:text-3xl">Welcome back, {parentFirstName}</h1>
+            <p className="mt-2 max-w-xl text-sm text-emerald-50/80 sm:text-base">
+              A clear view of your children&apos;s school life, all in one place.
+            </p>
+          </div>
+          <div className="border-t border-white/15 pt-4 sm:border-l sm:border-t-0 sm:pl-5 sm:pt-0">
+            <p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-200">Today</p>
+            <p className="mt-1 text-sm font-medium text-white">{currentDate}</p>
+          </div>
+        </div>
+      </header>
+
+      <section className="grid gap-3 sm:grid-cols-3" aria-label="Family overview">
+        <div className="flex items-center gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-700"><Users size={20} /></div>
+          <div>
+            <p className="text-sm text-slate-500">Children</p>
+            <p className="mt-0.5 text-2xl font-semibold text-slate-950">{students.length}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700"><School size={20} /></div>
+          <div>
+            <p className="text-sm text-slate-500">Classes</p>
+            <p className="mt-0.5 text-2xl font-semibold text-slate-950">{classCount}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-rose-100 text-rose-700"><CalendarDays size={20} /></div>
+          <div>
+            <p className="text-sm text-slate-500">Class schedules</p>
+            <p className="mt-0.5 text-2xl font-semibold text-slate-950">{scheduledStudentCount}<span className="ml-1 text-sm font-normal text-slate-500">of {students.length}</span></p>
+          </div>
+        </div>
+      </section>
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(300px,0.85fr)]">
+        <section className="min-w-0 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5" aria-labelledby="children-heading">
+          <div className="mb-4 flex items-end justify-between gap-3">
+            <div>
+              <h2 id="children-heading" className="text-lg font-semibold text-slate-950">Your children</h2>
+              <p className="mt-1 text-sm text-slate-500">Students connected to your parent account</p>
+            </div>
+            <span className="text-sm font-medium text-slate-500">{students.length} total</span>
+          </div>
+          {students.length > 0 ? (
+            <ul className="divide-y divide-slate-100">
+              {students.map((student) => (
+                <li key={student.id} className="flex items-center gap-3 py-3 first:pt-1 last:pb-1">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-sm font-semibold text-emerald-800">
+                    {student.name.charAt(0)}{student.surname.charAt(0)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-slate-900">{student.name} {student.surname}</p>
+                    <p className="mt-0.5 text-sm text-slate-500">{student.class?.name ?? "No class assigned"}</p>
+                  </div>
+                  <span className={`shrink-0 rounded-md px-2.5 py-1 text-xs font-medium ${student.class ? "bg-emerald-50 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>
+                    {student.class ? "Enrolled" : "Unassigned"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center">
+              <Users className="mx-auto text-slate-400" size={24} />
+              <p className="mt-3 text-sm font-medium text-slate-700">No students are linked to your account yet.</p>
+              <p className="mt-1 text-sm text-slate-500">Contact the school office to connect your family profile.</p>
+            </div>
+          )}
+        </section>
+
+        <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5" aria-labelledby="actions-heading">
+          <div className="mb-4">
+            <h2 id="actions-heading" className="text-lg font-semibold text-slate-950">Quick access</h2>
+            <p className="mt-1 text-sm text-slate-500">The things families check most</p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+            {parentActions.map((action) => (
+              <Link key={action.title} href={action.href} className="group flex min-w-0 items-center gap-3 rounded-lg border border-slate-100 p-3 transition-colors hover:border-slate-200 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700">
+                <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${action.color}`}>{action.icon}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold text-slate-900">{action.title}</span>
+                  <span className="mt-0.5 block truncate text-xs text-slate-500">{action.description}</span>
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
       </div>
 
-      <SectionCard title="Your children" subtitle="Track the students linked to your account">
-        {students.length > 0 ? (
-          <div className="grid gap-4">
-            {students.map((student) => (
-              <div key={student.id} className="rounded-[22px] border border-slate-200/80 bg-slate-50 p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">{student.name} {student.surname}</p>
-                    <p className="text-sm text-slate-600">{student.class?.name ?? "No class assigned"}</p>
-                  </div>
-                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-600">{student.class?.name ?? "Unassigned"}</span>
-                </div>
-                <div className="mt-4 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Birthday</p>
-                    <p className="mt-1">{new Intl.DateTimeFormat("en-GB").format(student.birthday)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Contact</p>
-                    <p className="mt-1">{student.phone || "-"}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="rounded-[22px] border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500">
-            No students are currently assigned to your profile.
-          </div>
-        )}
-      </SectionCard>
-
-      <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
-        <SectionCard title="Family tools" subtitle="Helpful actions for staying informed">
-          <div className="grid gap-3 md:grid-cols-2">
-            {([
-              ["View Reports", "Monitor academic progress", "/list/grades", <FileText key="reports" size={18} />],
-              ["Check Attendance", "See recent attendance", "/list/attendance", <ClipboardCheck key="attendance" size={18} />],
-              ["View Timetable", "Plan around school routines", "/list/lessons", <CalendarDays key="timetable" size={18} />],
-              ["Message School", "Contact the school quickly", "/list/messages", <MessageSquare key="message" size={18} />],
-            ] as Array<[string, string, string, JSX.Element]>).map(([title, description, href, icon], index) => (
-              <QuickActionCard key={title} title={title} description={description} href={href} icon={icon} colorVariant={index as 0 | 1 | 2 | 3} />
-            ))}
-          </div>
-        </SectionCard>
-
-        <SectionCard title="Parent updates" subtitle="Recent school communication">
-          <div className="space-y-3">
-            {[
-              ["Science fair reminder", "A reminder was sent about the upcoming event", "10m ago"],
-              ["Report card release", "Your child’s report card is now available", "1h ago"],
-              ["School assembly", "The next assembly is scheduled for Friday", "2h ago"],
-            ].map(([activity, description, time]) => (
-              <div key={activity} className="flex items-start gap-3 rounded-2xl border border-slate-200/80 bg-slate-50 p-3">
-                <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-full bg-sky-100 text-sky-700"><Sparkles size={16} /></div>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-slate-900">{activity}</p>
-                  <p className="text-sm text-slate-500">{description}</p>
-                </div>
-                <span className="text-xs font-medium text-slate-400">{time}</span>
-              </div>
-            ))}
-          </div>
-        </SectionCard>
-      </div>
-
-      <div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
-        <div className="rounded-[28px] border border-slate-200/80 bg-white p-4 shadow-[0_22px_45px_-24px_rgba(7,26,73,0.2)]">
+      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(300px,0.85fr)]">
+        <section className="min-w-0" aria-label="Children's class schedules">
           <ParentChildSelector students={students} />
-        </div>
-        <div className="flex flex-col gap-5">
-          <div className="rounded-[28px] border border-slate-200/80 bg-white p-4 shadow-[0_22px_45px_-24px_rgba(7,26,73,0.2)]">
+        </section>
+        <div className="flex min-w-0 flex-col gap-6">
+          <section aria-labelledby="calendar-heading">
+            <div className="mb-3">
+              <h2 id="calendar-heading" className="text-lg font-semibold text-slate-950">School calendar</h2>
+              <p className="mt-1 text-sm text-slate-500">Plan ahead for school dates and events</p>
+            </div>
             <EventCalendar />
-          </div>
-          <div className="rounded-[28px] border border-slate-200/80 bg-white p-4 shadow-[0_22px_45px_-24px_rgba(7,26,73,0.2)]">
-            <Announcements />
-          </div>
+          </section>
+          <Announcements />
         </div>
       </div>
-    </RoleShell>
+    </div>
   );
 };
 

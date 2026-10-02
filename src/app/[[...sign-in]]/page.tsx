@@ -1,403 +1,245 @@
 "use client";
 
-import { useClerk, useSignIn, useUser } from "@clerk/nextjs";
 import Image from "next/image";
-import { FormEvent, useEffect, useState } from "react";
+import { ClerkProvider, useAuth, useSignIn, useUser } from "@clerk/nextjs";
+import { FormEvent, useState } from "react";
+import {
+  Bell as EyeOff,
+  FileText as LockKeyhole,
+  Sparkles as Eye,
+  Users as UserRound,
+} from "lucide-react";
 import { getRoleRedirectPath } from "@/lib/signInRedirect";
 
-const LoginPage = () => {
-  const { isSignedIn, user, isLoaded } = useUser();
-  const { setActive } = useClerk();
-  const signInSignal = useSignIn();
-  const signIn = signInSignal?.signIn;
+async function readAuthResponse(response: Response) {
+  const body = await response.text();
+  if (!body) {
+    throw new Error(`Sign-in service returned an empty response (HTTP ${response.status}).`);
+  }
 
-  const [identifier, setIdentifier] = useState("");
+  try {
+    return JSON.parse(body);
+  } catch {
+    throw new Error(`Sign-in service returned an invalid response (HTTP ${response.status}).`);
+  }
+}
+
+const LoginForm = () => {
+  const [showPassword, setShowPassword] = useState(false);
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
-  const [checkingRole, setCheckingRole] = useState(false);
-  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+  const { getToken } = useAuth();
+  const { signIn } = useSignIn();
+  const { isSignedIn, user } = useUser();
 
-  const redirectToRoleDashboard = (clientRole?: string | null, serverRole?: string | null) => {
-    const redirectPath = getRoleRedirectPath(clientRole, serverRole);
-    if (typeof window !== "undefined") {
-      window.location.replace(redirectPath);
+  const syncClerkSession = async () => {
+    const clerkToken = await getToken({ skipCache: true });
+    if (!clerkToken) {
+      throw new Error("Clerk session token is unavailable. Please sign in again.");
     }
-    return redirectPath;
+
+    const syncResponse = await fetch("/api/auth/sync-clerk", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${clerkToken}` },
+    });
+    const syncData = await readAuthResponse(syncResponse);
+    if (!syncResponse.ok) {
+      throw new Error(syncData?.error || "Unable to sync your account.");
+    }
+
+    return syncData;
   };
-
-  const redirectSignedInUser = async () => {
-    const clientRole = (user as any)?.publicMetadata?.role as string | undefined;
-
-    try {
-      const res = await fetch("/api/session/role");
-      const data = await res.json();
-      const serverRole = data?.role ?? null;
-      redirectToRoleDashboard(clientRole, serverRole);
-      return;
-    } catch {
-      redirectToRoleDashboard(clientRole, null);
-    }
-  };
-
-  function pushDebug(msg: any) {
-    try {
-      const text = typeof msg === "string" ? msg : JSON.stringify(msg, null, 2);
-      setDebugLogs((s) => [text, ...s].slice(0, 12));
-    } catch {
-      setDebugLogs((s) => [String(msg), ...s].slice(0, 12));
-    }
-  }
-
-  useEffect(() => {
-    if (!isLoaded || !isSignedIn || !user || isRedirecting) return;
-
-    const clientRole = (user as any)?.publicMetadata?.role as string | undefined;
-    setIsRedirecting(true);
-
-    const pollInterval = 400;
-    const maxAttempts = 12;
-    let attempts = 0;
-
-    const poll = async () => {
-      try {
-        const res = await fetch("/api/session/role");
-        const data = await res.json();
-        pushDebug({ when: "poll", status: res.status, data, attempt: attempts });
-        const serverRole = data?.role ?? null;
-        if (serverRole || clientRole) {
-          redirectToRoleDashboard(clientRole, serverRole);
-          return;
-        }
-
-        if (attempts >= maxAttempts - 1) {
-          const fallbackPath = redirectToRoleDashboard(clientRole, null);
-          pushDebug({ when: "role polling fallback redirect", fallbackPath, clientRole });
-          return;
-        }
-      } catch (e) {
-        console.warn("Error polling session role:", e);
-      }
-
-      attempts++;
-      if (attempts < maxAttempts) {
-        setTimeout(poll, pollInterval);
-      }
-    };
-
-    poll();
-  }, [isLoaded, isRedirecting, isSignedIn, user]);
-
-  if (!isLoaded) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 flex items-center justify-center px-4 py-10">
-        <div className="text-center">
-          <div className="mx-auto relative flex h-40 w-40 items-center justify-center">
-            <div className="absolute inset-0 flex items-center justify-center" aria-hidden="true">
-              <div className="loading-logo-spinner animate-slow-spin">
-                <span className="loading-logo-dot dot-1" />
-                <span className="loading-logo-dot dot-2" />
-                <span className="loading-logo-dot dot-3" />
-                <span className="loading-logo-dot dot-4" />
-                <span className="loading-logo-dot dot-5" />
-                <span className="loading-logo-dot dot-6" />
-                <span className="loading-logo-dot dot-7" />
-                <span className="loading-logo-dot dot-8" />
-              </div>
-            </div>
-            <Image src="/logo.png" alt="Loading" width={56} height={56} className="relative z-10 rounded-full bg-slate-950/90 p-1" />
-          </div>
-          <p className="mt-4 text-sm text-slate-300">Loading sign in...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if ((isSignedIn && user) || isRedirecting) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 flex items-center justify-center px-4 py-10">
-        <div className="text-center">
-          <div className="mx-auto relative flex h-40 w-40 items-center justify-center">
-            <div className="absolute inset-0 flex items-center justify-center" aria-hidden="true">
-              <div className="loading-logo-spinner animate-slow-spin">
-                <span className="loading-logo-dot dot-1" />
-                <span className="loading-logo-dot dot-2" />
-                <span className="loading-logo-dot dot-3" />
-                <span className="loading-logo-dot dot-4" />
-                <span className="loading-logo-dot dot-5" />
-                <span className="loading-logo-dot dot-6" />
-                <span className="loading-logo-dot dot-7" />
-                <span className="loading-logo-dot dot-8" />
-              </div>
-            </div>
-            <Image src="/logo.png" alt="Loading" width={56} height={56} className="relative z-10 rounded-full" />
-          </div>
-          <p className="mt-4 text-sm text-slate-300">Signing you in and preparing your dashboard…</p>
-        </div>
-      </div>
-    );
-  }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
-    if (!signIn) return;
+    if (!username || !password || isLoading || isRedirecting) return;
 
     setError(null);
-    setIsSubmitting(true);
+    setIsLoading(true);
 
     try {
-      if (isSignedIn && user) {
-        await redirectSignedInUser();
-        return;
-      }
-
-      const result = await (signIn as any).create({
-        identifier,
-        password,
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier: username, password }),
       });
+      const data = await readAuthResponse(response);
 
-        // Debug: log raw signIn result to help diagnose cases where createdSessionId is missing
-        // (this will appear in the browser console)
-        try {
-          // eslint-disable-next-line no-console
-          console.debug("signIn.create result:", result);
-        } catch {}
-      pushDebug({ when: "signIn.create result", result });
-
-      if (result?.error) {
-        setError(result.error?.message || "Invalid credentials");
+      if (response.ok) {
+        setIsRedirecting(true);
+        const role = String(data?.user?.role || "").toLowerCase();
+        window.location.replace(getRoleRedirectPath(role, role));
         return;
       }
 
-      if (result?.status === "complete" && result.createdSessionId && setActive) {
-        try {
-          await setActive({ session: result.createdSessionId });
-          try {
-            // eslint-disable-next-line no-console
-            console.debug("setActive succeeded, sessionId:", result.createdSessionId);
-          } catch {}
-          pushDebug({ when: "setActive succeeded", sessionId: result.createdSessionId });
-        } catch (activeError) {
-          console.error("Failed to activate Clerk session", activeError);
-          setError("We could not finish signing you in. Please try again.");
-          return;
-        }
-      }
+      if (isSignedIn && user) {
+        const normalizedIdentifier = username.trim().toLowerCase();
+        const activeIdentifiers = [
+          user.username,
+          user.primaryEmailAddress?.emailAddress,
+          ...user.emailAddresses.map((email) => email.emailAddress),
+        ]
+          .filter((value): value is string => Boolean(value))
+          .map((value) => value.trim().toLowerCase());
 
-      // Handle Clerk's new needs_client_trust status (custom flow)
-      if (result?.status === "needs_client_trust") {
-        pushDebug({ when: "needs_client_trust", result });
-        // If Clerk returned a createdSessionId, try to activate it like the normal flow.
-        if (result.createdSessionId && setActive) {
-          try {
-            await setActive({ session: result.createdSessionId });
-            pushDebug({ when: "setActive succeeded (client_trust)", sessionId: result.createdSessionId });
-          } catch (activeError) {
-            console.error("Failed to activate Clerk session (client_trust)", activeError);
-            setError("We could not finish signing you in. Please try again.");
-            return;
-          }
-        } else {
-          // createdSessionId not provided; surface a helpful message and let the existing polling/fallback continue
-          setError("This sign-in requires additional client trust. If the problem persists, contact your administrator.");
+        if (!activeIdentifiers.includes(normalizedIdentifier)) {
+          throw new Error("A different account is already signed in. Sign out before continuing.");
         }
-      }
 
-      if (result?.status === "needs_second_factor") {
-        setError("Additional verification is required. Please complete the next step.");
+        const syncData = await syncClerkSession();
+        setIsRedirecting(true);
+        const role = String(syncData?.user?.role || "").toLowerCase();
+        window.location.replace(getRoleRedirectPath(role, role));
         return;
       }
 
-      setError(null);
+      const clerkResult = await signIn.create({ identifier: username, password });
+      if (clerkResult.error) {
+        throw new Error(clerkResult.error.message || data?.error || "Invalid username or password.");
+      }
+      if (signIn.status !== "complete") {
+        throw new Error("Additional sign-in verification is required.");
+      }
+
+      const finalizeResult = await signIn.finalize();
+      if (finalizeResult.error) {
+        throw new Error(finalizeResult.error.message || "Unable to activate your Clerk session.");
+      }
+      const syncData = await syncClerkSession();
       setIsRedirecting(true);
-
-      try {
-        const r = await fetch("/api/session/role");
-        const d = await r.json();
-        // eslint-disable-next-line no-console
-        console.debug("/api/session/role (post-signin):", r.status, d);
-        pushDebug({ when: "/api/session/role (post-signin)", status: r.status, data: d });
-
-        const serverRole = d?.role ?? null;
-        const clientRole = (user as any)?.publicMetadata?.role as string | undefined;
-        if (serverRole || clientRole) {
-          redirectToRoleDashboard(clientRole, serverRole);
-          return;
-        }
-
-        redirectToRoleDashboard(clientRole, null);
-      } catch (e) {
-        // eslint-disable-next-line no-console
-        console.warn("Failed to fetch /api/session/role after sign-in:", e);
-        redirectToRoleDashboard((user as any)?.publicMetadata?.role as string | undefined, null);
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Invalid username or password.";
-      setError(message);
-    } finally {
-      setIsSubmitting(false);
+      const role = String(syncData?.user?.role || "").toLowerCase();
+      window.location.replace(getRoleRedirectPath(role, role));
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : "Unable to sign in.");
+      setIsLoading(false);
     }
   };
 
+  const showUnavailableMessage = () => {
+    setError("This sign-in option is not configured. Use your school username and password.");
+  };
+
   return (
-    <div className="min-h-screen relative overflow-hidden bg-slate-950">
-      <div className="absolute inset-0 z-0 bg-[linear-gradient(135deg,_rgba(2,6,23,0.96)_0%,_rgba(15,23,42,0.9)_45%,_rgba(30,41,59,0.9)_100%)]" />
-      <div className="absolute inset-0 z-10 bg-[radial-gradient(circle_at_top_left,_rgba(34,211,238,0.16),_transparent_32%),radial-gradient(circle_at_bottom_right,_rgba(59,130,246,0.2),_transparent_35%)]" />
+    <main className="login-page">
+      <div className="decorative-shape decorative-shape-top" />
+      <div className="decorative-shape decorative-shape-bottom" />
 
-      <div className="relative z-20 mx-auto flex min-h-screen w-full max-w-7xl items-center justify-center px-3 py-4 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
-        <div className="grid w-full max-w-6xl gap-4 rounded-[28px] border border-white/15 bg-white/10 p-3 shadow-[0_30px_80px_rgba(2,6,23,0.55)] backdrop-blur-xl lg:grid-cols-[1.05fr_0.95fr] lg:gap-6 lg:p-6">
-          <section className="relative overflow-hidden rounded-[24px] border border-white/10 bg-slate-950/45 p-6 text-white sm:p-8 lg:p-10">
-            <div className="absolute inset-0 bg-[linear-gradient(125deg,rgba(34,211,238,0.18),transparent_40%,rgba(59,130,246,0.16))]" />
-            <div className="relative z-10 flex h-full flex-col justify-between">
-              <div>
-                <div className="inline-flex items-center rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.28em] text-cyan-200">
-                  Secure portal
-                </div>
-                <h2 className="mt-5 text-2xl font-semibold sm:text-3xl">
-                  Welcome back to King&apos;s Heart Montessori School.
-                </h2>
-                <p className="mt-3 max-w-lg text-sm leading-6 text-slate-300 sm:text-base">
-                  Access attendance, lessons, examinations, and student records through a single, secure dashboard.
-                </p>
-                <div className="mt-5 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-4 text-sm text-cyan-50/90">
-                  <p className="font-medium">Manage daily school operations with confidence.</p>
-                  <p className="mt-1 text-cyan-100/80">From staff coordination to academic records, everything stays organized in one place.</p>
-                </div>
+      <section className="login-card" aria-label="School sign in">
+        <div className="login-panel">
+          <div className="login-content">
+            <div className="school-brand">
+              <div className="logo-wrapper">
+                <Image
+                  src="/logo.png"
+                  alt="King's Heart Montessori School"
+                  width={72}
+                  height={94}
+                  priority
+                  className="school-logo"
+                />
               </div>
-
-              <div className="mt-8 grid gap-3 sm:grid-cols-2">
-                <div className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
-                  <p className="text-2xl font-semibold text-white">24/7</p>
-                  <p className="mt-1 text-sm text-slate-300">Staff access</p>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
-                  <p className="text-2xl font-semibold text-white">100%</p>
-                  <p className="mt-1 text-sm text-slate-300">Protected data</p>
-                </div>
+              <div className="brand-name">
+                <span className="welcome-text">WELCOME TO</span>
+                <h1>
+                  KING&apos;S HEART
+                  <span>MONTESSORI SCHOOL</span>
+                </h1>
               </div>
             </div>
-          </section>
 
-          <section className="rounded-[24px] bg-white/95 p-5 shadow-inner shadow-slate-200/70 sm:p-7 lg:p-8">
-            <div className="text-center">
-              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl border border-slate-200 bg-white/80 shadow-sm sm:h-24 sm:w-24">
-                <Image src="/logo.png" alt="Logo" width={68} height={68} className="object-contain" />
-              </div>
+            <p className="login-description">
+              Log in to access the school management
+              <br />
+              system and continue your work.
+            </p>
 
-              <h1 className="mt-5 text-3xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent sm:text-4xl">
-                KING&apos;S HEART MONTESSORI SCHOOL
-              </h1>
-              <p className="mt-2 text-sm font-medium text-slate-600">School Management System</p>
-              <p className="mt-1 text-xs text-slate-500">Sign in to your account</p>
-            </div>
-
-            <form onSubmit={handleSubmit} className="mt-7 space-y-4">
-              <div className="space-y-2">
-                <label htmlFor="identifier" className="block text-sm font-semibold text-slate-700">
-                  Username
-                </label>
+            <form onSubmit={handleSubmit} className="login-form">
+              <div className="input-group">
+                <UserRound size={18} strokeWidth={1.5} className="input-icon" aria-hidden="true" />
                 <input
-                  id="identifier"
-                  name="identifier"
                   type="text"
+                  placeholder="Username"
+                  value={username}
+                  onChange={(event) => setUsername(event.target.value)}
                   autoComplete="username"
-                  value={identifier}
-                  onChange={(event) => setIdentifier(event.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-slate-50/80 px-4 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none transition duration-200 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 focus:bg-white"
-                  placeholder="Enter your username"
+                  aria-label="Username"
                   required
                 />
               </div>
 
-              <div className="space-y-2">
-                <label htmlFor="password" className="block text-sm font-semibold text-slate-700">
-                  Password
-                </label>
+              <div className="input-group">
+                <LockKeyhole size={18} strokeWidth={1.5} className="input-icon" aria-hidden="true" />
                 <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete="current-password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Password"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-slate-50/80 px-4 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none transition duration-200 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 focus:bg-white"
-                  placeholder="Enter your password"
+                  autoComplete="current-password"
+                  aria-label="Password"
                   required
                 />
+                <button
+                  type="button"
+                  className="password-toggle"
+                  onClick={() => setShowPassword((previous) => !previous)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff size={17} strokeWidth={1.5} /> : <Eye size={17} strokeWidth={1.5} />}
+                </button>
               </div>
 
-              {error ? (
-                <div className="rounded-xl border border-red-300 bg-red-50/90 px-4 py-3 text-sm font-medium text-red-700 animate-pulse">
-                  <span className="mr-2 inline-block">⚠️</span>
-                  {error}
-                </div>
-              ) : null}
+              <div className="form-options">
+                <button type="button" className="forgot-password" onClick={showUnavailableMessage}>
+                  Forgot password?
+                </button>
+              </div>
 
-              <button
-                type="submit"
-                disabled={!signIn || isSubmitting}
-                className="mt-5 w-full rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-lg transition duration-200 hover:from-cyan-700 hover:to-blue-700 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:shadow-lg"
-              >
-                {isSubmitting ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                    Signing in...
-                  </span>
-                ) : (
-                  "Sign In"
-                )}
+              {error ? <p className="login-error" role="alert">{error}</p> : null}
+
+              <button type="submit" className="sign-in-button" disabled={isLoading || isRedirecting}>
+                {isLoading ? "SIGNING IN..." : "SIGN IN"}
               </button>
             </form>
 
-                  <div className="mt-3 flex items-center justify-center gap-2">
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        setCheckingRole(true);
-                        try {
-                          const r = await fetch("/api/session/role");
-                          const d = await r.json();
-                          pushDebug({ when: "manual /api/session/role", status: r.status, data: d });
-                          // eslint-disable-next-line no-console
-                          console.debug("manual /api/session/role:", r.status, d);
-                        } catch (e) {
-                          pushDebug({ when: "manual /api/session/role", error: String(e) });
-                          // eslint-disable-next-line no-console
-                          console.warn("manual /api/session/role failed:", e);
-                        } finally {
-                          setCheckingRole(false);
-                        }
-                      }}
-                      className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white/90 px-3 py-2 text-xs font-medium text-slate-700 shadow-sm hover:bg-white"
-                    >
-                      {checkingRole ? <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-slate-400 border-t-slate-700" /> : null}
-                      Check session role
-                    </button>
-                  </div>
-
-            {debugLogs.length > 0 && (
-              <div className="mt-4 rounded-md bg-slate-50 p-3 text-xs text-slate-700">
-                <div className="font-medium mb-1">Debug logs</div>
-                <div className="max-h-40 overflow-auto">
-                  {debugLogs.map((log, i) => (
-                    <pre key={i} className="whitespace-pre-wrap">{log}</pre>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="mt-6 border-t border-slate-200 pt-4 text-center">
-              <p className="text-xs text-slate-500">
-                © 2026 King&apos;s Heart Montessori School. All rights reserved.
-              </p>
+            <div className="signup-text">
+              <span>Don&apos;t have an account?</span>{" "}
+              <button type="button" onClick={showUnavailableMessage}>Contact Administrator</button>
             </div>
-          </section>
+          </div>
         </div>
-      </div>
-    </div>
+
+        <div className="branding-panel">
+          <div className="branding-overlay" />
+          <div className="branding-content">
+            <div className="large-logo">
+              <Image src="/logo.png" alt="" width={115} height={150} priority className="large-school-logo" />
+            </div>
+            <h2>
+              KING&apos;S HEART
+              <span>MONTESSORI SCHOOL</span>
+            </h2>
+            <div className="branding-divider" />
+            <p>
+              Welcome to the King&apos;s Heart Montessori School Management System. Manage academic records, students, teachers and school activities from one convenient platform.
+            </p>
+            <div className="motto">
+              <span>EXCELLENT UPBRINGING.</span>
+              <span>EXCELLENT ADULTHOOD.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
   );
 };
+
+const LoginPage = () => (
+  <ClerkProvider>
+    <LoginForm />
+  </ClerkProvider>
+);
 
 export default LoginPage;

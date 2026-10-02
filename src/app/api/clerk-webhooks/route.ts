@@ -39,6 +39,13 @@ export async function POST(req: NextRequest) {
     }
 
     const username = user.username || (user.emailAddresses && user.emailAddresses[0]?.emailAddress) || clerkUserId;
+    const email = user.emailAddresses?.[0]?.emailAddress || null;
+
+    await prisma.user.upsert({
+      where: { id: clerkUserId },
+      update: { username, email, role: role.toUpperCase() },
+      create: { id: clerkUserId, username, email, password: null, role: role.toUpperCase() },
+    });
 
     // handle created/updated events similarly by upserting minimal DB rows
     switch ((role || "").toLowerCase()) {
@@ -52,13 +59,13 @@ export async function POST(req: NextRequest) {
       case "teacher":
         await prisma.teacher.upsert({
           where: { id: clerkUserId },
-          update: { username, email: user.emailAddresses?.[0]?.emailAddress || null },
+          update: { username, email },
           create: {
             id: clerkUserId,
             username,
             name: user.firstName || username,
             surname: user.lastName || "",
-            email: user.emailAddresses?.[0]?.emailAddress || null,
+            email,
             phone: user.phoneNumbers?.[0]?.phoneNumber || null,
             address: "",
             img: null,
@@ -71,13 +78,13 @@ export async function POST(req: NextRequest) {
       case "parent":
         await prisma.parent.upsert({
           where: { id: clerkUserId },
-          update: { username, email: user.emailAddresses?.[0]?.emailAddress || null },
+          update: { username, email },
           create: {
             id: clerkUserId,
             username,
             name: user.firstName || username,
             surname: user.lastName || "",
-            email: user.emailAddresses?.[0]?.emailAddress || null,
+            email,
             occupation: null,
             phone: user.phoneNumbers?.[0]?.phoneNumber || "",
             address: "",

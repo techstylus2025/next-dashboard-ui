@@ -4,8 +4,8 @@ import BigCalendarContainer from "@/components/BigCalendarContainer";
 import FormContainer from "@/components/FormContainer";
 import Performance from "@/components/Performance";
 import StudentAttendanceCard from "@/components/StudentAttendanceCard";
+import { getCurrentAuthContext } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { auth } from "@clerk/nextjs/server";
 import { Class, Student } from "@prisma/client";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -17,8 +17,7 @@ const SingleStudentPage = async ({
   params: Promise<{ id: string }>;
 }) => {
   const { id } = await params;
-  const { sessionClaims } = await auth();
-  const role = (sessionClaims?.metadata as { role?: string })?.role;
+  const { role, userId } = await getCurrentAuthContext();
 
   const student:
     | (Student & {
@@ -31,8 +30,20 @@ const SingleStudentPage = async ({
           occupation: string | null;
         };
       })
-    | null = await prisma.student.findUnique({
-    where: { id },
+      | null = await prisma.student.findFirst({
+    where: {
+      id,
+      ...(role === "teacher" && userId
+        ? {
+            class: {
+              OR: [
+                { supervisorId: userId },
+                { lessons: { some: { teacherId: userId } } },
+              ],
+            },
+          }
+        : {}),
+    },
     include: {
       class: { include: { _count: { select: { lessons: true } } } },
       parent: {

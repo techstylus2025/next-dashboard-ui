@@ -1,32 +1,26 @@
 import DashboardShell from "@/components/DashboardShell";
 import { getDashboardPath } from "@/lib/dashboard";
-import { auth } from "@clerk/nextjs/server";
+import { getServerSession } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { ClerkProvider } from "@clerk/nextjs";
+import type { DashboardUser } from "@/types/auth";
 
 export default async function DashboardLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // auth() can throw if Clerk environment is not configured. Guard it so the
-  // layout can render an informative fallback rather than crashing the page.
-  let userId: string | null = null;
-  let sessionClaims: any = undefined;
-  let authError: string | null = null;
-  try {
-    const authResult = await auth();
-    userId = authResult.userId ?? null;
-    sessionClaims = authResult.sessionClaims;
-  } catch (err) {
-    // Log and continue with undefined role; DashboardShell will render limited view.
-    console.warn("Clerk auth() failed in DashboardLayout:", err);
-    authError = err instanceof Error ? err.message : String(err);
-    userId = null;
-    sessionClaims = undefined;
-  }
-
-  const role = (sessionClaims?.metadata as { role?: string })?.role;
+  const session = await getServerSession();
+  const userId = session?.userId ?? session?.user?.id ?? null;
+  const role = session?.user?.role ? String(session.user.role).toLowerCase() : undefined;
   const homeHref = getDashboardPath(role);
+  const dashboardUser: DashboardUser | null = session?.user
+    ? {
+        id: session.user.id,
+        username: session.user.username,
+        role: String(session.user.role).toLowerCase(),
+      }
+    : null;
 
   let supervisorClassName: string | null = null;
   if (role === "teacher" && userId) {
@@ -43,12 +37,14 @@ export default async function DashboardLayout({
   }
 
   return (
-    <DashboardShell
-      homeHref={homeHref}
-      supervisorClassName={supervisorClassName}
-      authError={authError}
-    >
-      {children}
-    </DashboardShell>
+    <ClerkProvider>
+      <DashboardShell
+        homeHref={homeHref}
+        supervisorClassName={supervisorClassName}
+        customUser={dashboardUser}
+      >
+        {children}
+      </DashboardShell>
+    </ClerkProvider>
   );
 }

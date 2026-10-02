@@ -8,8 +8,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { usePathname } from "next/navigation";
 import { buildSuggestionGroups, flattenSuggestionGroups } from "@/lib/searchSuggestions";
+import type { DashboardUser } from "@/types/auth";
 
-const Navbar = ({ onMessagesOpen }: { onMessagesOpen?: () => void }) => {
+const Navbar = ({ onMessagesOpen, customUser, supervisorClassName }: { onMessagesOpen?: () => void; customUser?: DashboardUser | null; supervisorClassName?: string | null }) => {
   const { user } = useUser();
   const [messageCount, setMessageCount] = useState(0);
   const [supervisorClass, setSupervisorClass] = useState<string | null>(null);
@@ -20,7 +21,8 @@ const Navbar = ({ onMessagesOpen }: { onMessagesOpen?: () => void }) => {
     surname: string;
   }[]>([]);
 
-  const role = user?.publicMetadata?.role as string | undefined;
+  const role = ((user?.publicMetadata?.role as string | undefined) ?? customUser?.role)?.toLowerCase();
+  const userId = user?.id ?? customUser?.id;
   const pathname = usePathname();
   const [now, setNow] = useState(new Date());
   const [academicPeriod, setAcademicPeriod] = useState<{
@@ -70,10 +72,10 @@ const Navbar = ({ onMessagesOpen }: { onMessagesOpen?: () => void }) => {
 
   useEffect(() => {
     const fetchRoleDetails = async () => {
-      if (!user?.id || !role) return;
+      if (!userId || !role) return;
 
       try {
-        const res = await fetch(`/api/user/role-details?userId=${user.id}&role=${role}`, {
+        const res = await fetch(`/api/user/role-details?userId=${userId}&role=${role}`, {
           cache: "no-store",
         });
         if (!res.ok) return;
@@ -91,7 +93,7 @@ const Navbar = ({ onMessagesOpen }: { onMessagesOpen?: () => void }) => {
     };
 
     fetchRoleDetails();
-  }, [user?.id, role]);
+  }, [userId, role]);
 
   const displayName = user?.firstName || user?.username || "User";
   const displayRole = role ? role.charAt(0).toUpperCase() + role.slice(1) : "User";
@@ -218,7 +220,7 @@ const Navbar = ({ onMessagesOpen }: { onMessagesOpen?: () => void }) => {
     debounceRef.current = window.setTimeout(async () => {
       try {
         const params = new URLSearchParams({ q: searchQuery.trim(), suggest: "1" });
-        if (user?.id) params.set("userId", user.id);
+        if (userId) params.set("userId", userId);
         if (role) params.set("role", role);
         const res = await fetch(`/api/search?${params.toString()}`, { cache: "no-store" });
         if (!res.ok) return setSuggestions(null);
@@ -244,7 +246,7 @@ const Navbar = ({ onMessagesOpen }: { onMessagesOpen?: () => void }) => {
     return () => {
       if (debounceRef.current) window.clearTimeout(debounceRef.current);
     };
-  }, [searchQuery, user?.id, role]);
+  }, [searchQuery, userId, role]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -259,8 +261,8 @@ const Navbar = ({ onMessagesOpen }: { onMessagesOpen?: () => void }) => {
 
   return (
     <>
-      <div className="border-t border-slate-800/70 bg-slate-900/95 px-3 py-2 text-[11px] sm:px-4">
-        <nav aria-label="Breadcrumb" className="flex items-center gap-1 overflow-x-auto whitespace-nowrap text-slate-300">
+      <div className="border-b border-white/5 bg-slate-900 px-4 py-1.5 text-[11px] sm:px-6">
+        <nav aria-label="Breadcrumb" className="flex items-center gap-1 overflow-x-auto whitespace-nowrap text-slate-400">
           {breadcrumbs.map((crumb, index) => {
             const isLast = index === breadcrumbs.length - 1;
 
@@ -268,7 +270,7 @@ const Navbar = ({ onMessagesOpen }: { onMessagesOpen?: () => void }) => {
               <div key={`${crumb.href}-${crumb.label}`} className="flex items-center gap-1">
                 {index > 0 && <span className="text-slate-500">/</span>}
                 {isLast ? (
-                  <span className="font-medium text-slate-100">{crumb.label}</span>
+                  <span className="font-medium text-slate-200">{crumb.label}</span>
                 ) : (
                   <Link href={crumb.href} className="transition hover:text-white">
                     {crumb.label}
@@ -279,45 +281,51 @@ const Navbar = ({ onMessagesOpen }: { onMessagesOpen?: () => void }) => {
           })}
         </nav>
       </div>
-      <header className="sticky top-0 z-40 inset-x-0 w-screen bg-slate-950">
-        <div className="w-full min-w-full flex flex-nowrap items-center justify-between gap-2 overflow-visible rounded-none bg-slate-950 text-white px-3 py-2 pr-5 sm:px-4 sm:py-3 sm:pr-6 ring-1 ring-slate-800/50 backdrop-blur-xl">
-          <div className="flex min-w-0 flex-1 items-center gap-3">
-            <Link href="/" className="flex items-center gap-2">
+      <header className="inset-x-0 w-full bg-slate-950">
+        <div className="mx-auto grid min-h-16 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-3 py-2 text-white sm:px-5 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:gap-x-5 lg:px-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <Link href="/" className="flex min-w-0 items-center">
               <div className="hidden sm:flex flex-col leading-tight">
-                <span className="text-sm font-semibold text-slate-300">Welcome back</span>
-                <span className="text-[11px] text-amber-400">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">King&apos;s Heart</span>
+                <span className="text-xs font-medium text-slate-100">
                   {role === "admin" ? "Admin Dashboard" : role === "teacher" ? "Teacher Dashboard" : role === "parent" ? "Parent Dashboard" : role === "student" ? "Student Dashboard" : "Dashboard"}
                 </span>
               </div>
             </Link>
 
+            {supervisorClassName ? (
+              <span className="hidden max-w-40 truncate rounded-md border border-sky-300/15 bg-sky-300/10 px-2.5 py-1.5 text-[11px] font-medium text-sky-100 xl:inline-flex" title={`Supervisor of ${supervisorClassName}`}>
+                Supervisor · {supervisorClassName}
+              </span>
+            ) : null}
+
             {role === "admin" && (
-              <div className="hidden md:flex items-center gap-4 ml-4">
-                <div className="flex flex-col text-xs text-slate-300">
-                  <span className="font-medium text-white">{formattedDate}</span>
-                  <span className="text-slate-300">{formattedTime}</span>
+              <div className="hidden xl:flex items-center gap-3 border-l border-white/10 pl-3">
+                <div className="flex flex-col text-[11px] text-slate-400">
+                  <span className="font-medium text-slate-100">{formattedDate}</span>
+                  <span>{formattedTime}</span>
                 </div>
 
-                <div className="h-8 w-px bg-slate-600/40" />
+                <div className="h-7 w-px bg-white/10" />
 
-                <div className="flex flex-col text-xs text-slate-300">
-                  <span className="font-medium text-white">{activeAcademicLabel}</span>
+                <div className="max-w-36 truncate text-[11px] text-slate-300" title={activeAcademicLabel}>
+                  <span className="font-medium text-slate-100">{activeAcademicLabel}</span>
                 </div>
               </div>
             )}
           </div>
 
           {role !== "admin" && (
-            <nav className="hidden md:flex items-center gap-4" aria-label="Primary navigation">
+            <nav className="col-span-2 row-start-2 flex min-w-0 items-center gap-1 overflow-x-auto border-t border-white/5 pt-1 md:col-span-1 md:col-start-2 md:row-start-1 md:justify-center md:overflow-visible md:border-0 md:pt-0" aria-label="Primary navigation">
               {navItems.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
                   aria-current={item.active ? "page" : undefined}
-                  className={`text-sm px-3 py-2 rounded-lg transition duration-150 ease-out ${
+                  className={`shrink-0 rounded-md px-2.5 py-2 text-xs font-medium transition-colors lg:px-3 lg:text-sm ${
                     item.active
-                      ? "bg-slate-800/70 text-white shadow-sm"
-                      : "text-slate-300/80 hover:text-white hover:bg-slate-800/40 dark:text-slate-200/80 dark:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
+                      ? "bg-white/10 text-white ring-1 ring-white/10"
+                      : "text-slate-400 hover:bg-white/5 hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/40"
                   }`}
                 >
                   {item.label}
@@ -326,9 +334,9 @@ const Navbar = ({ onMessagesOpen }: { onMessagesOpen?: () => void }) => {
             </nav>
           )}
 
-          <div className="flex items-center gap-3">
-            <form onSubmit={onSearchSubmit} className="hidden md:flex relative items-center bg-slate-800/40 rounded-full px-2 py-1 gap-2">
-              <button type="button" onClick={onSearchSubmit} className="pl-2 pr-1">
+          <div className="col-start-2 row-start-1 flex shrink-0 items-center justify-self-end gap-1.5 sm:gap-2 lg:col-start-3 lg:w-full">
+            <form onSubmit={onSearchSubmit} className="relative hidden items-center gap-2 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 transition-colors focus-within:border-sky-300/40 focus-within:bg-white/10 lg:flex lg:max-w-52 lg:flex-1 xl:max-w-60">
+              <button type="button" onClick={onSearchSubmit} className="flex h-6 w-6 shrink-0 items-center justify-center" aria-label="Search">
                 <Image src="/search.svg" alt="Search" width={14} height={14} className="opacity-70 invert" />
               </button>
               <input
@@ -358,7 +366,7 @@ const Navbar = ({ onMessagesOpen }: { onMessagesOpen?: () => void }) => {
                 }}
                 type="text"
                 placeholder="Search anything..."
-                className="w-40 md:w-56 bg-transparent outline-none text-sm text-slate-100 placeholder:text-slate-400 dark:placeholder:text-white/60"
+                className="min-w-0 w-full bg-transparent text-sm text-slate-100 outline-none placeholder:text-slate-500"
                 aria-label="Global search"
               />
 
@@ -470,7 +478,7 @@ const Navbar = ({ onMessagesOpen }: { onMessagesOpen?: () => void }) => {
             <button
               type="button"
               onClick={onMessagesOpen}
-              className="relative flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-slate-800/40 text-white hover:bg-slate-700/60 transition"
+              className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-slate-300 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/40"
               aria-label="Messages"
             >
               <Image src="/message.svg" alt="" width={16} height={16} className="filter invert brightness-125" />
@@ -481,19 +489,19 @@ const Navbar = ({ onMessagesOpen }: { onMessagesOpen?: () => void }) => {
               ) : null}
             </button>
 
-            <div className="flex items-center justify-center h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-slate-800/40 hover:bg-slate-700/60 transition">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-slate-300 transition-colors hover:bg-white/10 hover:text-white">
               <NavbarAnnouncementBell initialCount={0} />
             </div>
 
             {role === "admin" && (
-              <Link href="/list/settings" className="hidden md:flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-slate-800/40 text-white hover:bg-slate-700/60 transition" aria-label="Settings">
+              <Link href="/list/settings" className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-md text-slate-300 transition-colors hover:bg-white/10 hover:text-white md:flex" aria-label="Settings">
                 <Image src="/setting.svg" alt="Settings" width={16} height={16} className="filter invert brightness-125" />
               </Link>
             )}
 
-            <div className="hidden sm:flex flex-col text-right min-w-0 max-w-[140px]">
-              <span className="text-sm font-medium text-white truncate">{user?.username || displayName}</span>
-              <span className="text-xs text-slate-300 dark:text-white/70 capitalize truncate">{displayRole}</span>
+            <div className="hidden min-w-0 max-w-32 flex-col text-right xl:flex">
+              <span className="truncate text-xs font-medium text-slate-100">{user?.username || customUser?.username || displayName}</span>
+              <span className="truncate text-[10px] capitalize text-slate-400">{displayRole}</span>
             </div>
 
             {role === "parent" && studentProfiles.length > 0 ? (
@@ -545,10 +553,14 @@ const Navbar = ({ onMessagesOpen }: { onMessagesOpen?: () => void }) => {
                   </div>
                 </div>
               </div>
-            ) : (
-              <div className="rounded-full shadow-sm">
+            ) : user ? (
+              <div className="shrink-0 rounded-full ring-1 ring-white/10">
                 <UserButton appearance={{ elements: { avatarBox: "h-9 w-9" } }} />
               </div>
+            ) : (
+              <Link href="/profile" className="flex h-9 w-9 items-center justify-center rounded-full bg-sky-500 text-sm font-semibold text-white shadow-sm" aria-label="Open profile">
+                {(customUser?.username || "U").slice(0, 1).toUpperCase()}
+              </Link>
             )}
 
             <div className="md:hidden relative">

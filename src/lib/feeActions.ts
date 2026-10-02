@@ -1,13 +1,12 @@
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
+import { getCurrentAuthContext } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import prisma from "./prisma";
 
 async function getRole(): Promise<string | undefined> {
-  const session = await auth();
-  return (session?.sessionClaims?.metadata as { role?: string })?.role;
+  return (await getCurrentAuthContext()).role ?? undefined;
 }
 
 function toDecimal(value: number): Prisma.Decimal {

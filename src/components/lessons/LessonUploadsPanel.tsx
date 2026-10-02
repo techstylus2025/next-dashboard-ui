@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useActionState, startTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "react-toastify";
+import { BadgeCheck, Eye, Pencil, Trash2 } from "lucide-react";
 import LessonUploadForm, { LessonUploadEditItem } from "@/components/lessons/LessonUploadForm";
 import ExamQuestionPreviewModal from "@/components/exams/ExamQuestionPreviewModal";
 import {
@@ -311,25 +312,29 @@ const LessonUploadsPanel = ({
                   <td className="py-3 flex flex-wrap gap-2">
                     <button
                       type="button"
-                      className="rounded-md bg-slate-200 px-3 py-1 text-sm text-slate-700"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-slate-100 text-slate-700 hover:bg-slate-200"
                       onClick={() => handlePreview(upload)}
+                      aria-label="Preview lesson document"
+                      title="Preview"
                     >
-                      Preview
+                      <Eye size={16} />
                     </button>
                     {role === "admin" && (
                       <button
                         type="button"
-                        className="btn-primary text-sm"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-emerald-600 text-white hover:bg-emerald-700"
                         onClick={() => handleApprove(upload.id)}
+                        aria-label="Approve lesson document"
+                        title="Approve"
                       >
-                        Confirm review
+                        <BadgeCheck size={16} />
                       </button>
                     )}
                     {role === "teacher" && upload.uploadedBy.id === currentUserId && (
                       <>
                         <button
                           type="button"
-                          className="rounded-md bg-amber-200 px-3 py-1 text-sm text-slate-800"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-amber-100 text-amber-800 hover:bg-amber-200"
                           onClick={() => {
                             setEditingUpload({
                               id: upload.id,
@@ -341,15 +346,19 @@ const LessonUploadsPanel = ({
                             });
                             setOpen(true);
                           }}
+                          aria-label="Edit lesson document"
+                          title="Edit"
                         >
-                          Edit
+                          <Pencil size={15} />
                         </button>
                         <button
                           type="button"
-                          className="rounded-md bg-red-500 px-3 py-1 text-sm font-medium text-white"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-rose-600 text-white hover:bg-rose-700"
                           onClick={() => handleDelete(upload.id)}
+                          aria-label="Delete lesson document"
+                          title="Delete"
                         >
-                          Delete
+                          <Trash2 size={15} />
                         </button>
                       </>
                     )}
@@ -410,17 +419,19 @@ const LessonUploadsPanel = ({
                   <td className="py-3 flex flex-wrap gap-2">
                     <button
                       type="button"
-                      className="rounded-md bg-slate-200 px-3 py-1 text-sm text-slate-700"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-slate-100 text-slate-700 hover:bg-slate-200"
                       onClick={() => handlePreview(upload)}
+                      aria-label="Preview lesson document"
+                      title="Preview"
                     >
-                      Preview
+                      <Eye size={16} />
                     </button>
                     {(role === "admin" || (role === "teacher" && upload.uploadedBy.id === currentUserId)) && (
                       <>
                         {role === "teacher" && upload.uploadedBy.id === currentUserId && (
                           <button
                             type="button"
-                            className="rounded-md bg-amber-200 px-3 py-1 text-sm text-slate-800"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-amber-100 text-amber-800 hover:bg-amber-200"
                             onClick={() => {
                               setEditingUpload({
                                 id: upload.id,
@@ -432,16 +443,20 @@ const LessonUploadsPanel = ({
                               });
                               setOpen(true);
                             }}
+                            aria-label="Edit lesson document"
+                            title="Edit"
                           >
-                            Edit
+                            <Pencil size={15} />
                           </button>
                         )}
                         <button
                           type="button"
-                          className="rounded-md bg-red-500 px-3 py-1 text-sm font-medium text-white"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-rose-600 text-white hover:bg-rose-700"
                           onClick={() => handleDelete(upload.id)}
+                          aria-label="Delete lesson document"
+                          title="Delete"
                         >
-                          Delete
+                          <Trash2 size={15} />
                         </button>
                       </>
                     )}
