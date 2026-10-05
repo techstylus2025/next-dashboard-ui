@@ -53,6 +53,14 @@ type SimpleOption = {
   name: string;
 };
 
+type ClassLessonOption = SimpleOption & {
+  subjects: {
+    id: number;
+    name: string;
+    teachers: { id: string; name: string; surname: string }[];
+  }[];
+};
+
 const LessonListPage = async ({
   searchParams,
 }: {
@@ -73,13 +81,6 @@ const LessonListPage = async ({
   const uploadFilter: Prisma.ExamQuestionUploadWhereInput = {
     documentType: "LESSON_DOCUMENT",
   };
-
-  if (activePeriod.yearLabel && activePeriod.termNumber !== null) {
-    uploadFilter.academicYearLabel = activePeriod.yearLabel;
-    uploadFilter.termNumber = activePeriod.termNumber;
-  } else {
-    uploadFilter.id = -1;
-  }
 
   const lessonFilter: Prisma.LessonWhereInput = {};
   if (queryParams.classId) {
@@ -193,17 +194,27 @@ const LessonListPage = async ({
         })
       : [];
 
-  const teacherOptions =
+  const classOptions: ClassLessonOption[] =
     role === "admin"
-      ? await prisma.teacher.findMany({
-          select: { id: true, name: true, surname: true },
+      ? await prisma.class.findMany({
+          select: {
+            id: true,
+            name: true,
+            subjects: {
+              select: {
+                id: true,
+                name: true,
+                teachers: {
+                  where: { isArchived: false },
+                  select: { id: true, name: true, surname: true },
+                  orderBy: [{ name: "asc" }, { surname: "asc" }],
+                },
+              },
+              orderBy: { name: "asc" },
+            },
+          },
           orderBy: { name: "asc" },
         })
-      : [];
-
-  const classOptions: SimpleOption[] =
-    role === "admin"
-      ? await prisma.class.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } })
       : [];
 
   const subjectOptions: SimpleOption[] =
@@ -211,7 +222,7 @@ const LessonListPage = async ({
       ? await prisma.subject.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } })
       : [];
 
-  const [pendingUploads, approvedUploads] = await prisma.$transaction([
+  const [pendingUploads, approvedUploads] = await Promise.all([
     prisma.examQuestionUpload.findMany({
       where: { ...uploadFilter, status: "PENDING" },
       include: {
@@ -283,7 +294,6 @@ const LessonListPage = async ({
           <LessonCalendar lessons={lessonRows} subjects={subjectOptions} classes={classOptions} />
           <TimetableManagement
             lessons={lessonRows}
-            teachers={teacherOptions}
             subjects={subjectOptions}
             classes={classOptions}
           />
@@ -296,11 +306,11 @@ const LessonListPage = async ({
           <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
             <TableSearch />
             <div className="flex items-center gap-4 self-end">
-              <button className="icon-action w-8 h-8">
-                <Image src="/filter.svg" alt="Filter" width={14} height={14} />
+              <button className={`icon-action ${role === "teacher" ? "w-6 h-6" : "w-8 h-8"}`}>
+                <Image src="/filter.svg" alt="Filter" width={role === "teacher" ? 12 : 14} height={role === "teacher" ? 12 : 14} />
               </button>
-              <button className="icon-action w-8 h-8">
-                <Image src="/sort.svg" alt="Sort" width={14} height={14} />
+              <button className={`icon-action ${role === "teacher" ? "w-6 h-6" : "w-8 h-8"}`}>
+                <Image src="/sort.svg" alt="Sort" width={role === "teacher" ? 12 : 14} height={role === "teacher" ? 12 : 14} />
               </button>
             </div>
           </div>

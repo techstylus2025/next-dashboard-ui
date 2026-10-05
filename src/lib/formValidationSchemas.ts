@@ -45,6 +45,15 @@ export const teacherSchema = z.object({
   birthday: z.coerce.date({ message: "Birthday is required!" }),
   sex: z.enum(["MALE", "FEMALE"], { message: "Sex is required!" }),
   subjects: z.array(z.string()).optional(), // subject ids
+  classIds: z.array(z.coerce.number()).optional(),
+}).superRefine((data, ctx) => {
+  if (!data.id && (!data.subjects?.length || !data.classIds?.length)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Assign at least one class and one subject to the teacher.",
+      path: !data.classIds?.length ? ["classIds"] : ["subjects"],
+    });
+  }
 });
 
 export type TeacherSchema = z.infer<typeof teacherSchema>;
@@ -134,6 +143,13 @@ export const examTimetableSchema = z.object({
     .string()
     .min(1, { message: "End time is required!" })
     .regex(/^\d{2}:\d{2}$/, { message: "End time is invalid!" }),
+  invigilatorIds: z.preprocess((val) => {
+    if (val == null) return [] as string[];
+    if (Array.isArray(val)) return val as string[];
+    return [String(val)];
+  }, z.array(z.string().min(1, { message: "Choose valid invigilators." })).min(1, {
+    message: "Select at least one invigilator.",
+  })),
   title: z.string().min(1, { message: "Title is required!" }),
 });
 

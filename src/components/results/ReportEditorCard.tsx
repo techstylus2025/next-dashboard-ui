@@ -2,6 +2,7 @@
 
 import {
   deleteTermlyReport,
+  setTermlyReportPublication,
   updateTermlyReportMeta,
   upsertTermlySubjectLine,
 } from "@/lib/termlyReportActions";
@@ -15,11 +16,13 @@ export default function ReportEditorCard({
   report,
   canManageMeta,
   canDelete,
+  canPublish,
   onPreview,
 }: {
   report: TermlyReportRow;
   canManageMeta: boolean;
   canDelete: boolean;
+  canPublish: boolean;
   onPreview: () => void;
 }) {
   const router = useRouter();
@@ -116,6 +119,33 @@ export default function ReportEditorCard({
     });
   };
 
+  const handlePublication = (action: "publish" | "withhold" | "restore") => {
+    const actionLabel =
+      action === "publish"
+        ? "publish"
+        : action === "withhold"
+          ? "withhold"
+          : "restore parent access to";
+    if (
+      action === "withhold" &&
+      !confirm(`Withhold ${report.studentName}'s report from their parent?`)
+    ) {
+      return;
+    }
+    startTransition(async () => {
+      const res = await setTermlyReportPublication({
+        reportId: report.id,
+        action,
+      });
+      if (res.success) {
+        toast.success(`Report ${actionLabel} updated.`);
+        refresh();
+      } else {
+        toast.error(res.error || "Could not update report publication.");
+      }
+    });
+  };
+
   const hasEditableSubjects = report.subjectLines.some((l) => l.canEdit);
   const canEditAnything = canManageMeta || hasEditableSubjects;
 
@@ -143,6 +173,54 @@ export default function ReportEditorCard({
           </p>
         </button>
         <div className="flex flex-wrap gap-2 shrink-0">
+          {canPublish && (
+            <>
+              <span
+                className={`self-center rounded-full px-2.5 py-1 text-xs font-medium ${
+                  report.isWithheld
+                    ? "bg-rose-100 text-rose-700"
+                    : report.isPublished
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-slate-100 text-slate-600"
+                }`}
+              >
+                {report.isWithheld
+                  ? "Withheld"
+                  : report.isPublished
+                    ? "Published"
+                    : "Not published"}
+              </span>
+              {(!report.isPublished || report.isWithheld) && (
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => handlePublication("publish")}
+                  className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  Publish
+                </button>
+              )}
+              {report.isWithheld ? (
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => handlePublication("restore")}
+                  className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 disabled:opacity-50"
+                >
+                  Restore access
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => handlePublication("withhold")}
+                  className="rounded-lg border border-rose-200 px-3 py-1.5 text-xs text-rose-700 disabled:opacity-50"
+                >
+                  Withhold
+                </button>
+              )}
+            </>
+          )}
           <button
             type="button"
             onClick={onPreview}
@@ -160,7 +238,8 @@ export default function ReportEditorCard({
         </div>
       </div>
 
-      {expanded && (
+      <div className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out motion-reduce:transition-none ${expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`} aria-hidden={!expanded} inert={!expanded}>
+        <div className="min-h-0 overflow-hidden">
         <div className="mt-4 space-y-5 border-t border-slate-100 pt-4">
           <div className="grid grid-cols-2 gap-2 sm:gap-3 text-xs sm:text-sm">
             <span>
@@ -534,7 +613,8 @@ export default function ReportEditorCard({
             </button>
           )}
         </div>
-      )}
+        </div>
+      </div>
     </div>
   );
 }

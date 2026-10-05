@@ -16,9 +16,12 @@ export default function ResultsPageOfflineWrapper({
 }) {
   const isOnline = useOnlineStatus();
   const { cachedData, loading } = useOfflineCachedResults();
+  // Cached reports are shared across accounts and cannot enforce per-user visibility.
+  const canUseCachedData = initialData.isAdmin;
 
   // Use cached data when offline, otherwise use server-fetched data
-  const dataToDisplay = !isOnline && cachedData ? cachedData : initialData;
+  const dataToDisplay =
+    !isOnline && canUseCachedData && cachedData ? cachedData : initialData;
 
   // Merge cached data with initial data structure
   const mergedData: ResultsPageContext = {
@@ -37,7 +40,7 @@ export default function ResultsPageOfflineWrapper({
   };
 
   // Show loading state while fetching cache
-  if (!isOnline && loading) {
+  if (!isOnline && canUseCachedData && loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
@@ -49,7 +52,7 @@ export default function ResultsPageOfflineWrapper({
   }
 
   // Show no data message if offline with no cache
-  if (!isOnline && !cachedData && !loading) {
+  if (!isOnline && canUseCachedData && !cachedData && !loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] rounded-2xl bg-lamaSkyLight p-6">
         <div className="text-center max-w-md">
@@ -58,7 +61,7 @@ export default function ResultsPageOfflineWrapper({
             No Cached Data Available
           </h2>
           <p className="text-slate-600 mb-4">
-            You're offline and we don't have any cached data to display. Please go online
+            You&apos;re offline and we don&apos;t have any cached data to display. Please go online
             to load your data first.
           </p>
           <p className="text-sm text-slate-500">

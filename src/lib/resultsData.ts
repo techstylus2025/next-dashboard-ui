@@ -55,6 +55,9 @@ export type TermlyReportRow = {
   overallPercentage: number | null;
   overallGrade: string | null;
   overallRemark: string | null;
+  isPublished: boolean;
+  publishedAt: string | null;
+  isWithheld: boolean;
   interest: string | null;
   conduct: string | null;
   resultStatus: string | null;
@@ -90,30 +93,53 @@ export async function loadResultsPageData(
   const isAdmin = role === "admin";
   let supervisedClassIds: number[] = [];
   let supervisedClasses: { id: number; name: string }[] = [];
+  let assignedClassIds: number[] = [];
   const assignedSubjects: ResultsPageContext["assignedSubjects"] = [];
 
   if (role === "teacher" && userId) {
-    const supervised = await db.class.findMany({
-      where: { supervisorId: userId },
-      select: { id: true, name: true },
-    });
+    const [supervised, teacher] = await Promise.all([
+      db.class.findMany({
+        where: { supervisorId: userId },
+        select: { id: true, name: true },
+      }),
+      db.teacher.findUnique({
+        where: { id: userId },
+        select: {
+          assignedClasses: { select: { id: true, name: true } },
+          subjects: { select: { id: true, name: true } },
+        },
+      }),
+    ]);
     supervisedClasses = supervised.map((c) => ({ id: c.id, name: c.name }));
     supervisedClassIds = supervised.map((c) => c.id);
+    assignedClassIds = teacher?.assignedClasses.map((cls) => cls.id) ?? [];
 
-    const lessons = await db.lesson.findMany({
-      where: { teacherId: userId },
-      include: { subject: { select: { id: true, name: true } } },
-    });
-    const seen = new Set<string>();
-    for (const l of lessons) {
-      const key = `${l.classId}:${l.subjectId}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      assignedSubjects.push({
-        classId: l.classId,
-        subjectId: l.subject.id,
-        subjectName: l.subject.name,
+    const accessibleClassIds = [
+      ...new Set([...supervisedClassIds, ...assignedClassIds]),
+    ];
+    if (accessibleClassIds.length && teacher?.subjects.length) {
+      const classesWithSubjects = await db.class.findMany({
+        where: { id: { in: accessibleClassIds } },
+        select: {
+          id: true,
+          subjects: { select: { id: true } },
+        },
       });
+      const teacherSubjects = new Map(
+        teacher.subjects.map((subject) => [subject.id, subject.name])
+      );
+      for (const cls of classesWithSubjects) {
+        for (const subject of cls.subjects) {
+          const subjectName = teacherSubjects.get(subject.id);
+          if (subjectName) {
+            assignedSubjects.push({
+              classId: cls.id,
+              subjectId: subject.id,
+              subjectName,
+            });
+          }
+        }
+      }
     }
   }
 
@@ -123,8 +149,9 @@ export async function loadResultsPageData(
     isAdmin || isSupervisor || (role === "teacher" && assignedSubjects.length > 0);
 
   let classFilter: { id?: { in: number[] } } | Record<string, never> = {};
-  if (role === "teacher" && userId && !isAdmin) {
+  if (role === "teacher" && !isAdmin) {
     const classIds = new Set<number>(supervisedClassIds);
+    for (const id of assignedClassIds) classIds.add(id);
     for (const a of assignedSubjects) classIds.add(a.classId);
     if (classIds.size > 0) {
       classFilter = { id: { in: [...classIds] } };
@@ -176,7 +203,7 @@ export async function loadResultsPageData(
   if (isAdmin) {
     reportWhere = {};
   } else if (role === "teacher" && userId) {
-    const visibleClassIds = new Set(supervisedClassIds);
+    const visibleClassIds = new Set([...supervisedClassIds, ...assignedClassIds]);
     for (const a of assignedSubjects) visibleClassIds.add(a.classId);
     if (visibleClassIds.size === 0) {
       reportWhere = { id: { in: [] } };
@@ -184,9 +211,17 @@ export async function loadResultsPageData(
       reportWhere = { classId: { in: [...visibleClassIds] } };
     }
   } else if (role === "student" && userId) {
-    reportWhere = { studentId: userId };
+    reportWhere = {
+      studentId: userId,
+      isPublished: true,
+      isWithheld: false,
+    };
   } else if (role === "parent" && userId) {
-    reportWhere = { student: { parentId: userId } };
+    reportWhere = {
+      student: { parentId: userId },
+      isPublished: true,
+      isWithheld: false,
+    };
   } else {
     reportWhere = { id: { in: [] } };
   }
@@ -195,10 +230,27 @@ export async function loadResultsPageData(
     where: reportWhere,
     include: {
       student: { select: { id: true, name: true, surname: true } },
-      class: { select: { id: true, name: true } },
+      class: {
+        select: {
+          id: true,
+          name: true,
+          gradeId: true,
+          grade: {
+            select: {
+              subjects: { select: { id: true, name: true, gradeId: true } },
+            },
+          },
+          subjects: { select: { id: true, name: true, gradeId: true } },
+          lessons: {
+            select: {
+              subject: { select: { id: true, name: true, gradeId: true } },
+            },
+          },
+        },
+      },
       academicYear: { select: { id: true, label: true } },
       subjectLines: {
-        include: { subject: { select: { id: true, name: true } } },
+        include: { subject: { select: { id: true, name: true, gradeId: true } } },
         orderBy: { subject: { name: "asc" } },
       },
     },
@@ -220,58 +272,114 @@ export async function loadResultsPageData(
     ),
   };
 
-  const reports: TermlyReportRow[] = rawReports.map((r) => ({
-    id: r.id,
-    studentId: r.studentId,
-    studentName: `${r.student.name} ${r.student.surname}`,
-    classId: r.classId,
-    className: r.class.name,
-    academicYearLabel: r.academicYear.label,
-    academicYearId: r.academicYearId,
-    termNumber: r.termNumber,
-    positionOnRoll: r.positionOnRoll,
-    totalOnRoll: r.totalOnRoll,
-    totalAttendance: r.totalAttendance,
-    vacationDate: r.vacationDate?.toISOString() ?? null,
-    reopeningDate: r.reopeningDate?.toISOString() ?? null,
-    overallPercentage: r.overallPercentage,
-    overallGrade: r.overallGrade,
-    overallRemark: r.overallRemark,
-    interest: r.interest,
-    conduct: r.conduct,
-    resultStatus: r.resultStatus,
-    supervisorRemarks: r.supervisorRemarks,
-    supervisorSignature: r.supervisorSignature,
-    headteacherRemarks: r.headteacherRemarks,
-    headteacherSignature: r.headteacherSignature,
-    subjectLines: r.subjectLines.map((line) => {
-      const canEdit =
-        ctxForEdit.isAdmin ||
-        ctxForEdit.supervisedClassIds.includes(r.classId) ||
-        ctxForEdit.taughtKeys.has(`${r.classId}:${line.subjectId}`);
-      return {
-        id: line.id,
-        subjectId: line.subjectId,
-        subjectName: line.subject.name,
-        classScore: line.classScore,
-        examScore: line.examScore,
-        totalMarks: line.totalMarks,
-        grade: line.grade,
-        remark: line.remark,
-        canEdit,
-      };
-    }),
-    schoolSettings: schoolSettings
-      ? {
-          name: schoolSettings.name,
-          address: schoolSettings.address,
-          telephone: schoolSettings.telephone,
-          location: schoolSettings.location,
-          email: schoolSettings.email,
-          logoUrl: schoolSettings.logoUrl,
-        }
-      : null,
-  }));
+  const reports: TermlyReportRow[] = rawReports.map((r) => {
+    const subjectLinesById = new Map(
+      r.subjectLines
+        .filter((line) => line.subject.gradeId === r.class.gradeId)
+        .map((line) => [
+          line.subjectId,
+          {
+            id: line.id,
+            subjectId: line.subjectId,
+            subjectName: line.subject.name,
+            classScore: line.classScore,
+            examScore: line.examScore,
+            totalMarks: line.totalMarks,
+            grade: line.grade,
+            remark: line.remark,
+          },
+        ])
+    );
+    const classSubjects = [
+      ...r.class.grade.subjects,
+      ...r.class.subjects,
+      ...r.class.lessons.map((lesson) => lesson.subject),
+    ];
+    for (const subject of classSubjects) {
+      if (
+        subject.gradeId === r.class.gradeId &&
+        !subjectLinesById.has(subject.id)
+      ) {
+        subjectLinesById.set(subject.id, {
+          id: -(r.id * 100000 + subject.id),
+          subjectId: subject.id,
+          subjectName: subject.name,
+          classScore: 0,
+          examScore: 0,
+          totalMarks: 0,
+          grade: null,
+          remark: null,
+        });
+      }
+    }
+
+    return {
+      id: r.id,
+      studentId: r.studentId,
+      studentName: `${r.student.name} ${r.student.surname}`,
+      classId: r.classId,
+      className: r.class.name,
+      academicYearLabel: r.academicYear.label,
+      academicYearId: r.academicYearId,
+      termNumber: r.termNumber,
+      positionOnRoll: r.positionOnRoll,
+      totalOnRoll: r.totalOnRoll,
+      totalAttendance: r.totalAttendance,
+      vacationDate: r.vacationDate?.toISOString() ?? null,
+      reopeningDate: r.reopeningDate?.toISOString() ?? null,
+      overallPercentage:
+        role === "teacher"
+          ? null
+          : r.overallPercentage,
+      overallGrade:
+        role === "teacher"
+          ? null
+          : r.overallGrade,
+      overallRemark:
+        role === "teacher"
+          ? null
+          : r.overallRemark,
+      isPublished: r.isPublished,
+      publishedAt: r.publishedAt?.toISOString() ?? null,
+      isWithheld: r.isWithheld,
+      interest: r.interest,
+      conduct: r.conduct,
+      resultStatus: r.resultStatus,
+      supervisorRemarks: r.supervisorRemarks,
+      supervisorSignature: r.supervisorSignature,
+      headteacherRemarks: r.headteacherRemarks,
+      headteacherSignature: r.headteacherSignature,
+      subjectLines: [...subjectLinesById.values()]
+        .filter(
+          (line) =>
+            role !== "teacher" ||
+            ctxForEdit.taughtKeys.has(`${r.classId}:${line.subjectId}`)
+        )
+        .map((line) => ({
+          id: line.id,
+          subjectId: line.subjectId,
+          subjectName: line.subjectName,
+          classScore: line.classScore,
+          examScore: line.examScore,
+          totalMarks: line.totalMarks,
+          grade: line.grade,
+          remark: line.remark,
+          canEdit:
+            ctxForEdit.isAdmin ||
+            ctxForEdit.taughtKeys.has(`${r.classId}:${line.subjectId}`),
+        })),
+      schoolSettings: schoolSettings
+        ? {
+            name: schoolSettings.name,
+            address: schoolSettings.address,
+            telephone: schoolSettings.telephone,
+            location: schoolSettings.location,
+            email: schoolSettings.email,
+            logoUrl: schoolSettings.logoUrl,
+          }
+        : null,
+    };
+  });
 
   const ctx: ResultsPageContext = {
     role,

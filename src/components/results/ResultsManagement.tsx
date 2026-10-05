@@ -5,6 +5,7 @@ import {
   generateTermlyReportsForSupervisorClass,
   generateTermlyReportForSingleStudent,
   getAllStudentsInClass,
+  setClassTermReportPublication,
 } from "@/lib/termlyReportActions";
 import type { ResultsPageContext, TermlyReportRow } from "@/lib/resultsData";
 import { useRouter } from "next/navigation";
@@ -436,8 +437,44 @@ export default function ResultsManagement(ctx: ResultsPageContext) {
     });
   };
 
+  const handleClassPublication = (
+    classId: number,
+    action: "publish" | "withhold" | "restore"
+  ) => {
+    const academicYearId = Number(filterYear);
+    const termNumber = Number(filterTerm);
+    if (!academicYearId || !termNumber) {
+      toast.error("Select an academic year and term before managing class reports.");
+      return;
+    }
+    if (
+      action === "withhold" &&
+      !confirm("Withhold all reports for this class, year, and term from parents?")
+    ) {
+      return;
+    }
+    startTransition(() => {
+      void (async () => {
+        const res = await setClassTermReportPublication({
+          classId,
+          academicYearId,
+          termNumber,
+          action,
+        });
+        if (res.success) {
+          toast.success(
+            `${res.updated ?? 0} class report(s) updated.`
+          );
+          refresh();
+        } else {
+          toast.error(res.error || "Could not update class report publication.");
+        }
+      })();
+    });
+  };
+
   const canManageMetaForReport = (report: TermlyReportRow) =>
-    ctx.isAdmin || ctx.supervisedClassIds.includes(report.classId);
+    ctx.isAdmin;
 
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6 w-full">
@@ -820,6 +857,9 @@ export default function ResultsManagement(ctx: ResultsPageContext) {
 
           {ctx.isAdmin && viewMode === "class-progress" ? (
             <>
+              <p className="mb-3 text-xs text-slate-500">
+                Select a year and term in the filters to publish or withhold reports for a whole class.
+              </p>
               {paginatedClassProgress.length === 0 ? (
                 <div className="py-12 text-center">
                   <p className="text-sm text-slate-500">No classes match the current filters.</p>
@@ -840,6 +880,9 @@ export default function ResultsManagement(ctx: ResultsPageContext) {
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900">
                           Completion
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900">
+                          Parent access
                         </th>
                       </tr>
                     </thead>
@@ -868,6 +911,34 @@ export default function ResultsManagement(ctx: ResultsPageContext) {
                               <span className="text-xs font-medium text-slate-600">
                                 {item.completion}%
                               </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex min-w-[330px] flex-wrap gap-2">
+                              <button
+                                type="button"
+                                disabled={pending || !filterYear || !filterTerm || item.generated === 0}
+                                onClick={() => handleClassPublication(item.classId, "publish")}
+                                className="rounded-md bg-emerald-600 px-2.5 py-1.5 text-xs font-medium text-white disabled:opacity-40"
+                              >
+                                Publish class
+                              </button>
+                              <button
+                                type="button"
+                                disabled={pending || !filterYear || !filterTerm || item.generated === 0}
+                                onClick={() => handleClassPublication(item.classId, "withhold")}
+                                className="rounded-md border border-rose-200 px-2.5 py-1.5 text-xs text-rose-700 disabled:opacity-40"
+                              >
+                                Withhold class
+                              </button>
+                              <button
+                                type="button"
+                                disabled={pending || !filterYear || !filterTerm || item.generated === 0}
+                                onClick={() => handleClassPublication(item.classId, "restore")}
+                                className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs text-slate-700 disabled:opacity-40"
+                              >
+                                Restore access
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -948,6 +1019,7 @@ export default function ResultsManagement(ctx: ResultsPageContext) {
                                       report={report}
                                       canManageMeta={canManageMetaForReport(report)}
                                       canDelete={ctx.isAdmin}
+                                      canPublish={ctx.isAdmin}
                                       onPreview={() => setPreviewReport(report)}
                                     />
                                   ))}
@@ -970,6 +1042,7 @@ export default function ResultsManagement(ctx: ResultsPageContext) {
                   report={report}
                   canManageMeta={canManageMetaForReport(report)}
                   canDelete={ctx.isAdmin}
+                  canPublish={ctx.isAdmin}
                   onPreview={() => setPreviewReport(report)}
                 />
               ))}

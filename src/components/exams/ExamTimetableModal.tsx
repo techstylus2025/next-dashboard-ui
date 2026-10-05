@@ -7,6 +7,7 @@ import ExamTimetableForm from "@/components/forms/ExamTimetableForm";
 
 type Props = {
   classes: { id: number; name: string; gradingLevel: GradingLevel }[];
+  teachers: { id: string; name: string; surname: string }[];
   lessons: {
     id: number;
     name: string;
@@ -15,16 +16,19 @@ type Props = {
   }[];
 };
 
-const ExamTimetableModal = ({ classes, lessons }: Props) => {
+const ExamTimetableModal = ({ classes, lessons, teachers }: Props) => {
   const [open, setOpen] = useState(false);
 
   return (
     <>
       <button
+        type="button"
+        aria-label="Create exam timetable"
+        title="Create exam timetable"
         className="w-8 h-8 flex items-center justify-center rounded-full bg-lamaSky"
         onClick={() => setOpen(true)}
       >
-        <Image src="/create.png" alt="Create timetable" width={16} height={16} />
+        <Image src="/create.png" alt="Create exam" width={16} height={16} />
       </button>
       {open && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
@@ -35,7 +39,10 @@ const ExamTimetableModal = ({ classes, lessons }: Props) => {
             >
               ✕
             </div>
-            <ExamTimetableForm setOpen={setOpen} relatedData={{ classes, lessons }} />
+            <ExamTimetableForm
+              setOpen={setOpen}
+              relatedData={{ classes, lessons, teachers }}
+            />
           </div>
         </div>
       )}

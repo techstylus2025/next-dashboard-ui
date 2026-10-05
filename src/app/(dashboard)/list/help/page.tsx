@@ -96,14 +96,18 @@ const faqs = {
 
 function AccordionItem({ question, answer }: { question: string; answer: string }) {
   return (
-    <details className="group rounded-3xl border border-slate-200 bg-slate-50 p-4 transition-shadow duration-200 hover:shadow-lg">
+    <details className="smooth-disclosure group rounded-3xl border border-slate-200 bg-slate-50 p-4 transition-shadow duration-200 hover:shadow-lg">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold text-slate-900">
         {question}
         <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-medium text-slate-600 transition-colors duration-200 group-open:bg-sky-600 group-open:text-white">
           View
         </span>
       </summary>
-      <div className="mt-4 text-sm leading-7 text-slate-700">{answer}</div>
+      <div className="smooth-disclosure-panel">
+        <div className="smooth-disclosure-panel-inner">
+          <div className="mt-4 text-sm leading-7 text-slate-700">{answer}</div>
+        </div>
+      </div>
     </details>
   );
 }

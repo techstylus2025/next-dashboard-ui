@@ -8,6 +8,7 @@ import ExamQuestionUploadForm from "@/components/forms/ExamQuestionUploadForm";
 import ExamQuestionPreviewModal from "@/components/exams/ExamQuestionPreviewModal";
 import { approveExamQuestion, deleteExamQuestionUpload } from "@/lib/actions";
 import { BadgeCheck, Eye, Pencil, Trash2 } from "lucide-react";
+import { groupUploadsByAcademicPeriod } from "@/lib/groupUploadsByAcademicPeriod";
 
 export type ExamQuestionEditItem = {
   id: number;
@@ -31,6 +32,8 @@ type UploadRecord = {
   fileName: string;
   fileUrl: string;
   status: string;
+  academicYearLabel: string;
+  termNumber: number;
   lesson: {
     subject: { name: string };
     class: { name: string };
@@ -40,7 +43,7 @@ type UploadRecord = {
     name: string;
     surname: string;
   };
-  approvedBy?: string | null;
+  approvedByName?: string | null;
   createdAt: string;
   approvedAt?: string | null;
 };
@@ -142,6 +145,8 @@ const ExamQuestionUploadsPanel = ({
   const showPendingSection =
     (role === "admin" || role === "teacher") && pendingUploads.length > 0;
   const showApprovedSection = approvedUploads.length > 0;
+  const pendingUploadGroups = groupUploadsByAcademicPeriod(pendingUploads);
+  const approvedUploadGroups = groupUploadsByAcademicPeriod(approvedUploads);
 
   return (
     <section className="bg-slate-50 p-4 rounded-md mt-6">
@@ -150,8 +155,8 @@ const ExamQuestionUploadsPanel = ({
           <h2 className="text-lg font-semibold">Exam Question Review</h2>
           <p className="text-sm text-slate-600">
             {activeTermBadge
-              ? `Current term: ${activeTermBadge}`
-              : "No active term is set. Upload and approval are restricted to the current term."}
+              ? `New uploads use the current term: ${activeTermBadge}. Existing uploads are grouped by academic year and term.`
+              : "Existing uploads are grouped by academic year and term. New uploads are restricted until a current term is set."}
           </p>
         </div>
         {showTeacherUpload && (
@@ -212,71 +217,36 @@ const ExamQuestionUploadsPanel = ({
                 <th className="py-2">Actions</th>
               </tr>
             </thead>
-            <tbody>
-              {pendingUploads.map((upload) => (
-                <tr key={upload.id} className="border-b border-slate-200">
-                  <td className="py-3">{upload.title}</td>
-                  <td className="py-3">
-                    {upload.lesson.subject.name} / {upload.lesson.class.name}
-                  </td>
-                  <td className="py-3">
-                    {upload.uploadedBy.name} {upload.uploadedBy.surname}
-                  </td>
-                  <td className="py-3">
-                    {new Intl.DateTimeFormat("en-US").format(new Date(upload.createdAt))}
-                  </td>
-                  <td className="py-3">
-                    <a
-                      className="text-blue-600 underline"
-                      href={upload.fileUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {upload.fileName}
-                    </a>
-                  </td>
-                  <td className="py-3 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-slate-100 text-slate-700 hover:bg-slate-200"
-                      onClick={() => handlePreview(upload)}
-                      aria-label="Preview exam question"
-                      title="Preview"
-                    >
-                      <Eye size={16} />
-                    </button>
-                    {role === "admin" && (
-                      <button
-                        type="button"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-emerald-600 text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-                        onClick={() => handleApprove(upload.id)}
-                        disabled={!previewedIds.includes(upload.id)}
-                        aria-label="Approve exam question"
-                        title={previewedIds.includes(upload.id) ? "Approve" : "Preview before approving"}
-                      >
-                        <BadgeCheck size={16} />
-                      </button>
-                    )}
-                    {role === "admin" && previewedIds.includes(upload.id) && (
-                      <span className="text-xs text-green-600 self-center">
-                        Previewed
-                      </span>
-                    )}
-                    {role === "admin" && !previewedIds.includes(upload.id) && (
-                      <span className="text-xs text-slate-500 self-center">
-                        Preview first
-                      </span>
-                    )}
-                    {role === "teacher" && upload.uploadedBy.id === currentUserId && (
-                      <>
-                        <button type="button" onClick={() => handleEdit(upload)} className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-amber-100 text-amber-800 hover:bg-amber-200" aria-label="Edit exam question" title="Edit"><Pencil size={15} /></button>
-                        <button type="button" onClick={() => handleDelete(upload.id)} className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-rose-600 text-white hover:bg-rose-700" aria-label="Delete exam question" title="Delete"><Trash2 size={15} /></button>
-                      </>
-                    )}
-                  </td>
+            {pendingUploadGroups.map((yearGroup) => yearGroup.terms.map((termGroup) => (
+              <tbody key={`${yearGroup.academicYearLabel}-${termGroup.termNumber}`}>
+                <tr className="bg-slate-100">
+                  <th colSpan={6} className="py-2 text-left font-semibold text-slate-800">
+                    {yearGroup.academicYearLabel}<span className="ml-2 font-medium text-slate-600">· Term {termGroup.termNumber}</span>
+                    <span className="ml-2 text-xs font-normal text-slate-500">{termGroup.records.length} upload{termGroup.records.length === 1 ? "" : "s"}</span>
+                  </th>
                 </tr>
-              ))}
-            </tbody>
+                {termGroup.records.map((upload) => (
+                  <tr key={upload.id} className="border-b border-slate-200">
+                    <td className="py-3">{upload.title}</td>
+                    <td className="py-3">{upload.lesson.subject.name} / {upload.lesson.class.name}</td>
+                    <td className="py-3">{upload.uploadedBy.name} {upload.uploadedBy.surname}</td>
+                    <td className="py-3">{new Intl.DateTimeFormat("en-US").format(new Date(upload.createdAt))}</td>
+                    <td className="py-3"><a className="text-blue-600 underline" href={upload.fileUrl} target="_blank" rel="noreferrer">{upload.fileName}</a></td>
+                    <td className="py-3 flex flex-wrap gap-2">
+                      <button type="button" className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-slate-100 text-slate-700 hover:bg-slate-200" onClick={() => handlePreview(upload)} aria-label="Preview exam question" title="Preview"><Eye size={16} /></button>
+                      {role === "admin" && <button type="button" className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-emerald-600 text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50" onClick={() => handleApprove(upload.id)} disabled={!previewedIds.includes(upload.id)} aria-label="Approve exam question" title={previewedIds.includes(upload.id) ? "Approve" : "Preview before approving"}><BadgeCheck size={16} /></button>}
+                      {role === "admin" && <span className={`self-center text-xs ${previewedIds.includes(upload.id) ? "text-green-600" : "text-slate-500"}`}>{previewedIds.includes(upload.id) ? "Previewed" : "Preview first"}</span>}
+                      {role === "teacher" && upload.uploadedBy.id === currentUserId && (
+                        <>
+                          <button type="button" onClick={() => handleEdit(upload)} className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-amber-100 text-amber-800 hover:bg-amber-200" aria-label="Edit exam question" title="Edit"><Pencil size={15} /></button>
+                          <button type="button" onClick={() => handleDelete(upload.id)} className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-rose-600 text-white hover:bg-rose-700" aria-label="Delete exam question" title="Delete"><Trash2 size={15} /></button>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            )))}
           </table>
         </div>
       )}
@@ -302,62 +272,31 @@ const ExamQuestionUploadsPanel = ({
                   <th className="py-2">Actions</th>
                 </tr>
               </thead>
-              <tbody>
-                {approvedUploads.map((upload) => (
-                  <tr key={upload.id} className="border-b border-slate-200">
-                    <td className="py-3">{upload.title}</td>
-                    <td className="py-3">
-                      {upload.lesson.subject.name} / {upload.lesson.class.name}
-                    </td>
-                    <td className="py-3">
-                      {upload.uploadedBy.name} {upload.uploadedBy.surname}
-                    </td>
-                    <td className="py-3">
-                      {upload.approvedBy ? upload.approvedBy : "Unknown"}
-                    </td>
-                    <td className="py-3">
-                      {upload.approvedAt
-                        ? new Intl.DateTimeFormat("en-US").format(new Date(upload.approvedAt))
-                        : new Intl.DateTimeFormat("en-US").format(new Date(upload.createdAt))}
-                    </td>
-                    <td className="py-3">
-                      <a
-                        className="text-blue-600 underline"
-                        href={upload.fileUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        {upload.fileName}
-                      </a>
-                    </td>
-                    <td className="py-3 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-slate-100 text-slate-700 hover:bg-slate-200"
-                        onClick={() => handlePreview(upload)}
-                        aria-label="Preview exam question"
-                        title="Preview"
-                      >
-                        <Eye size={16} />
-                      </button>
-                      {(role === "admin" || (role === "teacher" && upload.uploadedBy.id === currentUserId)) && (
-                        <button
-                          type="button"
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-rose-600 text-white hover:bg-rose-700"
-                          onClick={() => handleDelete(upload.id)}
-                          aria-label="Delete exam question"
-                          title="Delete"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      )}
-                      {role === "teacher" && upload.uploadedBy.id === currentUserId && (
-                        <button type="button" onClick={() => handleEdit(upload)} className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-amber-100 text-amber-800 hover:bg-amber-200" aria-label="Edit exam question" title="Edit"><Pencil size={15} /></button>
-                      )}
-                    </td>
+              {approvedUploadGroups.map((yearGroup) => yearGroup.terms.map((termGroup) => (
+                <tbody key={`${yearGroup.academicYearLabel}-${termGroup.termNumber}`}>
+                  <tr className="bg-slate-100">
+                    <th colSpan={7} className="py-2 text-left font-semibold text-slate-800">
+                      {yearGroup.academicYearLabel}<span className="ml-2 font-medium text-slate-600">· Term {termGroup.termNumber}</span>
+                      <span className="ml-2 text-xs font-normal text-slate-500">{termGroup.records.length} upload{termGroup.records.length === 1 ? "" : "s"}</span>
+                    </th>
                   </tr>
-                ))}
-              </tbody>
+                  {termGroup.records.map((upload) => (
+                    <tr key={upload.id} className="border-b border-slate-200">
+                      <td className="py-3">{upload.title}</td>
+                      <td className="py-3">{upload.lesson.subject.name} / {upload.lesson.class.name}</td>
+                      <td className="py-3">{upload.uploadedBy.name} {upload.uploadedBy.surname}</td>
+                      <td className="py-3">{upload.approvedByName || "Unknown administrator"}</td>
+                      <td className="py-3">{upload.approvedAt ? new Intl.DateTimeFormat("en-US").format(new Date(upload.approvedAt)) : new Intl.DateTimeFormat("en-US").format(new Date(upload.createdAt))}</td>
+                      <td className="py-3"><a className="text-blue-600 underline" href={upload.fileUrl} target="_blank" rel="noreferrer">{upload.fileName}</a></td>
+                      <td className="py-3 flex flex-wrap gap-2">
+                        <button type="button" className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-slate-100 text-slate-700 hover:bg-slate-200" onClick={() => handlePreview(upload)} aria-label="Preview exam question" title="Preview"><Eye size={16} /></button>
+                        {(role === "admin" || (role === "teacher" && upload.uploadedBy.id === currentUserId)) && <button type="button" className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-rose-600 text-white hover:bg-rose-700" onClick={() => handleDelete(upload.id)} aria-label="Delete exam question" title="Delete"><Trash2 size={15} /></button>}
+                        {role === "teacher" && upload.uploadedBy.id === currentUserId && <button type="button" onClick={() => handleEdit(upload)} className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-amber-100 text-amber-800 hover:bg-amber-200" aria-label="Edit exam question" title="Edit"><Pencil size={15} /></button>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              )))}
             </table>
           </div>
         </div>

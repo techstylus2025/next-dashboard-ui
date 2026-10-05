@@ -15,6 +15,10 @@ type TeacherOption = {
   surname: string;
 };
 
+type ClassOption = LessonOption & {
+  subjects: (LessonOption & { teachers: TeacherOption[] })[];
+};
+
 type LessonFormProps = {
   lesson?: {
     id: number;
@@ -26,9 +30,8 @@ type LessonFormProps = {
     classId: number;
     teacherId: string;
   };
-  teachers: TeacherOption[];
   subjects: LessonOption[];
-  classes: LessonOption[];
+  classes: ClassOption[];
   onSuccess?: () => void;
 };
 
@@ -38,7 +41,6 @@ const parseLessonDate = (value: string | Date): Date => new Date(value);
 
 const LessonForm = ({
   lesson,
-  teachers,
   subjects,
   classes,
   onSuccess,
@@ -67,6 +69,13 @@ const LessonForm = ({
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const selectedClass = classes.find((cls) => cls.id === formData.classId);
+  const classSubjects = selectedClass?.subjects ?? [];
+  const selectedSubject = classSubjects.find(
+    (subject) => subject.id === formData.subjectId
+  );
+  const subjectTeachers = selectedSubject?.teachers ?? [];
 
   useEffect(() => {
     if (!lesson) {
@@ -99,9 +108,31 @@ const LessonForm = ({
     >
   ) => {
     const { name, value } = e.target;
+    if (name === "classId") {
+      setFormData((prev) => ({
+        ...prev,
+        classId: Number(value),
+        subjectId: 0,
+        teacherId: "",
+      }));
+      setError(null);
+      return;
+    }
+    if (name === "subjectId") {
+      const subject = classSubjects.find(
+        (option) => option.id === Number(value)
+      );
+      setFormData((prev) => ({
+        ...prev,
+        subjectId: Number(value),
+        teacherId: subject?.teachers[0]?.id ?? "",
+      }));
+      setError(null);
+      return;
+    }
     setFormData((prev) => ({
       ...prev,
-      [name]: name === "subjectId" || name === "classId" ? Number(value) : value,
+      [name]: value,
     }));
     setError(null);
   };
@@ -229,9 +260,11 @@ const LessonForm = ({
           >
             <option value={0}>Select a subject</option>
             {subjects.map((subject) => (
-              <option key={subject.id} value={subject.id}>
-                {subject.name}
-              </option>
+              classSubjects.some((assigned) => assigned.id === subject.id) && (
+                <option key={subject.id} value={subject.id}>
+                  {subject.name}
+                </option>
+              )
             ))}
           </select>
         </div>
@@ -264,12 +297,17 @@ const LessonForm = ({
             required
           >
             <option value="">Select a teacher</option>
-            {teachers.map((teacher) => (
+            {subjectTeachers.map((teacher) => (
               <option key={teacher.id} value={teacher.id}>
                 {teacher.name} {teacher.surname}
               </option>
             ))}
           </select>
+          {formData.subjectId > 0 && subjectTeachers.length === 0 && (
+            <p className="mt-1 text-xs text-amber-700">
+              No active teachers are assigned to this subject.
+            </p>
+          )}
         </div>
       </div>
 

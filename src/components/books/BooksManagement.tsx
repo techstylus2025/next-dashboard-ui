@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Fragment, useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { toast } from "react-toastify";
 import {
   cancelBookOrder,
@@ -62,7 +62,6 @@ export default function BooksManagement({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [adminTab, setAdminTab] = useState<"books" | "orders">("books");
-  const [collapsedClassIds, setCollapsedClassIds] = useState<Set<number>>(new Set());
 
   const [bookFormOpen, setBookFormOpen] = useState(false);
   const [editingBook, setEditingBook] = useState<BookRow | null>(null);
@@ -129,15 +128,6 @@ export default function BooksManagement({
     }),
     [booksByClass]
   );
-
-  const toggleClass = (classId: number) => {
-    setCollapsedClassIds((current) => {
-      const next = new Set(current);
-      if (next.has(classId)) next.delete(classId);
-      else next.add(classId);
-      return next;
-    });
-  };
 
   const resetBookForm = () => {
     setTitle("");
@@ -478,62 +468,43 @@ export default function BooksManagement({
                 </thead>
                 <tbody>
                   {booksByClass.map((section) => (
-                    <Fragment key={section.classId}>
-                      <tr className="border-b border-slate-200 bg-slate-50">
-                        <th colSpan={8} className="py-2.5 text-left font-semibold text-slate-800">
-                          <button
-                            type="button"
-                            onClick={() => toggleClass(section.classId)}
-                            aria-expanded={!collapsedClassIds.has(section.classId)}
-                            className="flex w-full items-center justify-between gap-4 text-left"
-                          >
-                            <span>
-                              {section.className}
-                              <span className="ml-2 text-xs font-medium text-slate-500">
-                                {section.books.length} book{section.books.length === 1 ? "" : "s"}
-                              </span>
+                    <tr key={section.classId} className="border-b border-slate-200">
+                      <td colSpan={8} className="p-0">
+                        <details className="smooth-disclosure">
+                          <summary className="cursor-pointer list-none bg-slate-50 px-3 py-2.5 font-semibold text-slate-800 hover:bg-slate-100">
+                            {section.className}
+                            <span className="ml-2 text-xs font-medium text-slate-500">
+                              {section.books.length} book{section.books.length === 1 ? "" : "s"}
                             </span>
-                            <span className="text-xs font-medium text-sky-700">
-                              {collapsedClassIds.has(section.classId) ? "Expand" : "Collapse"}
-                            </span>
-                          </button>
-                        </th>
-                      </tr>
-                      {!collapsedClassIds.has(section.classId) && section.books.map((book) => (
-                        <tr
-                          key={book.id}
-                          className="border-b border-slate-100 hover:bg-slate-50/80"
-                        >
-                          <td className="py-3 pr-2 font-medium">{book.title}</td>
-                          <td className="py-3 pr-2 text-slate-600">{book.publication || "—"}</td>
-                          <td className="py-3 pr-2">{book.className}</td>
-                          <td className="py-3 pr-2 text-right">{book.price.toFixed(2)}</td>
-                          <td className="py-3 pr-2 text-center">{book.quantity}</td>
-                          <td className="py-3 pr-2">{book.supplierName}</td>
-                          <td className="py-3 pr-2">{book.supplierContact}</td>
-                          <td className="py-3">
-                            <div className="flex justify-center gap-2">
-                              <button
-                                type="button"
-                                title="Edit"
-                                onClick={() => openEditBook(book)}
-                                className="rounded-lg p-2 hover:bg-sky-100"
-                              >
-                                <Image src="/edit.svg" alt="" width={16} height={16} />
-                              </button>
-                              <button
-                                type="button"
-                                title="Delete"
-                                onClick={() => handleDeleteBook(book.id)}
-                                className="rounded-lg p-2 hover:bg-red-100"
-                              >
-                                <Image src="/delete.svg" alt="" width={16} height={16} />
-                              </button>
+                          </summary>
+                          <div className="smooth-disclosure-panel">
+                            <div className="smooth-disclosure-panel-inner">
+                              <table className="w-full min-w-[720px] text-left text-sm">
+                                <tbody>
+                                  {section.books.map((book) => (
+                                    <tr key={book.id} className="border-b border-slate-100 hover:bg-slate-50/80">
+                                      <td className="py-3 pr-2 font-medium">{book.title}</td>
+                                      <td className="py-3 pr-2 text-slate-600">{book.publication || "—"}</td>
+                                      <td className="py-3 pr-2">{book.className}</td>
+                                      <td className="py-3 pr-2 text-right">{book.price.toFixed(2)}</td>
+                                      <td className="py-3 pr-2 text-center">{book.quantity}</td>
+                                      <td className="py-3 pr-2">{book.supplierName}</td>
+                                      <td className="py-3 pr-2">{book.supplierContact}</td>
+                                      <td className="py-3">
+                                        <div className="flex justify-center gap-2">
+                                          <button type="button" title="Edit" onClick={() => openEditBook(book)} className="rounded-lg p-2 hover:bg-sky-100"><Image src="/edit.svg" alt="" width={16} height={16} /></button>
+                                          <button type="button" title="Delete" onClick={() => handleDeleteBook(book.id)} className="rounded-lg p-2 hover:bg-red-100"><Image src="/delete.svg" alt="" width={16} height={16} /></button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
                             </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </Fragment>
+                          </div>
+                        </details>
+                      </td>
+                    </tr>
                   ))}
                 </tbody>
               </table>
@@ -632,20 +603,14 @@ export default function BooksManagement({
             ) : (
               <div className="space-y-6">
                 {groupedBooksByClass.map(({ classId, className, groups }) => (
-                  <section key={classId} className="space-y-3">
-                    <button
-                      type="button"
-                      onClick={() => toggleClass(classId)}
-                      aria-expanded={!collapsedClassIds.has(classId)}
-                      className="flex w-full items-center justify-between gap-3 border-b border-slate-200 pb-2 text-left"
-                    >
+                  <details key={classId} className="smooth-disclosure">
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 border-b border-slate-200 py-2 text-left">
                       <span className="text-base font-semibold text-slate-800">{className}</span>
-                      <span className="shrink-0 text-xs font-medium text-slate-500">
-                        {groups.length} book set{groups.length === 1 ? "" : "s"} · {collapsedClassIds.has(classId) ? "Show" : "Hide"}
-                      </span>
-                    </button>
-                    {!collapsedClassIds.has(classId) && (
-                      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                      <span className="shrink-0 text-xs font-medium text-slate-500">{groups.length} book set{groups.length === 1 ? "" : "s"}</span>
+                    </summary>
+                    <div className="smooth-disclosure-panel">
+                      <div className="smooth-disclosure-panel-inner">
+                        <div className="grid gap-4 pt-3 sm:grid-cols-2 xl:grid-cols-3">
                         {groups.map((group) => (
                         <div
                           key={`${group.title}-${group.publication}`}
@@ -711,9 +676,10 @@ export default function BooksManagement({
                           </div>
                         </div>
                       ))}
+                        </div>
                       </div>
-                    )}
-                  </section>
+                    </div>
+                  </details>
                 ))}
               </div>
             )}
@@ -797,28 +763,25 @@ export default function BooksManagement({
             <div className="mt-5 space-y-6">
               {booksByClass.map((section) => (
                 <section key={section.classId} aria-label={`${section.className} books`}>
-                  <button
-                    type="button"
-                    onClick={() => toggleClass(section.classId)}
-                    aria-expanded={!collapsedClassIds.has(section.classId)}
-                    className="mb-3 flex w-full items-center justify-between gap-3 border-b border-slate-200 pb-2 text-left"
-                  >
-                    <span className="font-semibold text-slate-800">{section.className}</span>
-                    <span className="shrink-0 text-xs text-slate-500">
-                      {section.books.length} book{section.books.length === 1 ? "" : "s"} · {collapsedClassIds.has(section.classId) ? "Show" : "Hide"}
-                    </span>
-                  </button>
-                  {!collapsedClassIds.has(section.classId) && (
-                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                      {section.books.map((book) => (
-                        <div key={book.id} className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
-                          <p className="font-medium text-slate-800">{book.title}</p>
-                          <p className="mt-1 text-slate-500">{book.publication || "General publication"}</p>
-                          <p className="mt-2 font-semibold text-sky-700">₵{book.price.toFixed(2)}</p>
+                  <details className="smooth-disclosure">
+                    <summary className="mb-3 flex cursor-pointer list-none items-center justify-between gap-3 border-b border-slate-200 pb-2 text-left">
+                      <span className="font-semibold text-slate-800">{section.className}</span>
+                      <span className="shrink-0 text-xs text-slate-500">{section.books.length} book{section.books.length === 1 ? "" : "s"}</span>
+                    </summary>
+                    <div className="smooth-disclosure-panel">
+                      <div className="smooth-disclosure-panel-inner">
+                        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                          {section.books.map((book) => (
+                            <div key={book.id} className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
+                              <p className="font-medium text-slate-800">{book.title}</p>
+                              <p className="mt-1 text-slate-500">{book.publication || "General publication"}</p>
+                              <p className="mt-2 font-semibold text-sky-700">₵{book.price.toFixed(2)}</p>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      </div>
                     </div>
-                  )}
+                  </details>
                 </section>
               ))}
             </div>

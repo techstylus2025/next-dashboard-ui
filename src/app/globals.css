@@ -700,6 +700,29 @@ mark {
   margin: 8mm auto;
 }
 
+.smooth-disclosure > .smooth-disclosure-panel {
+  display: grid !important;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 260ms ease, opacity 200ms ease;
+}
+
+.smooth-disclosure[open] > .smooth-disclosure-panel {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.smooth-disclosure-panel-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .smooth-disclosure > .smooth-disclosure-panel {
+    transition: none;
+  }
+}
+
 .react-calendar {
   width: 100% !important;
   border: none !important;

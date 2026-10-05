@@ -43,6 +43,7 @@ const StudentListPage = async ({ searchParams }: StudentListPageProps) => {
       ? {
           OR: [
             { supervisorId: userId },
+            { assignedTeachers: { some: { id: userId } } },
             { lessons: { some: { teacherId: userId } } },
           ],
         }

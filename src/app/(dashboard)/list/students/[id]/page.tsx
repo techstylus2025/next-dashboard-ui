@@ -38,6 +38,7 @@ const SingleStudentPage = async ({
             class: {
               OR: [
                 { supervisorId: userId },
+                { assignedTeachers: { some: { id: userId } } },
                 { lessons: { some: { teacherId: userId } } },
               ],
             },
@@ -62,13 +63,16 @@ const SingleStudentPage = async ({
     return notFound();
   }
 
-  const feeAssignments = await prisma.studentFeeAssignment.findMany({
-    where: { studentId: id },
-    include: {
-      payments: true,
-      feeSchedule: true,
-    },
-  });
+  const feeAssignments =
+    role === "teacher"
+      ? []
+      : await prisma.studentFeeAssignment.findMany({
+          where: { studentId: id },
+          include: {
+            payments: true,
+            feeSchedule: true,
+          },
+        });
 
   const feeSummary = feeAssignments.reduce(
     (summary, assignment) => {
@@ -95,6 +99,30 @@ const SingleStudentPage = async ({
     }
   );
 
+  const assignedSubjectIds =
+    role === "teacher" && userId
+      ? await (async () => {
+          const [teacher, classItem] = await Promise.all([
+            prisma.teacher.findUnique({
+              where: { id: userId },
+              select: { subjects: { select: { id: true } } },
+            }),
+            prisma.class.findUnique({
+              where: { id: student.classId },
+              select: { subjects: { select: { id: true } } },
+            }),
+          ]);
+          const classSubjectIds = new Set(
+            classItem?.subjects.map((subject) => subject.id) ?? []
+          );
+          return new Set(
+            (teacher?.subjects ?? [])
+              .map((subject) => subject.id)
+              .filter((subjectId) => classSubjectIds.has(subjectId))
+          );
+        })()
+      : null;
+
   const reports = await prisma.termlyReport.findMany({
     where: { studentId: id },
     include: {
@@ -111,7 +139,17 @@ const SingleStudentPage = async ({
     ],
   });
 
-  const latestReport = reports[0] ?? null;
+  const latestReport = reports[0]
+    ? {
+        ...reports[0],
+        overallPercentage: role === "teacher" ? null : reports[0].overallPercentage,
+        overallGrade: role === "teacher" ? null : reports[0].overallGrade,
+        subjectLines: reports[0].subjectLines.filter(
+          (line) =>
+            !assignedSubjectIds || assignedSubjectIds.has(line.subjectId)
+        ),
+      }
+    : null;
 
   function formatMoney(value: number) {
     return `₵${value.toFixed(2)}`;
@@ -401,36 +439,38 @@ const SingleStudentPage = async ({
             </Link>
           </div>
         </div>
-        <div className="bg-white p-4 rounded-md shadow-sm border border-slate-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold">Fee summary</h2>
-              <p className="text-sm text-slate-500">Current billing status for the student.</p>
-            </div>
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs uppercase tracking-[0.2em] text-slate-500">
-              {feeSummary.assignments} bills
-            </span>
-          </div>
-          <div className="mt-4 grid gap-3">
-            <div className="rounded-xl bg-slate-50 p-4">
-              <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-500">Total bill</p>
-              <p className="mt-2 text-2xl font-semibold text-slate-900">{formatMoney(feeSummary.totalBill)}</p>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-xl bg-emerald-50 p-4">
-                <p className="text-xs font-medium uppercase tracking-[0.2em] text-emerald-600">Paid</p>
-                <p className="mt-2 text-xl font-semibold text-emerald-800">{formatMoney(feeSummary.totalPaid)}</p>
+        {role !== "teacher" && (
+          <div className="bg-white p-4 rounded-md shadow-sm border border-slate-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">Fee summary</h2>
+                <p className="text-sm text-slate-500">Current billing status for the student.</p>
               </div>
-              <div className="rounded-xl bg-rose-50 p-4">
-                <p className="text-xs font-medium uppercase tracking-[0.2em] text-rose-600">Outstanding</p>
-                <p className="mt-2 text-xl font-semibold text-rose-800">{formatMoney(feeSummary.totalOutstanding)}</p>
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs uppercase tracking-[0.2em] text-slate-500">
+                {feeSummary.assignments} bills
+              </span>
+            </div>
+            <div className="mt-4 grid gap-3">
+              <div className="rounded-xl bg-slate-50 p-4">
+                <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-500">Total bill</p>
+                <p className="mt-2 text-2xl font-semibold text-slate-900">{formatMoney(feeSummary.totalBill)}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl bg-emerald-50 p-4">
+                  <p className="text-xs font-medium uppercase tracking-[0.2em] text-emerald-600">Paid</p>
+                  <p className="mt-2 text-xl font-semibold text-emerald-800">{formatMoney(feeSummary.totalPaid)}</p>
+                </div>
+                <div className="rounded-xl bg-rose-50 p-4">
+                  <p className="text-xs font-medium uppercase tracking-[0.2em] text-rose-600">Outstanding</p>
+                  <p className="mt-2 text-xl font-semibold text-rose-800">{formatMoney(feeSummary.totalOutstanding)}</p>
+                </div>
               </div>
             </div>
+            <p className="mt-4 text-sm text-slate-500">
+              {feeSummary.fullyPaidAssignments} of {feeSummary.assignments} assignments fully paid.
+            </p>
           </div>
-          <p className="mt-4 text-sm text-slate-500">
-            {feeSummary.fullyPaidAssignments} of {feeSummary.assignments} assignments fully paid.
-          </p>
-        </div>
+        )}
         <div className="bg-white p-4 rounded-md shadow-sm border border-slate-200">
           <div className="flex items-center justify-between mb-4">
             <div>

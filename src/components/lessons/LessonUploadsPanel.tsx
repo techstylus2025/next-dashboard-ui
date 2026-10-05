@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useActionState, startTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "react-toastify";
@@ -11,6 +11,7 @@ import {
   approveLessonDocument,
   deleteLessonDocumentUpload,
 } from "@/lib/actions";
+import { groupUploadsByAcademicPeriod } from "@/lib/groupUploadsByAcademicPeriod";
 
 export type LessonOption = {
   id: number;
@@ -165,24 +166,30 @@ const LessonUploadsPanel = ({
   const showTeacherUploadButton = role === "teacher" && Boolean(activeTermBadge);
   const showPendingSection = pendingUploads.length > 0;
   const showApprovedSection = approvedUploads.length > 0;
+  const pendingUploadGroups = groupUploadsByAcademicPeriod(pendingUploads);
+  const approvedUploadGroups = groupUploadsByAcademicPeriod(approvedUploads);
 
   return (
     <section className="bg-slate-50 p-4 rounded-md mt-6">
       <div className="mb-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="text-lg font-semibold">Lesson Document Uploads</h2>
-          <p className="text-sm text-slate-600">
-            {activeTermBadge
-              ? `Active term: ${activeTermBadge}`
-              : "No active academic term is set. Create or review uploads once the current term is active."}
-          </p>
+          {role !== "teacher" && (
+            <p className="text-sm text-slate-600">
+              {activeTermBadge
+                ? `New uploads use the active term: ${activeTermBadge}. Existing uploads are grouped by academic year and term.`
+                : "Existing uploads are grouped by academic year and term. New uploads are unavailable until an active term is set."}
+            </p>
+          )}
         </div>
 
         <div className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
           <select
             value={statusValue}
             onChange={(event) => updateQuery("status", event.target.value)}
-            className="shrink-0 rounded-md border border-slate-300 bg-white px-2 py-2 text-xs sm:px-3 sm:text-sm"
+            className={`shrink-0 rounded-md border border-slate-300 bg-white px-2 ${
+              role === "teacher" ? "py-1.5 text-xs" : "py-2 text-xs sm:px-3 sm:text-sm"
+            }`}
           >
             <option value="all">All statuses</option>
             <option value="PENDING">Pending review</option>
@@ -191,7 +198,9 @@ const LessonUploadsPanel = ({
           <select
             value={sortByValue}
             onChange={(event) => updateQuery("sortBy", event.target.value)}
-            className="shrink-0 rounded-md border border-slate-300 bg-white px-2 py-2 text-xs sm:px-3 sm:text-sm"
+            className={`shrink-0 rounded-md border border-slate-300 bg-white px-2 ${
+              role === "teacher" ? "py-1.5 text-xs" : "py-2 text-xs sm:px-3 sm:text-sm"
+            }`}
           >
             <option value="default">Sort by latest</option>
             <option value="year">Academic year</option>
@@ -204,7 +213,9 @@ const LessonUploadsPanel = ({
             <select
               value={classValue}
               onChange={(event) => updateQuery("classId", event.target.value)}
-              className="shrink-0 rounded-md border border-slate-300 bg-white px-2 py-2 text-xs sm:px-3 sm:text-sm"
+              className={`shrink-0 rounded-md border border-slate-300 bg-white px-2 ${
+                role === "teacher" ? "py-1.5 text-xs" : "py-2 text-xs sm:px-3 sm:text-sm"
+              }`}
             >
               <option value="all">All classes</option>
               {classFilters.map((classItem) => (
@@ -218,7 +229,9 @@ const LessonUploadsPanel = ({
             <select
               value={subjectValue}
               onChange={(event) => updateQuery("subjectId", event.target.value)}
-              className="shrink-0 rounded-md border border-slate-300 bg-white px-2 py-2 text-xs sm:px-3 sm:text-sm"
+              className={`shrink-0 rounded-md border border-slate-300 bg-white px-2 ${
+                role === "teacher" ? "py-1.5 text-xs" : "py-2 text-xs sm:px-3 sm:text-sm"
+              }`}
             >
               <option value="all">All subjects</option>
               {subjectFilters.map((subject) => (
@@ -276,8 +289,6 @@ const LessonUploadsPanel = ({
           <table className="min-w-full text-left text-sm">
             <thead className="border-b border-slate-300 text-slate-600">
               <tr>
-                <th className="py-2">Year</th>
-                <th className="py-2">Term</th>
                 <th className="py-2">Week</th>
                 <th className="py-2">Subject</th>
                 <th className="py-2">Class</th>
@@ -288,89 +299,50 @@ const LessonUploadsPanel = ({
               </tr>
             </thead>
             <tbody>
-              {pendingUploads.map((upload) => (
-                <tr key={upload.id} className="border-b border-slate-200 even:bg-white odd:bg-slate-50">
-                  <td className="py-3">{upload.academicYearLabel}</td>
-                  <td className="py-3">{upload.termNumber}</td>
-                  <td className="py-3">{upload.weekNumber}</td>
-                  <td className="py-3">{upload.lesson.subject.name}</td>
-                  <td className="py-3">{upload.lesson.class.name}</td>
-                  <td className="py-3">
-                    {upload.uploadedBy.name} {upload.uploadedBy.surname}
-                  </td>
-                  <td className="py-3">{upload.title}</td>
-                  <td className="py-3">
-                    <a
-                      className="text-blue-600 underline"
-                      href={upload.fileUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {upload.fileName}
-                    </a>
-                  </td>
-                  <td className="py-3 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-slate-100 text-slate-700 hover:bg-slate-200"
-                      onClick={() => handlePreview(upload)}
-                      aria-label="Preview lesson document"
-                      title="Preview"
-                    >
-                      <Eye size={16} />
-                    </button>
-                    {role === "admin" && (
-                      <button
-                        type="button"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-emerald-600 text-white hover:bg-emerald-700"
-                        onClick={() => handleApprove(upload.id)}
-                        aria-label="Approve lesson document"
-                        title="Approve"
-                      >
-                        <BadgeCheck size={16} />
-                      </button>
-                    )}
-                    {role === "teacher" && upload.uploadedBy.id === currentUserId && (
-                      <>
-                        <button
-                          type="button"
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-amber-100 text-amber-800 hover:bg-amber-200"
-                          onClick={() => {
-                            setEditingUpload({
-                              id: upload.id,
-                              title: upload.title,
-                              weekNumber: upload.weekNumber,
-                              lessonId: upload.lessonId,
-                              fileName: upload.fileName,
-                              fileUrl: upload.fileUrl,
-                            });
-                            setOpen(true);
-                          }}
-                          aria-label="Edit lesson document"
-                          title="Edit"
-                        >
-                          <Pencil size={15} />
-                        </button>
-                        <button
-                          type="button"
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-rose-600 text-white hover:bg-rose-700"
-                          onClick={() => handleDelete(upload.id)}
-                          aria-label="Delete lesson document"
-                          title="Delete"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </>
-                    )}
-                  </td>
-                </tr>
+              {pendingUploadGroups.map((yearGroup) => (
+                <Fragment key={yearGroup.academicYearLabel}>
+                  <tr className="bg-slate-100">
+                    <th colSpan={7} className="py-2 text-left font-semibold text-slate-800">{yearGroup.academicYearLabel}</th>
+                  </tr>
+                  {yearGroup.terms.map((termGroup) => (
+                    <Fragment key={`${yearGroup.academicYearLabel}-${termGroup.termNumber}`}>
+                      <tr className="bg-slate-50">
+                        <th colSpan={7} className="py-2 pl-4 text-left font-medium text-slate-700">
+                          Term {termGroup.termNumber}<span className="ml-2 text-xs font-normal text-slate-500">{termGroup.records.length} upload{termGroup.records.length === 1 ? "" : "s"}</span>
+                        </th>
+                      </tr>
+                      {termGroup.records.map((upload) => (
+                        <tr key={upload.id} className="border-b border-slate-200 even:bg-white odd:bg-slate-50">
+                          <td className="py-3">{upload.weekNumber}</td>
+                          <td className="py-3">{upload.lesson.subject.name}</td>
+                          <td className="py-3">{upload.lesson.class.name}</td>
+                          <td className="py-3">{upload.uploadedBy.name} {upload.uploadedBy.surname}</td>
+                          <td className="py-3">{upload.title}</td>
+                          <td className="py-3">
+                            <a className="text-blue-600 underline" href={upload.fileUrl} target="_blank" rel="noreferrer">{upload.fileName}</a>
+                          </td>
+                          <td className="py-3 flex flex-wrap gap-2">
+                            <button type="button" className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-slate-100 text-slate-700 hover:bg-slate-200" onClick={() => handlePreview(upload)} aria-label="Preview lesson document" title="Preview"><Eye size={16} /></button>
+                            {role === "admin" && <button type="button" className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-emerald-600 text-white hover:bg-emerald-700" onClick={() => handleApprove(upload.id)} aria-label="Approve lesson document" title="Approve"><BadgeCheck size={16} /></button>}
+                            {role === "teacher" && upload.uploadedBy.id === currentUserId && (
+                              <>
+                                <button type="button" className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-amber-100 text-amber-800 hover:bg-amber-200" onClick={() => { setEditingUpload({ id: upload.id, title: upload.title, weekNumber: upload.weekNumber, lessonId: upload.lessonId, fileName: upload.fileName, fileUrl: upload.fileUrl }); setOpen(true); }} aria-label="Edit lesson document" title="Edit"><Pencil size={15} /></button>
+                                <button type="button" className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-rose-600 text-white hover:bg-rose-700" onClick={() => handleDelete(upload.id)} aria-label="Delete lesson document" title="Delete"><Trash2 size={15} /></button>
+                              </>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </Fragment>
+                  ))}
+                </Fragment>
               ))}
             </tbody>
           </table>
         </div>
       ) : (
         <div className="mt-6 rounded-md border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-600">
-          No pending lesson uploads found for the current term.
+          No pending lesson uploads found.
         </div>
       )}
 
@@ -383,8 +355,6 @@ const LessonUploadsPanel = ({
           <table className="min-w-full text-left text-sm">
             <thead className="border-b border-slate-300 text-slate-600">
               <tr>
-                <th className="py-2">Year</th>
-                <th className="py-2">Term</th>
                 <th className="py-2">Week</th>
                 <th className="py-2">Subject</th>
                 <th className="py-2">Class</th>
@@ -395,73 +365,40 @@ const LessonUploadsPanel = ({
               </tr>
             </thead>
             <tbody>
-              {approvedUploads.map((upload) => (
-                <tr key={upload.id} className="border-b border-slate-200 even:bg-white odd:bg-slate-50">
-                  <td className="py-3">{upload.academicYearLabel}</td>
-                  <td className="py-3">{upload.termNumber}</td>
-                  <td className="py-3">{upload.weekNumber}</td>
-                  <td className="py-3">{upload.lesson.subject.name}</td>
-                  <td className="py-3">{upload.lesson.class.name}</td>
-                  <td className="py-3">
-                    {upload.uploadedBy.name} {upload.uploadedBy.surname}
-                  </td>
-                  <td className="py-3">{upload.title}</td>
-                  <td className="py-3">
-                    <a
-                      className="text-blue-600 underline"
-                      href={upload.fileUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {upload.fileName}
-                    </a>
-                  </td>
-                  <td className="py-3 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-slate-100 text-slate-700 hover:bg-slate-200"
-                      onClick={() => handlePreview(upload)}
-                      aria-label="Preview lesson document"
-                      title="Preview"
-                    >
-                      <Eye size={16} />
-                    </button>
-                    {(role === "admin" || (role === "teacher" && upload.uploadedBy.id === currentUserId)) && (
-                      <>
-                        {role === "teacher" && upload.uploadedBy.id === currentUserId && (
-                          <button
-                            type="button"
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-amber-100 text-amber-800 hover:bg-amber-200"
-                            onClick={() => {
-                              setEditingUpload({
-                                id: upload.id,
-                                title: upload.title,
-                                weekNumber: upload.weekNumber,
-                                lessonId: upload.lessonId,
-                                fileName: upload.fileName,
-                                fileUrl: upload.fileUrl,
-                              });
-                              setOpen(true);
-                            }}
-                            aria-label="Edit lesson document"
-                            title="Edit"
-                          >
-                            <Pencil size={15} />
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-rose-600 text-white hover:bg-rose-700"
-                          onClick={() => handleDelete(upload.id)}
-                          aria-label="Delete lesson document"
-                          title="Delete"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </>
-                    )}
-                  </td>
-                </tr>
+              {approvedUploadGroups.map((yearGroup) => (
+                <Fragment key={yearGroup.academicYearLabel}>
+                  <tr className="bg-slate-100">
+                    <th colSpan={7} className="py-2 text-left font-semibold text-slate-800">{yearGroup.academicYearLabel}</th>
+                  </tr>
+                  {yearGroup.terms.map((termGroup) => (
+                    <Fragment key={`${yearGroup.academicYearLabel}-${termGroup.termNumber}`}>
+                      <tr className="bg-slate-50">
+                        <th colSpan={7} className="py-2 pl-4 text-left font-medium text-slate-700">
+                          Term {termGroup.termNumber}<span className="ml-2 text-xs font-normal text-slate-500">{termGroup.records.length} upload{termGroup.records.length === 1 ? "" : "s"}</span>
+                        </th>
+                      </tr>
+                      {termGroup.records.map((upload) => (
+                        <tr key={upload.id} className="border-b border-slate-200 even:bg-white odd:bg-slate-50">
+                          <td className="py-3">{upload.weekNumber}</td>
+                          <td className="py-3">{upload.lesson.subject.name}</td>
+                          <td className="py-3">{upload.lesson.class.name}</td>
+                          <td className="py-3">{upload.uploadedBy.name} {upload.uploadedBy.surname}</td>
+                          <td className="py-3">{upload.title}</td>
+                          <td className="py-3"><a className="text-blue-600 underline" href={upload.fileUrl} target="_blank" rel="noreferrer">{upload.fileName}</a></td>
+                          <td className="py-3 flex flex-wrap gap-2">
+                            <button type="button" className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-slate-100 text-slate-700 hover:bg-slate-200" onClick={() => handlePreview(upload)} aria-label="Preview lesson document" title="Preview"><Eye size={16} /></button>
+                            {(role === "admin" || (role === "teacher" && upload.uploadedBy.id === currentUserId)) && (
+                              <>
+                                {role === "teacher" && <button type="button" className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-amber-100 text-amber-800 hover:bg-amber-200" onClick={() => { setEditingUpload({ id: upload.id, title: upload.title, weekNumber: upload.weekNumber, lessonId: upload.lessonId, fileName: upload.fileName, fileUrl: upload.fileUrl }); setOpen(true); }} aria-label="Edit lesson document" title="Edit"><Pencil size={15} /></button>}
+                                <button type="button" className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-rose-600 text-white hover:bg-rose-700" onClick={() => handleDelete(upload.id)} aria-label="Delete lesson document" title="Delete"><Trash2 size={15} /></button>
+                              </>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </Fragment>
+                  ))}
+                </Fragment>
               ))}
             </tbody>
           </table>

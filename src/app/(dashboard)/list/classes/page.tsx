@@ -13,6 +13,7 @@ import { auth } from "@clerk/nextjs/server";
 type ClassList = Class & {
   supervisor: Teacher | null;
   grade: { level: string } | null;
+  _count: { students: number };
 };
 
 const buildClassReport = async (
@@ -125,6 +126,9 @@ const columns = [
     header: "Class Name",
     accessor: "name",
   },
+  ...(role === "admin"
+    ? [{ header: "Students", accessor: "studentCount" }]
+    : []),
   {
     header: "Capacity",
     accessor: "capacity",
@@ -164,6 +168,13 @@ const renderRow = (item: ClassList) => {
     className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-lamaPurpleLight"
   >
     <td className="flex items-center gap-4 p-4">{item.name}</td>
+    {role === "admin" && (
+      <td className="px-4 py-3">
+        <span className="inline-flex min-w-10 items-center justify-center rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700">
+          {item._count.students}
+        </span>
+      </td>
+    )}
     <td className="hidden md:table-cell">{item.capacity}</td>
     <td className="hidden md:table-cell">{gradeLabel}</td>
     <td className="hidden md:table-cell">{supervisorName}</td>
@@ -213,6 +224,7 @@ const renderRow = (item: ClassList) => {
       include: {
         supervisor: true,
         grade: { select: { level: true } },
+        _count: { select: { students: { where: { isArchived: false } } } },
       },
       take: ITEM_PER_PAGE,
       skip: ITEM_PER_PAGE * (p - 1),

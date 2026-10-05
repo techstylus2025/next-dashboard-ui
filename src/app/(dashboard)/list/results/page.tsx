@@ -1,12 +1,10 @@
 import ResultsPageOfflineWrapper from "@/components/results/ResultsPageOfflineWrapper";
 import { loadResultsPageData } from "@/lib/resultsData";
-import { auth } from "@clerk/nextjs/server";
+import { getCurrentAuthContext } from "@/lib/auth";
 
 export default async function ResultsPage() {
-  const { userId, sessionClaims } = await auth();
-  const role = (sessionClaims?.metadata as { role?: string })?.role;
-
-  const pageData = await loadResultsPageData(userId ?? undefined, role);
+  const { userId, role } = await getCurrentAuthContext();
+  const pageData = await loadResultsPageData(userId ?? undefined, role ?? undefined);
 
   return (
     <div className="flex-1 p-4 min-h-[60vh] rounded-2xl bg-lamaSkyLight">

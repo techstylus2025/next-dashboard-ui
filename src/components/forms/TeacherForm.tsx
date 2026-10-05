@@ -46,14 +46,17 @@ const TeacherForm = ({
     handleSubmit,
     formState: { errors },
     reset,
+    watch,
   } = useForm<TeacherSchema>({
     resolver: zodResolver(teacherSchema) as any,
-    defaultValues: data
-      ? {
-          ...data,
-          birthday: formatDateValue(data.birthday),
-        }
-      : undefined,
+    defaultValues: {
+      ...data,
+      birthday: formatDateValue(data?.birthday),
+      subjects: data?.subjects?.map((subject: { id: number } | number) =>
+        String(typeof subject === "number" ? subject : subject.id)
+      ) ?? [],
+      classIds: data?.assignedClasses?.map((cls: { id: number }) => cls.id) ?? [],
+    },
   });
 
   const [img, setImg] = useState<any>(data?.img);
@@ -63,6 +66,10 @@ const TeacherForm = ({
       reset({
         ...data,
         birthday: formatDateValue(data.birthday),
+        subjects: data.subjects?.map((subject: { id: number } | number) =>
+          String(typeof subject === "number" ? subject : subject.id)
+        ) ?? [],
+        classIds: data.assignedClasses?.map((cls: { id: number }) => cls.id) ?? [],
       });
       setImg(data.img);
     }
@@ -92,7 +99,17 @@ const TeacherForm = ({
     }
   }, [state, router, type, setOpen]);
 
-  const { subjects } = relatedData;
+  const { subjects = [], classes = [] } = relatedData ?? {};
+  const selectedSubjects = watch("subjects") ?? [];
+  const selectedClassIds = watch("classIds") ?? [];
+  const selectedClassIdSet = new Set(selectedClassIds.map(Number));
+  const availableSubjects = subjects.filter((subject: {
+    id: number;
+    classes: { id: number }[];
+  }) =>
+    subject.classes.some((cls) => selectedClassIdSet.has(cls.id)) ||
+    selectedSubjects.includes(String(subject.id))
+  );
 
   return (
     <form className="flex flex-col gap-6" onSubmit={onSubmit}>
@@ -219,23 +236,100 @@ const TeacherForm = ({
 
       <FormSection
         title="Teaching assignment"
-        description="Select the subjects this teacher is qualified to teach."
+        description="Assign one or more classes and subjects. Subject options are limited to subjects offered in the selected classes."
       >
-        <FormSelect
-          label="Subjects"
-          name="subjects"
-          register={register}
-          error={errors.subjects as any}
-          defaultValue={data?.subjects as any}
-          multiple
-          options={subjects.map((subject: { id: number; name: string }) => ({
-            value: subject.id,
-            label: subject.name,
-          }))}
-        />
-        <p className="mt-2 text-xs text-slate-500">
-          Hold Ctrl (Windows) or Cmd (Mac) to select multiple subjects.
-        </p>
+        <fieldset>
+          <legend className="mb-2 text-sm font-medium text-slate-700">
+            Classes
+          </legend>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {classes.map((classItem: { id: number; name: string }) => (
+              <label
+                key={classItem.id}
+                className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700"
+              >
+                <input
+                  type="checkbox"
+                  value={classItem.id}
+                  {...register("classIds")}
+                  className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                />
+                {classItem.name}
+              </label>
+            ))}
+          </div>
+          {errors.classIds?.message && (
+            <p className="mt-2 text-xs text-red-500">
+              {errors.classIds.message}
+            </p>
+          )}
+        </fieldset>
+
+        <fieldset className="mt-5">
+          <legend className="mb-2 text-sm font-medium text-slate-700">
+            Subjects
+          </legend>
+          {selectedClassIds.length === 0 ? (
+            <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-500">
+              Select at least one class to see its available subjects.
+            </p>
+          ) : availableSubjects.length === 0 ? (
+            <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+              The selected classes do not have any subjects assigned yet.
+            </p>
+          ) : (
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {availableSubjects.map((subject: {
+                id: number;
+                name: string;
+                grade: { level: string; label: string | null };
+              }) => {
+                const sameNameLevels = new Set(
+                  availableSubjects
+                    .filter((item: { name: string }) =>
+                      item.name.trim().toLowerCase() === subject.name.trim().toLowerCase()
+                    )
+                    .map((item: { grade: { level: string } }) => item.grade.level)
+                );
+                const levelInitials: Record<string, string> = {
+                  CRECHE: "C",
+                  NURSERY: "N",
+                  KINDERGARTEN: "K",
+                  PRIMARY: "P",
+                  JHS: "JHS",
+                };
+                const label =
+                  sameNameLevels.size > 1
+                    ? `${subject.name} (${levelInitials[subject.grade.level] ?? subject.grade.level})`
+                    : subject.name;
+                return (
+                  <label
+                    key={subject.id}
+                    className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700"
+                  >
+                    <input
+                      type="checkbox"
+                      value={subject.id}
+                      {...register("subjects")}
+                      className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                    />
+                    {label}
+                  </label>
+                );
+              })}
+            </div>
+          )}
+          {errors.subjects?.message && (
+            <p className="mt-2 text-xs text-red-500">
+              {errors.subjects.message}
+            </p>
+          )}
+          {type === "update" && availableSubjects.length === 0 && selectedSubjects.length > 0 && (
+            <p className="mt-2 text-xs text-slate-500">
+              Previously assigned subjects are no longer offered in the selected classes.
+            </p>
+          )}
+        </fieldset>
       </FormSection>
 
       {state.error ? (

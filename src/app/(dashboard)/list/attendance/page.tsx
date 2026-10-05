@@ -4,6 +4,8 @@ import AttendanceManager, {
 } from "@/components/AttendanceManager";
 import ClassAttendanceBoard from "@/components/attendance/ClassAttendanceBoard";
 import ParentAttendanceRecords from "@/components/attendance/ParentAttendanceRecords";
+import { getActiveAcademicPeriod } from "@/lib/academicContext";
+import { getAttendanceDateRestriction } from "@/lib/attendanceDateRules";
 import { getCurrentAuthContext } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
@@ -28,6 +30,7 @@ const AttendancePage = async ({
   const currentUserId = authContext.userId;
 
   if ((role === "admin" || role === "teacher") && currentUserId) {
+    const attendanceRestriction = await getAttendanceDateRestriction(selectedDateString);
     const classes = await prisma.class.findMany({
       where: role === "admin" ? {} : { supervisorId: currentUserId },
       select: {
@@ -62,6 +65,7 @@ const AttendancePage = async ({
             id: true,
             name: true,
             surname: true,
+            subjects: { select: { name: true } },
             attendances: {
               where: {
                 isArchived: false,
@@ -77,6 +81,60 @@ const AttendancePage = async ({
         })
       : [];
 
+    const activePeriod = role === "admin" ? await getActiveAcademicPeriod() : null;
+    const termStart = activePeriod?.termStart ?? null;
+    const termEndExclusive = activePeriod?.termEnd ? new Date(activePeriod.termEnd) : null;
+    if (termEndExclusive) termEndExclusive.setDate(termEndExclusive.getDate() + 1);
+    const studentIds = classes.flatMap((classGroup) => classGroup.students.map((student) => student.id));
+    const teacherIds = teachers.map((teacher) => teacher.id);
+
+    const [studentTermRecords, teacherTermRecords] = role === "admin" && termStart && termEndExclusive
+      ? await Promise.all([
+          studentIds.length
+            ? prisma.attendance.findMany({
+                where: { isArchived: false, teacherId: null, studentId: { in: studentIds }, date: { gte: termStart, lt: termEndExclusive } },
+                select: { studentId: true, present: true },
+              })
+            : Promise.resolve([]),
+          teacherIds.length
+            ? prisma.attendance.findMany({
+                where: { isArchived: false, studentId: null, teacherId: { in: teacherIds }, date: { gte: termStart, lt: termEndExclusive } },
+                select: { teacherId: true, present: true },
+              })
+            : Promise.resolve([]),
+        ])
+      : [[], []];
+
+    const summarizeRecords = (records: { id: string; present: boolean }[]) => {
+      const counts = new Map<string, { presentCount: number; markedCount: number }>();
+      for (const record of records) {
+        const count = counts.get(record.id) ?? { presentCount: 0, markedCount: 0 };
+        count.markedCount += 1;
+        if (record.present) count.presentCount += 1;
+        counts.set(record.id, count);
+      }
+      return counts;
+    };
+    const studentCounts = summarizeRecords(studentTermRecords.flatMap((record) => record.studentId ? [{ id: record.studentId, present: record.present }] : []));
+    const teacherCounts = summarizeRecords(teacherTermRecords.flatMap((record) => record.teacherId ? [{ id: record.teacherId, present: record.present }] : []));
+    const studentTermSummary = classes.flatMap((classGroup) => classGroup.students.map((student) => ({
+      id: student.id,
+      name: student.name,
+      surname: student.surname,
+      className: classGroup.name,
+      ...(studentCounts.get(student.id) ?? { presentCount: 0, markedCount: 0 }),
+    })));
+    const teacherTermSummary = teachers.map((teacher) => ({
+      id: teacher.id,
+      name: teacher.name,
+      surname: teacher.surname,
+      subjects: teacher.subjects.map((subject) => subject.name),
+      ...(teacherCounts.get(teacher.id) ?? { presentCount: 0, markedCount: 0 }),
+    }));
+    const termSummaryLabel = activePeriod?.yearLabel && activePeriod.termNumber !== null
+      ? `${activePeriod.yearLabel} · Term ${activePeriod.termNumber}`
+      : null;
+
     return (
       <div className="min-h-full bg-slate-50 p-4 sm:p-6">
         <ClassAttendanceBoard
@@ -84,6 +142,10 @@ const AttendancePage = async ({
           selectedDate={selectedDateString}
           classes={classes}
           teachers={teachers}
+          studentTermSummary={studentTermSummary}
+          teacherTermSummary={teacherTermSummary}
+          termSummaryLabel={termSummaryLabel}
+          attendanceRestriction={attendanceRestriction}
         />
       </div>
     );

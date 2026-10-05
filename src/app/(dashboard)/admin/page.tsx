@@ -1,15 +1,9 @@
 import Announcements from "@/components/Announcements";
-import AttendanceChartContainer from "@/components/AttendanceChartContainer";
-import CountChartContainer from "@/components/CountChartContainer";
 import EventCalendarContainer from "@/components/EventCalendarContainer";
-import FinanceChart from "@/components/FinanceChart";
 import PasswordChangeApprovalPanel from "@/components/PasswordChangeApprovalPanel";
-import RoleShell from "@/components/dashboard/RoleShell";
 import SectionCard from "@/components/dashboard/SectionCard";
 import StatCard from "@/components/dashboard/StatCard";
 import QuickActionCard from "@/components/dashboard/QuickActionCard";
-import EmptyState from "@/components/EmptyState";
-import TermPerformanceToggle from "@/components/dashboard/TermPerformanceToggle";
 import PerformanceComparePanel from "@/components/dashboard/PerformanceComparePanel";
 import UpcomingEvents from "@/components/dashboard/UpcomingEvents";
 import FeePaymentChart from "@/components/dashboard/FeePaymentChart";
@@ -17,6 +11,7 @@ import AdminDashboardAutoRefresh from "@/components/dashboard/AdminDashboardAuto
 import { getPendingPasswordChangeRequests } from "@/lib/profileActions";
 import { loadAdminDashboardSummary } from "@/lib/dashboardStats";
 import { CalendarDays, ChartColumn, GraduationCap, Megaphone, School, Sparkles, Users, ClipboardCheck, BookOpen, FileText, Bell, PlusCircle } from "lucide-react";
+import Link from "next/link";
 
 const AdminPage = async ({ searchParams }: { searchParams: Promise<{ [key: string]: string | undefined }> }) => {
   const [pendingRequests, summary] = await Promise.all([
@@ -30,6 +25,12 @@ const AdminPage = async ({ searchParams }: { searchParams: Promise<{ [key: strin
     day: "numeric",
     year: "numeric",
   });
+  const greeting =
+    new Date().getHours() < 12
+      ? "Good morning"
+      : new Date().getHours() < 18
+        ? "Good afternoon"
+        : "Good evening";
 
   const attendanceDonutStyle = {
     background: `conic-gradient(#0ea5e9 0 ${summary.attendanceTodayRate}%, #e2e8f0 ${summary.attendanceTodayRate}% 100%)`,
@@ -47,22 +48,65 @@ const AdminPage = async ({ searchParams }: { searchParams: Promise<{ [key: strin
   ];
 
   return (
-    <>
+    <main className="min-h-full space-y-6 bg-slate-50/70 p-4 sm:p-6 lg:p-8">
       <AdminDashboardAutoRefresh />
-      <div className="grid gap-3 grid-cols-2 sm:grid-cols-2 xl:grid-cols-4">
+      <header className="relative isolate overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 px-5 py-7 text-white shadow-xl shadow-slate-900/10 sm:px-8 sm:py-9">
+        <div className="pointer-events-none absolute -right-12 -top-24 -z-10 h-72 w-72 rounded-full bg-sky-400/15 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-36 right-1/3 -z-10 h-72 w-72 rounded-full bg-violet-400/10 blur-3xl" />
+        <div className="relative flex flex-col justify-between gap-7 lg:flex-row lg:items-end">
+          <div>
+            <p className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-sky-200">
+              <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.8)]" />
+              School administration
+            </p>
+            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+              {greeting}, Admin
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
+              Your school at a glance. Review today&apos;s activity and keep learning, operations, and families moving forward.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-400/15 text-sky-200">
+                <CalendarDays size={19} />
+              </span>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Today</p>
+                <p className="mt-0.5 text-sm font-medium text-white">{currentDate}</p>
+              </div>
+            </div>
+            <Link
+              href="/list/students"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-sky-400 px-4 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-sky-950/20 transition hover:bg-sky-300"
+            >
+              <PlusCircle size={17} />
+              Add a student
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      <section aria-label="School overview" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard title="Total Students" value={summary.totalStudents.toLocaleString()} detail="Registered learners in the school" accent="from-sky-500 to-blue-600" icon={<GraduationCap size={18} />} />
         <StatCard title="Teachers" value={summary.totalTeachers.toLocaleString()} detail="Active teaching staff" accent="from-violet-500 to-indigo-600" icon={<Users size={18} />} />
         <StatCard title="Classes" value={summary.totalClasses.toLocaleString()} detail="Currently available classes" accent="from-emerald-500 to-teal-600" icon={<School size={18} />} />
         <StatCard title="Attendance Today" value={`${summary.attendanceTodayRate}%`} detail={`${summary.attendanceTodayPresent}/${summary.attendanceTodayTotal} marked`} accent="from-amber-500 to-orange-500" icon={<ChartColumn size={18} />} />
-      </div>
+      </section>
       <SectionCard title="Quick Actions" subtitle="Move quickly across the most common school operations">
-        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {quickActions.map((action, index) => (
             <QuickActionCard key={action.title} {...action} colorVariant={index as 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7} />
           ))}
         </div>
       </SectionCard>
-      <div className="grid gap-4">
+      <section className="space-y-4" aria-label="Academic performance">
+        <div className="flex items-end justify-between gap-3 px-1">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Academic insights</p>
+            <h2 className="mt-1 text-xl font-semibold tracking-tight text-slate-950">Learning performance</h2>
+          </div>
+        </div>
         <SectionCard title="Student Performance" subtitle="Average academic performance by class">
           <PerformanceComparePanel initialTerms={
             summary.performanceByTerm && summary.performanceByTerm.length > 0
@@ -75,7 +119,7 @@ const AdminPage = async ({ searchParams }: { searchParams: Promise<{ [key: strin
           } />
         </SectionCard>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           <SectionCard title="Attendance Overview" subtitle="Daily present and absent split">
             <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start">
               <div className="flex items-center justify-center">
@@ -160,9 +204,14 @@ const AdminPage = async ({ searchParams }: { searchParams: Promise<{ [key: strin
             <UpcomingEvents events={summary.upcomingEvents} />
           </SectionCard>
         </div>
-      </div>
+      </section>
 
-      <div className="grid gap-5 grid-cols-1 md:grid-cols-3">
+      <section className="space-y-4" aria-label="School operations">
+        <div className="px-1">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">School operations</p>
+          <h2 className="mt-1 text-xl font-semibold tracking-tight text-slate-950">Stay on top of the day</h2>
+        </div>
+      <div className="grid gap-4 grid-cols-1 xl:grid-cols-3">
         <SectionCard title="Recent Activities" subtitle="Live school activity feed">
           <div className="space-y-3">
             {summary.recentActivities.map((activity) => (
@@ -189,17 +238,16 @@ const AdminPage = async ({ searchParams }: { searchParams: Promise<{ [key: strin
         </SectionCard>
       </div>
 
-      
-
-      <div className="grid gap-5 grid-cols-1 md:grid-cols-2">
-        <div className="rounded-[14px] bg-white p-4 shadow-[0_22px_45px_-24px_rgba(7,26,73,0.2)]">
+      <div className="grid gap-4 grid-cols-1 xl:grid-cols-2">
+        <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
           <EventCalendarContainer searchParams={searchParams} />
         </div>
-        <div className="rounded-[14px] bg-white p-4 shadow-[0_22px_45px_-24px_rgba(7,26,73,0.2)]">
+        <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
           <PasswordChangeApprovalPanel initialRequests={pendingRequests} />
         </div>
       </div>
-    </>
+      </section>
+    </main>
   );
 };
 

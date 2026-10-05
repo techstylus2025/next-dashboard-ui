@@ -1,9 +1,26 @@
 import FeesManagement from "@/components/fees/FeesManagement";
+import FeesPasswordGate from "@/components/fees/FeesPasswordGate";
 import { getCurrentAuthContext } from "@/lib/auth";
+import { hasFeePageAccess } from "@/lib/feePageAccess";
 import prisma from "@/lib/prisma";
 
 export default async function FeesPage() {
   const { userId, role } = await getCurrentAuthContext();
+  if (role === "admin" && !(await hasFeePageAccess(userId))) {
+    return <FeesPasswordGate />;
+  }
+
+  const schoolSettings = await prisma.schoolSetting.findFirst({
+    select: { name: true, address: true, telephone: true, location: true, email: true, logoUrl: true },
+  });
+  const schoolDetails = {
+    name: schoolSettings?.name?.trim() || "School",
+    address: schoolSettings?.address ?? null,
+    telephone: schoolSettings?.telephone ?? null,
+    location: schoolSettings?.location ?? null,
+    email: schoolSettings?.email ?? null,
+    logoUrl: schoolSettings?.logoUrl ?? null,
+  };
 
   const studentScope = role === "parent" && userId
     ? { parentId: userId, isArchived: false }
@@ -83,8 +100,7 @@ export default async function FeesPage() {
     orderBy: { id: "desc" },
   });
 
-  const assignmentOptions = allAssignments
-    .map((a) => {
+  const feeStatusAssignments = allAssignments.map((a) => {
       const totalBill = Number(a.totalBillCedis);
       const paidSoFar = a.payments.reduce((s, p) => s + Number(p.amountCedis), 0);
       const balance = totalBill - paidSoFar;
@@ -99,9 +115,10 @@ export default async function FeesPage() {
         paidSoFar,
         balance,
         lastPaymentDate: last ? last.toISOString() : null,
+        paymentCount: a.payments.length,
       };
-    })
-    .filter((a) => a.balance > 0.009);
+    });
+  const assignmentOptions = feeStatusAssignments.filter((assignment) => assignment.balance > 0.009);
 
   const paymentsRaw = await prisma.feePayment.findMany({
     where: role === "parent" && userId
@@ -124,6 +141,17 @@ export default async function FeesPage() {
     orderBy: { paidAt: "desc" },
   });
 
+  const paymentCountById = new Map<number, number>();
+  const assignmentPaymentCounts = new Map<number, number>();
+  [...paymentsRaw]
+    .sort((paymentA, paymentB) => paymentA.paidAt.getTime() - paymentB.paidAt.getTime() || paymentA.id - paymentB.id)
+    .forEach((payment) => {
+      const assignmentId = payment.studentFeeAssignmentId;
+      const paymentCount = (assignmentPaymentCounts.get(assignmentId) ?? 0) + 1;
+      assignmentPaymentCounts.set(assignmentId, paymentCount);
+      paymentCountById.set(payment.id, paymentCount);
+    });
+
   const paymentRowsFull = paymentsRaw.map((p) => ({
     id: p.id,
     assignmentId: p.studentFeeAssignmentId,
@@ -133,6 +161,7 @@ export default async function FeesPage() {
     academicYear: p.assignment.feeSchedule.academicYear,
     amount: Number(p.amountCedis),
     paidAt: p.paidAt.toISOString(),
+    paymentCount: paymentCountById.get(p.id) ?? 1,
     paymentMethod: p.paymentMethod,
     methodDetails: p.methodDetails,
     studentId: p.assignment.student.id,
@@ -173,6 +202,7 @@ export default async function FeesPage() {
       paidSoFar,
       balance,
       lastPaymentDate: last ? new Date(last).toISOString() : null,
+      paymentCount: (a.payments ?? []).length,
     };
   };
 
@@ -208,10 +238,12 @@ export default async function FeesPage() {
     <div className="flex-1 p-2 min-h-[60vh] rounded-xl bg-slate-50">
       <FeesManagement
         role={role ?? undefined}
+        schoolDetails={schoolDetails}
         classes={classes}
         classFeeCards={classFeeCards}
         // show assignment options for parents and students as well as admins
         assignmentOptions={role === "parent" || role === "student" ? assignmentOptions : canCollect ? assignmentOptions : []}
+        feeStatusAssignments={feeStatusAssignments}
         payments={payments}
         canAdmin={canAdmin}
         canCollect={canCollect}

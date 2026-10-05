@@ -10,6 +10,7 @@ import prisma from "@/lib/prisma";
 import { getActiveAcademicPeriod } from "@/lib/academicContext";
 import { ITEM_PER_PAGE } from "@/lib/settings";
 import { Class, Exam, Prisma, Subject, Teacher } from "@prisma/client";
+import { clerkClient } from "@clerk/nextjs/server";
 import Image from "next/image";
 
 type ExamList = Exam & {
@@ -18,6 +19,7 @@ type ExamList = Exam & {
     class: Class;
     teacher: Teacher;
   };
+  invigilators: { id: string; name: string; surname: string }[];
 };
 
 const ExamListPage = async ({
@@ -50,6 +52,7 @@ const ExamListPage = async ({
       : [];
 
   const teacherOptions = await prisma.teacher.findMany({
+    where: { isArchived: false },
     select: { id: true, name: true, surname: true },
     orderBy: { name: "asc" },
   });
@@ -69,11 +72,16 @@ const columns = [
     className: "hidden md:table-cell",
   },
   {
+    header: "Invigilators",
+    accessor: "invigilators",
+    className: "hidden lg:table-cell",
+  },
+  {
     header: "Date",
     accessor: "date",
     className: "hidden md:table-cell",
   },
-  ...(role === "admin" || role === "teacher"
+  ...(role === "admin"
     ? [
         {
           header: "Actions",
@@ -96,10 +104,17 @@ const renderRow = (item: ExamList) => {
       <td className="p-4">{item.lesson?.subject?.name ?? "Unknown subject"}</td>
       <td className="p-4">{item.lesson?.class?.name ?? "Unknown class"}</td>
       <td className="hidden p-4 md:table-cell">{teacherName}</td>
+      <td className="hidden p-4 lg:table-cell">
+        {item.invigilators.length > 0
+          ? item.invigilators
+              .map((teacher) => `${teacher.name} ${teacher.surname}`.trim())
+              .join(", ")
+          : "—"}
+      </td>
       <td className="hidden p-4 md:table-cell">
         {new Intl.DateTimeFormat("en-US").format(item.startTime)}
       </td>
-      {(role === "admin" || role === "teacher") && (
+      {role === "admin" && (
         <td className="p-4">
           <div className="flex items-center gap-2">
             <FormContainer table="exam" type="update" data={item} />
@@ -184,32 +199,26 @@ const renderRow = (item: ExamList) => {
       break;
   }
 
-  const pendingUploadWhere: Prisma.ExamQuestionUploadWhereInput =
-    activePeriod.yearLabel && activePeriod.termNumber !== null
-      ? {
-          academicYearLabel: activePeriod.yearLabel,
-          termNumber: activePeriod.termNumber,
-          documentType: "EXAM_QUESTION",
-          status: "PENDING",
-          ...(role === "teacher" ? { uploadedById: currentUserId! } : {}),
-        }
-      : { id: -1 };
+  const pendingUploadWhere: Prisma.ExamQuestionUploadWhereInput = {
+    documentType: "EXAM_QUESTION",
+    status: "PENDING",
+    ...(role === "teacher" ? { uploadedById: currentUserId! } : {}),
+  };
 
-  const approvedUploadWhere: Prisma.ExamQuestionUploadWhereInput =
-    activePeriod.yearLabel && activePeriod.termNumber !== null
-      ? {
-          academicYearLabel: activePeriod.yearLabel,
-          termNumber: activePeriod.termNumber,
-          documentType: "EXAM_QUESTION",
-          status: "APPROVED",
-          ...(role === "teacher" ? { uploadedById: currentUserId! } : {}),
-        }
-      : { id: -1 };
+  const approvedUploadWhere: Prisma.ExamQuestionUploadWhereInput = {
+    documentType: "EXAM_QUESTION",
+    status: "APPROVED",
+    ...(role === "teacher" ? { uploadedById: currentUserId! } : {}),
+  };
 
   const [data, count, pendingUploads, approvedUploads] = await Promise.all([
     prisma.exam.findMany({
       where: examQuery,
       include: {
+        invigilators: {
+          select: { id: true, name: true, surname: true },
+          orderBy: { name: "asc" },
+        },
         lesson: {
           select: {
             id: true,
@@ -253,6 +262,45 @@ const renderRow = (item: ExamList) => {
     }),
   ]);
 
+  const approverIds = [...new Set(
+    approvedUploads
+      .map((upload) => upload.approvedBy)
+      .filter((approverId): approverId is string => Boolean(approverId))
+  )];
+  const [localUsers, localAdmins] = await Promise.all([
+    prisma.user.findMany({
+      where: { id: { in: approverIds } },
+      select: { id: true, username: true },
+    }),
+    prisma.admin.findMany({
+      where: { id: { in: approverIds } },
+      select: { id: true, username: true },
+    }),
+  ]);
+  const approverNames = new Map<string, string>();
+  for (const user of [...localUsers, ...localAdmins]) {
+    if (user.username) approverNames.set(user.id, user.username);
+  }
+
+  if (approverIds.length > 0) {
+    try {
+      const clerk = await clerkClient();
+      await Promise.all(approverIds.map(async (approverId) => {
+        try {
+          const user = await clerk.users.getUser(approverId);
+          const displayName = [user.firstName, user.lastName].filter(Boolean).join(" ")
+            || user.username
+            || user.emailAddresses[0]?.emailAddress;
+          if (displayName) approverNames.set(approverId, displayName);
+        } catch {
+          // Some app-managed admin IDs do not correspond to Clerk users.
+        }
+      }));
+    } catch {
+      // Local usernames remain available when Clerk cannot be reached.
+    }
+  }
+
   const sortedData = [...data].sort((a, b) => {
     const direction = sortOrder === "asc" ? 1 : -1;
 
@@ -292,6 +340,8 @@ const renderRow = (item: ExamList) => {
     fileName: upload.fileName,
     fileUrl: upload.fileUrl,
     status: upload.status,
+    academicYearLabel: upload.academicYearLabel,
+    termNumber: upload.termNumber,
     lessonId: upload.lesson.id,
     lesson: upload.lesson,
     uploadedBy: upload.uploadedBy,
@@ -304,10 +354,14 @@ const renderRow = (item: ExamList) => {
     fileName: upload.fileName,
     fileUrl: upload.fileUrl,
     status: upload.status,
+    academicYearLabel: upload.academicYearLabel,
+    termNumber: upload.termNumber,
     lessonId: upload.lesson.id,
     lesson: upload.lesson,
     uploadedBy: upload.uploadedBy,
-    approvedBy: upload.approvedBy,
+    approvedByName: upload.approvedBy
+      ? approverNames.get(upload.approvedBy) ?? "Unknown administrator"
+      : "Unknown administrator",
     createdAt: upload.createdAt.toISOString(),
     approvedAt: upload.approvedAt?.toISOString() ?? null,
   }));
@@ -330,10 +384,11 @@ const renderRow = (item: ExamList) => {
               initialSortOrder={sortOrder}
             />
             {role === "admin" && (
-              <ExamTimetableModal classes={adminClasses} lessons={adminLessons} />
-            )}
-            {(role === "admin" || role === "teacher") && (
-              <FormContainer table="exam" type="create" />
+              <ExamTimetableModal
+                classes={adminClasses}
+                lessons={adminLessons}
+                teachers={teacherOptions}
+              />
             )}
           </div>
         </div>

@@ -15,6 +15,35 @@ export type LessonInput = {
   teacherId: string;
 };
 
+async function validateLessonAssignment(input: LessonInput): Promise<string | null> {
+  const [classHasSubject, teacherAssignedToSubject] = await Promise.all([
+    prisma.class.findFirst({
+      where: {
+        id: input.classId,
+        subjects: { some: { id: input.subjectId } },
+      },
+      select: { id: true },
+    }),
+    prisma.subject.findFirst({
+      where: {
+        id: input.subjectId,
+        teachers: {
+          some: { id: input.teacherId, isArchived: false },
+        },
+      },
+      select: { id: true },
+    }),
+  ]);
+
+  if (!classHasSubject) {
+    return "The selected subject is not assigned to this class.";
+  }
+  if (!teacherAssignedToSubject) {
+    return "The selected teacher is not actively assigned to this subject.";
+  }
+  return null;
+}
+
 // Helper to create a date with specific day of week and time
 const createLessonDateTime = (dayString: string, timeString: string): Date => {
   // Map day name to day of week (0 = Sunday, 1 = Monday, etc.)
@@ -54,6 +83,11 @@ export async function createLesson(input: LessonInput) {
 
     if (!userId) {
       return { success: false, error: "User not authenticated" };
+    }
+
+    const assignmentError = await validateLessonAssignment(input);
+    if (assignmentError) {
+      return { success: false, error: assignmentError };
     }
 
     const startDateTime = createLessonDateTime(input.day, input.startTime);
@@ -159,6 +193,11 @@ export async function updateLesson(input: LessonInput) {
 
     if (!userId || !input.id) {
       return { success: false, error: "Invalid input" };
+    }
+
+    const assignmentError = await validateLessonAssignment(input);
+    if (assignmentError) {
+      return { success: false, error: assignmentError };
     }
 
     const startDateTime = createLessonDateTime(input.day, input.startTime);

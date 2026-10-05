@@ -19,6 +19,7 @@ type AuthCtx = {
   isAdmin: boolean;
   isSupervisor: boolean;
   supervisedClassIds: number[];
+  assignedClassIds: number[];
   taughtSubjectKeys: Set<string>;
 };
 
@@ -30,21 +31,53 @@ async function getAuthCtx(): Promise<AuthCtx | null> {
 
   const isAdmin = role === "admin";
   let supervisedClassIds: number[] = [];
+  let assignedClassIds: number[] = [];
   const taughtSubjectKeys = new Set<string>();
 
   if (role === "teacher") {
-    const supervised = await db.class.findMany({
-      where: { supervisorId: userId },
-      select: { id: true },
-    });
+    const [supervised, teacher] = await Promise.all([
+      db.class.findMany({
+        where: { supervisorId: userId },
+        select: { id: true },
+      }),
+      db.teacher.findUnique({
+        where: { id: userId },
+        select: {
+          assignedClasses: {
+            select: {
+              id: true,
+              subjects: { select: { id: true } },
+            },
+          },
+          subjects: { select: { id: true } },
+        },
+      }),
+    ]);
     supervisedClassIds = supervised.map((c) => c.id);
-
-    const lessons = await db.lesson.findMany({
-      where: { teacherId: userId },
-      select: { classId: true, subjectId: true },
-    });
-    for (const l of lessons) {
-      taughtSubjectKeys.add(`${l.classId}:${l.subjectId}`);
+    assignedClassIds = teacher?.assignedClasses.map((cls) => cls.id) ?? [];
+    const teacherSubjectIds = new Set(
+      teacher?.subjects.map((subject) => subject.id) ?? []
+    );
+    for (const cls of teacher?.assignedClasses ?? []) {
+      for (const subject of cls.subjects) {
+        if (teacherSubjectIds.has(subject.id)) {
+          taughtSubjectKeys.add(`${cls.id}:${subject.id}`);
+        }
+      }
+    }
+    const supervisorClasses =
+      supervisedClassIds.length > 0
+        ? await db.class.findMany({
+            where: { id: { in: supervisedClassIds } },
+            select: { id: true, subjects: { select: { id: true } } },
+          })
+        : [];
+    for (const cls of supervisorClasses) {
+      for (const subject of cls.subjects) {
+        if (teacherSubjectIds.has(subject.id)) {
+          taughtSubjectKeys.add(`${cls.id}:${subject.id}`);
+        }
+      }
     }
   }
 
@@ -54,6 +87,7 @@ async function getAuthCtx(): Promise<AuthCtx | null> {
     isAdmin,
     isSupervisor: supervisedClassIds.length > 0,
     supervisedClassIds,
+    assignedClassIds,
     taughtSubjectKeys,
   };
 }
@@ -62,17 +96,12 @@ function canManageReports(ctx: AuthCtx): boolean {
   return ctx.isAdmin || ctx.isSupervisor;
 }
 
-function canViewAllInClass(ctx: AuthCtx, classId: number): boolean {
-  return ctx.isAdmin || ctx.supervisedClassIds.includes(classId);
-}
-
 function canEditSubjectLine(
   ctx: AuthCtx,
   classId: number,
   subjectId: number
 ): boolean {
   if (ctx.isAdmin) return true;
-  if (ctx.supervisedClassIds.includes(classId)) return true;
   return ctx.taughtSubjectKeys.has(`${classId}:${subjectId}`);
 }
 
@@ -121,7 +150,12 @@ async function recomputeReportTotals(reportId: number) {
   let sumPct = 0;
   let count = 0;
   for (const line of report.subjectLines) {
-    if (line.totalMarks > 0 || line.classScore > 0 || line.examScore > 0) {
+    if (
+      line.lastEditedById !== null ||
+      line.totalMarks > 0 ||
+      line.classScore > 0 ||
+      line.examScore > 0
+    ) {
       const pct = computeSubjectPercentage(line.classScore, line.examScore);
       sumPct += pct;
       count += 1;
@@ -141,6 +175,8 @@ async function recomputeReportTotals(reportId: number) {
       overallPercentage,
       overallGrade: lookup.grade === "—" ? null : lookup.grade,
       overallRemark: lookup.remark || null,
+      isPublished: false,
+      publishedAt: null,
     },
   });
 }
@@ -174,6 +210,34 @@ async function resolveAcademicYear(academicYearId?: number) {
       },
     },
   });
+}
+
+async function getClassSubjectIds(classId: number): Promise<number[]> {
+  const cls = await db.class.findUnique({
+    where: { id: classId },
+    select: {
+      gradeId: true,
+      grade: { select: { subjects: { select: { id: true, gradeId: true } } } },
+      subjects: { select: { id: true, gradeId: true } },
+      lessons: {
+        select: {
+          subject: { select: { id: true, gradeId: true } },
+        },
+      },
+    },
+  });
+  if (!cls) return [];
+
+  const subjects = [
+    ...cls.grade.subjects,
+    ...cls.subjects,
+    ...cls.lessons.map((lesson) => lesson.subject),
+  ];
+  return [...new Set(
+    subjects
+      .filter((subject) => subject.gradeId === cls.gradeId)
+      .map((subject) => subject.id)
+  )];
 }
 
 async function generateReportsForClass(
@@ -224,12 +288,7 @@ async function generateReportsForClass(
     return { created: 0, error: "No students in this class." };
   }
 
-  const subjects = await db.lesson.findMany({
-    where: { classId },
-    distinct: ["subjectId"],
-    select: { subjectId: true },
-  });
-  const subjectIds = [...new Set(subjects.map((s) => s.subjectId))];
+  const subjectIds = await getClassSubjectIds(classId);
   const totalOnRoll = students.length;
   let created = 0;
 
@@ -259,8 +318,22 @@ async function generateReportsForClass(
           reopeningDate,
           totalOnRoll,
           totalAttendance: attendance,
+          isPublished: false,
+          publishedAt: null,
         },
       });
+      if (subjectIds.length > 0) {
+        await db.termlyReportSubjectLine.createMany({
+          data: subjectIds.map((subjectId) => ({
+            termlyReportId: existing.id,
+            subjectId,
+            classScore: 0,
+            examScore: 0,
+            totalMarks: 0,
+          })),
+          skipDuplicates: true,
+        });
+      }
       continue;
     }
 
@@ -447,7 +520,11 @@ export async function generateTermlyReportForSingleStudent(input: {
 }> {
   const ctx = await getAuthCtx();
   if (!ctx) return { success: false, error: "Not signed in." };
-  if (!ctx.isAdmin && !ctx.supervisedClassIds.includes(input.classId)) {
+  if (
+    !ctx.isAdmin &&
+    !ctx.supervisedClassIds.includes(input.classId) &&
+    !ctx.assignedClassIds.includes(input.classId)
+  ) {
     return { success: false, error: "You do not have permission to generate reports for this class." };
   }
 
@@ -470,6 +547,7 @@ export async function generateTermlyReportForSingleStudent(input: {
       return { success: false, error: "Student not found in this class." };
     }
 
+    const subjectIds = await getClassSubjectIds(input.classId);
     const existing = await db.termlyReport.findUnique({
       where: {
         studentId_academicYearId_termNumber: {
@@ -481,6 +559,18 @@ export async function generateTermlyReportForSingleStudent(input: {
     });
 
     if (existing) {
+      if (subjectIds.length > 0) {
+        await db.termlyReportSubjectLine.createMany({
+          data: subjectIds.map((subjectId) => ({
+            termlyReportId: existing.id,
+            subjectId,
+            classScore: 0,
+            examScore: 0,
+            totalMarks: 0,
+          })),
+          skipDuplicates: true,
+        });
+      }
       return { success: true, error: null, alreadyExists: true };
     }
 
@@ -500,13 +590,6 @@ export async function generateTermlyReportForSingleStudent(input: {
       term.startDate,
       term.endDate
     );
-
-    const subjects = await db.lesson.findMany({
-      where: { classId: input.classId },
-      distinct: ["subjectId"],
-      select: { subjectId: true },
-    });
-    const subjectIds = [...new Set(subjects.map((s) => s.subjectId))];
 
     // Get position on roll for this student
     const students = await db.student.findMany({
@@ -571,10 +654,10 @@ export async function updateTermlyReportMeta(input: {
     select: { classId: true },
   });
   if (!report) return { success: false, error: "Report not found." };
-  if (!canViewAllInClass(ctx, report.classId)) {
+  if (!ctx.isAdmin) {
     return {
       success: false,
-      error: "Only administrators or class supervisors can update report details.",
+      error: "Only administrators can update report details.",
     };
   }
 
@@ -602,6 +685,8 @@ export async function updateTermlyReportMeta(input: {
         supervisorSignature: input.supervisorSignature ?? undefined,
         headteacherRemarks: input.headteacherRemarks ?? undefined,
         headteacherSignature: input.headteacherSignature ?? undefined,
+        isPublished: false,
+        publishedAt: null,
       },
     });
     revalidatePath(RESULTS_PATH);
@@ -609,6 +694,83 @@ export async function updateTermlyReportMeta(input: {
   } catch (e) {
     console.error(e);
     return { success: false, error: "Could not update report." };
+  }
+}
+
+export async function setTermlyReportPublication(input: {
+  reportId: number;
+  action: "publish" | "withhold" | "restore";
+}): Promise<{ success: boolean; error: string | null }> {
+  const ctx = await getAuthCtx();
+  if (!ctx) return { success: false, error: "Not signed in." };
+  if (!ctx.isAdmin) {
+    return { success: false, error: "Only administrators can manage report publication." };
+  }
+
+  try {
+    const data =
+      input.action === "publish"
+        ? { isPublished: true, publishedAt: new Date(), isWithheld: false }
+        : input.action === "withhold"
+          ? { isWithheld: true }
+          : { isWithheld: false };
+    const result = await db.termlyReport.updateMany({
+      where: { id: input.reportId },
+      data,
+    });
+    if (result.count === 0) {
+      return { success: false, error: "Report not found." };
+    }
+    revalidatePath(RESULTS_PATH);
+    return { success: true, error: null };
+  } catch (e) {
+    console.error(e);
+    return { success: false, error: "Could not update report publication." };
+  }
+}
+
+export async function setClassTermReportPublication(input: {
+  classId: number;
+  academicYearId: number;
+  termNumber: number;
+  action: "publish" | "withhold" | "restore";
+}): Promise<{ success: boolean; error: string | null; updated?: number }> {
+  const ctx = await getAuthCtx();
+  if (!ctx) return { success: false, error: "Not signed in." };
+  if (!ctx.isAdmin) {
+    return { success: false, error: "Only administrators can manage report publication." };
+  }
+  if (
+    !Number.isInteger(input.classId) ||
+    input.classId <= 0 ||
+    !Number.isInteger(input.academicYearId) ||
+    input.academicYearId <= 0 ||
+    !Number.isInteger(input.termNumber) ||
+    input.termNumber <= 0
+  ) {
+    return { success: false, error: "Select a class, academic year, and term." };
+  }
+
+  try {
+    const data =
+      input.action === "publish"
+        ? { isPublished: true, publishedAt: new Date(), isWithheld: false }
+        : input.action === "withhold"
+          ? { isWithheld: true }
+          : { isWithheld: false };
+    const result = await db.termlyReport.updateMany({
+      where: {
+        classId: input.classId,
+        academicYearId: input.academicYearId,
+        termNumber: input.termNumber,
+      },
+      data,
+    });
+    revalidatePath(RESULTS_PATH);
+    return { success: true, error: null, updated: result.count };
+  } catch (e) {
+    console.error(e);
+    return { success: false, error: "Could not update class report publication." };
   }
 }
 

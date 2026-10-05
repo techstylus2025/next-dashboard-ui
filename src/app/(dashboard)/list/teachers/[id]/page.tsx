@@ -21,6 +21,7 @@ const SingleTeacherPage = async ({
       where: { id },
       include: {
         subjects: { select: { id: true, name: true } },
+        assignedClasses: { select: { id: true, name: true } },
         _count: {
           select: {
             subjects: true,
@@ -36,6 +37,7 @@ const SingleTeacherPage = async ({
       where: {
         OR: [
           { supervisorId: id },
+          { assignedTeachers: { some: { id } } },
           { lessons: { some: { teacherId: id } } },
         ],
       },

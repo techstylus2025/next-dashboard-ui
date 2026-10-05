@@ -84,8 +84,10 @@ model Teacher {
   isArchived          Boolean                  @default(false)
   archivedAt          DateTime?
   attendances         Attendance[]
+  assignedClasses    Class[]                  @relation("TeacherAssignedClasses")
   classes             Class[]
   examQuestionUploads ExamQuestionUpload[]
+  invigilatedExams    Exam[]                   @relation("ExamInvigilators")
   lessons             Lesson[]
   subjects            Subject[]                @relation("SubjectToTeacher")
 }
@@ -189,6 +191,7 @@ model Class {
   busRegistrations  BusRegistration[]
   grade             Grade              @relation(fields: [gradeId], references: [id])
   supervisor        Teacher?           @relation(fields: [supervisorId], references: [id])
+  assignedTeachers  Teacher[]          @relation("TeacherAssignedClasses")
   events            Event[]
   feeSchedules      FeeSchedule[]
   lessons           Lesson[]
@@ -347,6 +350,9 @@ model TermlyReport {
   headteacherRemarks   String?
   headteacherSignature String?
   createdById          String?
+  isPublished          Boolean                   @default(false)
+  publishedAt          DateTime?
+  isWithheld           Boolean                   @default(false)
   createdAt            DateTime                  @default(now())
   updatedAt            DateTime                  @updatedAt
   academicYear         AcademicYear              @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
@@ -398,6 +404,7 @@ model Exam {
   lessonId   Int
   isArchived Boolean  @default(false)
   lesson     Lesson   @relation(fields: [lessonId], references: [id])
+  invigilators Teacher[] @relation("ExamInvigilators")
   results    Result[]
 }
 

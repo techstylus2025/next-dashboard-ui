@@ -189,6 +189,18 @@ const Navbar = ({ onMessagesOpen, customUser, supervisorClassName }: { onMessage
     ? `${academicPeriod.yearLabel} · Term ${academicPeriod.termNumber}`
     : academicPeriod.badge;
 
+  const adminDesktopItems = [
+    { href: "/admin", label: "Overview" },
+    { href: "/analytics", label: "Analytics" },
+    { href: "/list/students", label: "Students" },
+    { href: "/list/teachers", label: "Teachers" },
+    { href: "/list/classes", label: "Classes" },
+    { href: "/list/fees", label: "Fees" },
+    { href: "/list/lessons", label: "Lessons" },
+    { href: "/list/exams", label: "Exams" },
+    { href: "/list/results", label: "Results" },
+  ];
+
   const [mobileOpen, setMobileOpen] = useState(false);
   const [studentMenuOpen, setStudentMenuOpen] = useState(false);
   const studentMenuRef = useRef<HTMLDivElement | null>(null);
@@ -285,12 +297,24 @@ const Navbar = ({ onMessagesOpen, customUser, supervisorClassName }: { onMessage
         <div className="mx-auto grid min-h-16 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-3 py-2 text-white sm:px-5 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:gap-x-5 lg:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <Link href="/" className="flex min-w-0 items-center">
-              <div className="hidden sm:flex flex-col leading-tight">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">King&apos;s Heart</span>
-                <span className="text-xs font-medium text-slate-100">
-                  {role === "admin" ? "Admin Dashboard" : role === "teacher" ? "Teacher Dashboard" : role === "parent" ? "Parent Dashboard" : role === "student" ? "Student Dashboard" : "Dashboard"}
-                </span>
-              </div>
+              {role === "admin" ? (
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white p-1 shadow-sm shadow-black/20">
+                    <Image src="/logo.png" alt="" width={32} height={32} className="h-full w-full object-contain" />
+                  </span>
+                  <span className="hidden min-w-0 flex-col leading-tight sm:flex">
+                    <span className="truncate text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">King&apos;s Heart</span>
+                    <span className="text-sm font-semibold text-white">School Administration</span>
+                  </span>
+                </div>
+              ) : (
+                <div className="hidden flex-col leading-tight sm:flex">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">King&apos;s Heart</span>
+                  <span className="text-xs font-medium text-slate-100">
+                    {role === "teacher" ? "Teacher Dashboard" : role === "parent" ? "Parent Dashboard" : role === "student" ? "Student Dashboard" : "Dashboard"}
+                  </span>
+                </div>
+              )}
             </Link>
 
             {supervisorClassName ? (
@@ -300,17 +324,19 @@ const Navbar = ({ onMessagesOpen, customUser, supervisorClassName }: { onMessage
             ) : null}
 
             {role === "admin" && (
-              <div className="hidden xl:flex items-center gap-3 border-l border-white/10 pl-3">
+              <div className="hidden items-center gap-3 border-l border-white/10 pl-3 xl:flex">
                 <div className="flex flex-col text-[11px] text-slate-400">
                   <span className="font-medium text-slate-100">{formattedDate}</span>
                   <span>{formattedTime}</span>
                 </div>
-
-                <div className="h-7 w-px bg-white/10" />
-
-                <div className="max-w-36 truncate text-[11px] text-slate-300" title={activeAcademicLabel}>
-                  <span className="font-medium text-slate-100">{activeAcademicLabel}</span>
-                </div>
+                {activeAcademicLabel ? (
+                  <>
+                    <div className="h-7 w-px bg-white/10" />
+                    <div className="max-w-36 truncate text-[11px] text-slate-300" title={activeAcademicLabel}>
+                      <span className="font-medium text-slate-100">{activeAcademicLabel}</span>
+                    </div>
+                  </>
+                ) : null}
               </div>
             )}
           </div>
@@ -608,7 +634,40 @@ const Navbar = ({ onMessagesOpen, customUser, supervisorClassName }: { onMessage
         </div>
       </header>
 
-      
+      {role === "admin" ? (
+        <nav
+          aria-label="Admin navigation"
+          className="hidden border-t border-white/10 bg-white md:block"
+        >
+          <div className="mx-auto flex min-h-12 max-w-screen-2xl items-center gap-1 overflow-x-auto px-4 [scrollbar-width:none] sm:px-6 lg:px-8 [&::-webkit-scrollbar]:hidden">
+            <span className="mr-2 hidden shrink-0 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 xl:inline">
+              Workspace
+            </span>
+            {adminDesktopItems.map((item) => {
+              const active = item.href === "/admin"
+                ? pathname === item.href
+                : pathname === item.href || pathname.startsWith(`${item.href}/`);
+
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  aria-current={active ? "page" : undefined}
+                  className={`relative shrink-0 rounded-lg px-3 py-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/40 ${
+                    active
+                      ? "bg-sky-50 text-sky-800"
+                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
+                  }`}
+                >
+                  {item.label}
+                  {active ? <span className="absolute inset-x-3 -bottom-1 h-0.5 rounded-full bg-sky-600" aria-hidden="true" /> : null}
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
+      ) : null}
+
     </>
   );
 };

@@ -4,12 +4,14 @@ import { revalidatePath } from "next/cache";
 import { promises as fs } from "fs";
 import path from "path";
 import { getActiveAcademicPeriod } from "./academicContext";
+import { getAttendanceDateRestriction } from "./attendanceDateRules";
 import util from "util";
 
 const PARENTS_PATH = "/list/parents";
 import {
   ClassSchema,
   ExamSchema,
+  ExamTimetableSchema,
   ParentSchema,
   StudentSchema,
   SubjectSchema,
@@ -139,12 +141,20 @@ export const createSubject = async (
       return { success: false, error: true, message: "Grading level is required!" };
     }
 
+    const matchingClasses = await prisma.class.findMany({
+      where: { gradeId: data.gradeId },
+      select: { id: true },
+    });
+
     await prisma.subject.create({
       data: {
         name: data.name,
         gradeId: data.gradeId,
         teachers: {
           connect: data.teachers.map((teacherId) => ({ id: teacherId })),
+        },
+        classes: {
+          connect: matchingClasses.map((cls) => ({ id: cls.id })),
         },
       },
     });
@@ -169,6 +179,11 @@ export const updateSubject = async (
       return { success: false, error: true, message: "Grading level is required!" };
     }
 
+    const matchingClasses = await prisma.class.findMany({
+      where: { gradeId: data.gradeId },
+      select: { id: true },
+    });
+
     await prisma.subject.update({
       where: {
         id: data.id,
@@ -178,6 +193,9 @@ export const updateSubject = async (
         gradeId: data.gradeId,
         teachers: {
           set: data.teachers.map((teacherId) => ({ id: teacherId })),
+        },
+        classes: {
+          set: matchingClasses.map((cls) => ({ id: cls.id })),
         },
       },
     });
@@ -396,6 +414,14 @@ export const createTeacher = async (
   }
 
   const validTeacherData = parsedTeacherData.data;
+  const assignmentError = await validateTeacherAssignments(
+    validTeacherData.classIds ?? [],
+    validTeacherData.subjects ?? [],
+    true
+  );
+  if (assignmentError) {
+    return { success: false, error: true, message: assignmentError };
+  }
 
   try {
     const client = await clerkClient();
@@ -427,6 +453,9 @@ export const createTeacher = async (
           connect: validTeacherData.subjects?.map((subjectId: string) => ({
             id: parseInt(subjectId),
           })),
+        },
+        assignedClasses: {
+          connect: validTeacherData.classIds?.map((classId) => ({ id: classId })),
         },
       },
     });
@@ -466,6 +495,15 @@ export const updateTeacher = async (
 
   if (!validTeacherData.id) {
     return { success: false, error: true, message: "Teacher id is required." };
+  }
+
+  const assignmentError = await validateTeacherAssignments(
+    validTeacherData.classIds ?? [],
+    validTeacherData.subjects ?? [],
+    false
+  );
+  if (assignmentError) {
+    return { success: false, error: true, message: assignmentError };
   }
 
   const phone = validTeacherData.phone?.trim() || null;
@@ -519,6 +557,9 @@ export const updateTeacher = async (
             id: parseInt(subjectId),
           })),
         },
+        assignedClasses: {
+          set: validTeacherData.classIds?.map((classId) => ({ id: classId })),
+        },
       },
     });
     return { success: true, error: false };
@@ -543,6 +584,46 @@ export const updateTeacher = async (
     };
   }
 };
+
+async function validateTeacherAssignments(
+  classIds: number[],
+  subjectIds: string[],
+  required: boolean
+): Promise<string | null> {
+  const uniqueClassIds = [...new Set(classIds)];
+  const uniqueSubjectIds = [...new Set(subjectIds.map(Number))];
+  if (required && (uniqueClassIds.length === 0 || uniqueSubjectIds.length === 0)) {
+    return "Assign at least one class and one subject to the teacher.";
+  }
+  if (uniqueClassIds.length === 0 || uniqueSubjectIds.length === 0) {
+    return null;
+  }
+
+  const classes = await prisma.class.findMany({
+    where: { id: { in: uniqueClassIds } },
+    select: { id: true, subjects: { select: { id: true } } },
+  });
+  if (classes.length !== uniqueClassIds.length) {
+    return "One or more selected classes could not be found.";
+  }
+
+  const subjects = await prisma.subject.findMany({
+    where: { id: { in: uniqueSubjectIds } },
+    select: { id: true },
+  });
+  if (subjects.length !== uniqueSubjectIds.length) {
+    return "One or more selected subjects could not be found.";
+  }
+
+  const classSubjectIds = new Set(
+    classes.flatMap((classItem) => classItem.subjects.map((subject) => subject.id))
+  );
+  if (uniqueSubjectIds.some((subjectId) => !classSubjectIds.has(subjectId))) {
+    return "Select subjects offered by at least one of the assigned classes.";
+  }
+
+  return null;
+}
 
 export const deleteTeacher = async (
   currentState: CurrentState,
@@ -1060,6 +1141,11 @@ export const createAttendance = async (
       return { success: false, error: true };
     }
 
+    const attendanceRestriction = await getAttendanceDateRestriction(dateValue);
+    if (attendanceRestriction) {
+      return { success: false, error: true, message: attendanceRestriction };
+    }
+
     if (type === "teacher") {
       if (role !== "admin") {
         return { success: false, error: true };
@@ -1217,6 +1303,11 @@ export const updateAttendance = async (
       return { success: false, error: true };
     }
 
+    const attendanceRestriction = await getAttendanceDateRestriction(dateValue);
+    if (attendanceRestriction) {
+      return { success: false, error: true, message: attendanceRestriction };
+    }
+
     const existing = await prisma.attendance.findUnique({
       where: { id: data.id },
       include: { student: { select: { classId: true } } },
@@ -1332,23 +1423,12 @@ export const createExam = async (
   currentState: CurrentState,
   data: ExamSchema
 ) => {
-  // const { userId, sessionClaims } = auth();
-  // const role = (sessionClaims?.metadata as { role?: string })?.role;
+  const { role } = await getCurrentAuthContext();
+  if (role !== "admin") {
+    return { success: false, error: true, message: "Only administrators can create exams." };
+  }
 
   try {
-    // if (role === "teacher") {
-    //   const teacherLesson = await prisma.lesson.findFirst({
-    //     where: {
-    //       teacherId: userId!,
-    //       id: data.lessonId,
-    //     },
-    //   });
-
-    //   if (!teacherLesson) {
-    //     return { success: false, error: true };
-    //   }
-    // }
-
     await prisma.exam.create({
       data: {
         title: data.title,
@@ -1370,22 +1450,44 @@ export const updateExam = async (
   currentState: CurrentState,
   data: ExamSchema
 ) => {
-  // const { userId, sessionClaims } = auth();
-  // const role = (sessionClaims?.metadata as { role?: string })?.role;
+  const { role } = await getCurrentAuthContext();
+  if (role !== "admin") {
+    return { success: false, error: true, message: "Only administrators can update exams." };
+  }
+  if (data.endTime <= data.startTime) {
+    return { success: false, error: true, message: "The exam end time must be after its start time." };
+  }
 
   try {
-    // if (role === "teacher") {
-    //   const teacherLesson = await prisma.lesson.findFirst({
-    //     where: {
-    //       teacherId: userId!,
-    //       id: data.lessonId,
-    //     },
-    //   });
+    const existingExam = await prisma.exam.findUnique({
+      where: { id: data.id },
+      select: { id: true, invigilators: { select: { id: true } } },
+    });
+    if (!existingExam) {
+      return { success: false, error: true, message: "Exam not found." };
+    }
 
-    //   if (!teacherLesson) {
-    //     return { success: false, error: true };
-    //   }
-    // }
+    if (existingExam.invigilators.length > 0) {
+      const conflict = await prisma.exam.findFirst({
+        where: {
+          id: { not: existingExam.id },
+          isArchived: false,
+          startTime: { lt: data.endTime },
+          endTime: { gt: data.startTime },
+          invigilators: {
+            some: { id: { in: existingExam.invigilators.map(({ id }) => id) } },
+          },
+        },
+        select: { id: true },
+      });
+      if (conflict) {
+        return {
+          success: false,
+          error: true,
+          message: "The updated exam time conflicts with another exam assigned to one of its invigilators.",
+        };
+      }
+    }
 
     await prisma.exam.update({
       where: {
@@ -1409,30 +1511,19 @@ export const updateExam = async (
 
 export const createExamTimetable = async (
   currentState: CurrentState,
-  data: {
-    gradingLevel?: string;
-    classIds: number[];
-    lessonId: number;
-    title: string;
-    date: string;
-    startTime: string;
-    endTime: string;
-  }
+  data: ExamTimetableSchema
 ) => {
-  const serverSession = await getServerSession();
-  const userId = serverSession?.userId ?? null;
-  const sessionClaims = { metadata: { role: serverSession?.user?.role } };
-  const role = await getUserRole(userId, sessionClaims as any);
+  const { role } = await getCurrentAuthContext();
 
   if (role !== "admin") {
-    return { success: false, error: true };
+    return { success: false, error: true, message: "Only administrators can create exams." };
   }
 
   const startDate = new Date(`${data.date}T${data.startTime}:00`);
   const endDate = new Date(`${data.date}T${data.endTime}:00`);
 
-  if (endDate < startDate) {
-    return { success: false, error: true };
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime()) || endDate <= startDate) {
+    return { success: false, error: true, message: "The exam end time must be after its start time." };
   }
 
   const activePeriod = await getActiveAcademicPeriod();
@@ -1450,16 +1541,68 @@ export const createExamTimetable = async (
   });
 
   if (!lesson || !data.classIds.includes(lesson.classId)) {
-    return { success: false, error: true };
+    return { success: false, error: true, message: "Select a lesson belonging to one of the selected classes." };
   }
 
   try {
+    const invigilatorIds = [...new Set(data.invigilatorIds)];
+    if (invigilatorIds.length === 0) {
+      return {
+        success: false,
+        error: true,
+        message: "Select at least one invigilator.",
+      };
+    }
+    const activeTeachers = await prisma.teacher.findMany({
+      where: { id: { in: invigilatorIds }, isArchived: false },
+      select: { id: true },
+    });
+    if (activeTeachers.length !== invigilatorIds.length) {
+      return {
+        success: false,
+        error: true,
+        message: "Choose only active teachers as invigilators.",
+      };
+    }
+
+    if (invigilatorIds.length > 0) {
+      const conflictingExam = await prisma.exam.findFirst({
+        where: {
+          isArchived: false,
+          startTime: { lt: endDate },
+          endTime: { gt: startDate },
+          invigilators: { some: { id: { in: invigilatorIds } } },
+        },
+        include: {
+          lesson: { include: { class: { select: { name: true } } } },
+          invigilators: {
+            where: { id: { in: invigilatorIds } },
+            select: { name: true, surname: true },
+          },
+        },
+      });
+      if (conflictingExam) {
+        const names = conflictingExam.invigilators
+          .map((teacher) => `${teacher.name} ${teacher.surname}`.trim())
+          .join(", ");
+        const verb = conflictingExam.invigilators.length > 1 ? "are" : "is";
+        return {
+          success: false,
+          error: true,
+          message: `${names} ${verb} already assigned to an overlapping exam for ${conflictingExam.lesson.class.name}.`,
+        };
+      }
+    }
+
     await prisma.exam.create({
       data: {
         title: data.title,
         startTime: startDate,
         endTime: endDate,
         lessonId: data.lessonId,
+        invigilators: {
+          connect: invigilatorIds.map((id) => ({ id })),
+        },
       },
     });
 
@@ -1467,7 +1610,7 @@ export const createExamTimetable = async (
     return { success: true, error: false };
   } catch (err) {
     console.log(err);
-    return { success: false, error: true };
+    return { success: false, error: true, message: "Unable to create the exam timetable." };
   }
 };
 
@@ -2026,16 +2169,17 @@ export const deleteExam = async (
   currentState: CurrentState,
   data: FormData
 ) => {
-  const id = data.get("id") as string;
+  const { role } = await getCurrentAuthContext();
+  if (role !== "admin") {
+    return { success: false, error: true };
+  }
 
-  // const { userId, sessionClaims } = auth();
-  // const role = (sessionClaims?.metadata as { role?: string })?.role;
+  const id = data.get("id") as string;
 
   try {
     await prisma.exam.delete({
       where: {
         id: parseInt(id),
-        // ...(role === "teacher" ? { lesson: { teacherId: userId! } } : {}),
       },
     });
 

@@ -23,13 +23,17 @@ const TeacherPage = async ({ searchParams }: { searchParams: Promise<{ [key: str
     select: { name: true },
   });
   const today = new Date();
-  const todayName = new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(today).toUpperCase() as Day;
+  const todayName = new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(today).toUpperCase();
+  
+  const validDays = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"];
+  const isWeekday = validDays.includes(todayName);
 
   const [classes, lessonCount, examCount, assignmentCount, todayLessons] = await Promise.all([
     prisma.class.findMany({
       where: {
         OR: [
           { supervisorId: userId },
+          { assignedTeachers: { some: { id: userId } } },
           { lessons: { some: { teacherId: userId } } },
         ],
       },
@@ -43,18 +47,20 @@ const TeacherPage = async ({ searchParams }: { searchParams: Promise<{ [key: str
     prisma.lesson.count({ where: { teacherId: userId } }),
     prisma.exam.count({ where: { isArchived: false, lesson: { teacherId: userId } } }),
     prisma.assignment.count({ where: { isArchived: false, lesson: { teacherId: userId } } }),
-    prisma.lesson.findMany({
-      where: { teacherId: userId, day: todayName },
-      select: {
-        id: true,
-        name: true,
-        startTime: true,
-        endTime: true,
-        class: { select: { name: true } },
-        subject: { select: { name: true } },
-      },
-      orderBy: { startTime: "asc" },
-    }),
+    isWeekday
+      ? prisma.lesson.findMany({
+          where: { teacherId: userId, day: todayName as Day },
+          select: {
+            id: true,
+            name: true,
+            startTime: true,
+            endTime: true,
+            class: { select: { name: true } },
+            subject: { select: { name: true } },
+          },
+          orderBy: { startTime: "asc" },
+        })
+      : Promise.resolve([]),
   ]);
 
   const classIds = classes.map((classItem) => classItem.id);

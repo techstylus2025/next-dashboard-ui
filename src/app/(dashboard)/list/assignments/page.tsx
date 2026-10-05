@@ -299,7 +299,7 @@ const AssignmentListPage = async ({
               return m;
             }, new Map<string, AssignmentList[]>()).entries()
           ).map(([className, assigns]) => (
-            <details key={className} className="rounded-xl border border-slate-200 bg-white shadow-sm">
+            <details key={className} className="smooth-disclosure rounded-xl border border-slate-200 bg-white shadow-sm">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-xl p-4 hover:bg-slate-50">
                 <div>
                   <h2 className="text-lg font-semibold">Class: {className}</h2>
@@ -307,10 +307,14 @@ const AssignmentListPage = async ({
                 </div>
                 <div className="text-sm text-slate-500">Click to toggle</div>
               </summary>
-              <div className="border-t border-slate-200 p-4 pt-3">
-                {renderSubjectCounts(assigns)}
-                <div className="mt-3">
-                  <Table columns={columns} renderRow={renderRow} data={assigns} />
+              <div className="smooth-disclosure-panel">
+                <div className="smooth-disclosure-panel-inner">
+                  <div className="border-t border-slate-200 p-4 pt-3">
+                    {renderSubjectCounts(assigns)}
+                    <div className="mt-3">
+                      <Table columns={columns} renderRow={renderRow} data={assigns} />
+                    </div>
+                  </div>
                 </div>
               </div>
             </details>

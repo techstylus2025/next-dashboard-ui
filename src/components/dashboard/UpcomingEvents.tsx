@@ -31,7 +31,7 @@ export default function UpcomingEvents({ events }: { events: EventItem[] }) {
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start sm:items-center justify-between">
-                    <button type="button" onClick={() => setExpanded(expanded === idx ? null : idx)} className="text-left">
+                    <button type="button" onClick={() => setExpanded(expanded === idx ? null : idx)} className="text-left" aria-expanded={expanded === idx}>
                       <p className="font-semibold text-slate-900 hover:underline truncate">{event.title}</p>
                     </button>
 
@@ -44,9 +44,11 @@ export default function UpcomingEvents({ events }: { events: EventItem[] }) {
                     </div>
                   </div>
 
-                  {expanded === idx && event.description ? (
-                    <div className="mt-2 text-sm text-slate-600">
-                      {event.description}
+                  {event.description ? (
+                    <div className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out motion-reduce:transition-none ${expanded === idx ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`} aria-hidden={expanded !== idx} inert={expanded !== idx}>
+                      <div className="min-h-0 overflow-hidden">
+                        <div className="mt-2 text-sm text-slate-600">{event.description}</div>
+                      </div>
                     </div>
                   ) : null}
                 </div>

@@ -25,6 +25,7 @@ export default function DashboardShell({
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [messagesOpen, setMessagesOpen] = useState(false);
+  const [desktopMenuCollapsed, setDesktopMenuCollapsed] = useState(false);
   const clerkSyncStarted = useRef(false);
   const { user } = useUser();
   const pathname = usePathname();
@@ -111,16 +112,28 @@ export default function DashboardShell({
   return (
     <div className="flex h-screen overflow-hidden bg-slate-100">
       <aside
-        className={`fixed inset-y-0 left-0 z-50 h-screen w-64 bg-slate-950 shadow-xl transition-transform duration-300 ease-out md:static md:h-auto md:translate-x-0 flex flex-col ${
+        className={`fixed inset-y-0 left-0 z-50 h-screen bg-slate-950 shadow-xl transition-all duration-300 ease-out md:static md:h-auto md:translate-x-0 flex flex-col ${
           menuOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        } ${desktopMenuCollapsed ? "md:w-20" : "md:w-64"}`}
       >
         <div className="sticky top-0 z-10 px-4 py-3 sm:px-5 bg-slate-950">
           <div className="flex items-start justify-between gap-2">
-            <Link href={homeHref} className="flex flex-col items-center gap-2 text-center bg-white/5 rounded-lg px-2 py-2 hover:bg-white/10 transition-colors duration-200">
+            <Link href={homeHref} className={`flex flex-col items-center gap-2 text-center bg-white/5 rounded-lg px-2 py-2 hover:bg-white/10 transition-colors duration-200 ${desktopMenuCollapsed ? "md:hidden" : ""}`}>
               <Image src="/logo.png" alt="logo" width={52} height={52} />
-              <span className="text-xl font-bold uppercase tracking-wide text-white">KING&apos;S HEART MONTESSORI SCHOOL</span>
+              <div className="flex flex-col gap-1">
+                <span className="text-sm font-bold uppercase tracking-wide text-white">KING&apos;S HEART</span>
+                <span className="text-sm font-bold uppercase tracking-wide text-white">MONTESSORI SCHOOL</span>
+              </div>
             </Link>
+            <button
+              type="button"
+              className={`inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-800 text-slate-200 hover:bg-slate-700 transition-colors ${desktopMenuCollapsed ? "md:w-12 md:h-12" : ""}`}
+              onClick={() => setDesktopMenuCollapsed(!desktopMenuCollapsed)}
+              aria-label={desktopMenuCollapsed ? "Expand menu" : "Collapse menu"}
+              title={desktopMenuCollapsed ? "Expand" : "Collapse"}
+            >
+              {desktopMenuCollapsed ? "→" : "←"}
+            </button>
             <button
               type="button"
               className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-800 text-slate-200 hover:bg-slate-700 md:hidden"
@@ -133,7 +146,7 @@ export default function DashboardShell({
         </div>
         <div className="flex-1 min-h-0 overflow-hidden">
           <div className="h-full overflow-hidden">
-            <Menu customUser={customUser} />
+            <Menu customUser={customUser} collapsed={desktopMenuCollapsed} />
           </div>
         </div>
       </aside>

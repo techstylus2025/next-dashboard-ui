@@ -1,12 +1,88 @@
 "use server";
 
-import { getCurrentAuthContext } from "@/lib/auth";
+import { randomBytes } from "node:crypto";
+import { cookies } from "next/headers";
+import { clerkClient } from "@clerk/nextjs/server";
+import { getCurrentAuthContext, verifyPassword } from "@/lib/auth";
+import { FEE_PAGE_ACCESS_COOKIE, FEE_PAGE_ACCESS_TTL_SECONDS, hasFeePageAccess } from "@/lib/feePageAccess";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import prisma from "./prisma";
 
 async function getRole(): Promise<string | undefined> {
-  return (await getCurrentAuthContext()).role ?? undefined;
+  const { userId, role } = await getCurrentAuthContext();
+  if (role === "admin" && !(await hasFeePageAccess(userId))) return undefined;
+  return role ?? undefined;
+}
+
+export async function verifyFeesPagePassword(password: string): Promise<{ success: boolean; error: string }> {
+  const { userId, role } = await getCurrentAuthContext();
+  if (role !== "admin" || !userId) {
+    return { success: false, error: "Only administrators can access this page." };
+  }
+  if (typeof password !== "string" || password.length === 0) {
+    return { success: false, error: "Enter your administrator password." };
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { password: true, role: true },
+  });
+  if (!user || user.role.toLowerCase() !== "admin") {
+    return { success: false, error: "Administrator credentials could not be found." };
+  }
+
+  let validPassword = false;
+  if (user.password) {
+    validPassword = await verifyPassword(user.password, password);
+  } else {
+    try {
+      const client = await clerkClient();
+      await client.users.verifyPassword({ userId, password });
+      validPassword = true;
+    } catch (error) {
+      const clerkError = error as {
+        errors?: Array<{ code?: string }>;
+        status?: number;
+      };
+      const rejectedPassword = clerkError.errors?.some(({ code }) =>
+        code ? /password.*(incorrect|invalid)|incorrect.*password/i.test(code) : false
+      );
+
+      if (!rejectedPassword) {
+        console.error("Administrator password verification failed", error);
+        return { success: false, error: "Unable to verify your password right now. Please try again." };
+      }
+    }
+  }
+
+  if (!validPassword) {
+    return { success: false, error: "The administrator password is incorrect." };
+  }
+
+  const token = randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + FEE_PAGE_ACCESS_TTL_SECONDS * 1000);
+  try {
+    await prisma.session.deleteMany({
+      where: { userAgent: "fees-page-access", expiresAt: { lte: new Date() } },
+    });
+    await prisma.session.create({
+      data: { token, userId, expiresAt, userAgent: "fees-page-access" },
+    });
+  } catch (error) {
+    console.error("Unable to create fees page access session", error);
+    return { success: false, error: "Unable to open the fees page right now. Please try again." };
+  }
+
+  (await cookies()).set(FEE_PAGE_ACCESS_COOKIE, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    path: "/list/fees",
+    maxAge: FEE_PAGE_ACCESS_TTL_SECONDS,
+  });
+
+  return { success: true, error: "" };
 }
 
 function toDecimal(value: number): Prisma.Decimal {
@@ -18,7 +94,7 @@ export async function createFeeSchedule(input: {
   academicYear: string;
   term: "TERM_1" | "TERM_2" | "TERM_3";
   totalBillCedis: number;
-}): Promise<{ success: boolean; error: string | null }> {
+}): Promise<{ success: boolean; error: string | null; paymentId?: number }> {
   const role = await getRole();
   if (role !== "admin") {
     return { success: false, error: "Only administrators can create fee schedules." };
@@ -85,7 +161,7 @@ export async function recordFeePayment(input: {
   paidAt: Date;
   paymentMethod?: string;
   methodDetails?: string;
-}): Promise<{ success: boolean; error: string | null }> {
+}): Promise<{ success: boolean; error: string | null; paymentId?: number }> {
   const role = await getRole();
   if (role !== "admin") {
     return { success: false, error: "Only administrators can record payments." };
@@ -116,7 +192,7 @@ export async function recordFeePayment(input: {
   }
 
   try {
-    await prisma.feePayment.create({
+    const payment = await prisma.feePayment.create({
       data: {
         studentFeeAssignmentId: input.studentFeeAssignmentId,
         amountCedis: toDecimal(input.amountCedis),
@@ -126,7 +202,7 @@ export async function recordFeePayment(input: {
       },
     });
     revalidatePath("/list/fees");
-    return { success: true, error: null };
+    return { success: true, error: null, paymentId: payment.id };
   } catch (e) {
     const errorMsg = e instanceof Error ? e.message : String(e);
     console.error("FeePayment create error:", errorMsg, e);

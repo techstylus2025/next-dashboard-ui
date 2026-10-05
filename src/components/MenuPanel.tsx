@@ -25,7 +25,7 @@ function isActivePath(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export default function MenuPanel({ sections }: { sections: MenuSection[] }) {
+export default function MenuPanel({ sections, collapsed = false }: { sections: MenuSection[]; collapsed?: boolean }) {
   const pathname = usePathname();
 
   return (
@@ -46,6 +46,8 @@ export default function MenuPanel({ sections }: { sections: MenuSection[] }) {
             {section.items.map((item) => {
               const active = isActivePath(pathname, item.href);
               const itemClasses = `group flex items-center gap-2 rounded-xl py-2 px-2.5 transition-all duration-200 ${
+                collapsed ? "md:justify-center md:px-1.5" : ""
+              } ${
                 active
                   ? "bg-slate-800 shadow-sm ring-1 ring-slate-700/80"
                   : "hover:bg-slate-800 hover:shadow-sm hover:ring-1 hover:ring-slate-700/70"
@@ -80,7 +82,7 @@ export default function MenuPanel({ sections }: { sections: MenuSection[] }) {
                         : "font-medium text-slate-200 group-hover:text-white"
                     }`}
                   >
-                    {item.label}
+                    <span className={collapsed ? "md:sr-only" : ""}>{item.label}</span>
                   </span>
                 </>
               );
@@ -90,6 +92,8 @@ export default function MenuPanel({ sections }: { sections: MenuSection[] }) {
                   key={item.label}
                   type="button"
                   onClick={item.action}
+                  title={collapsed ? item.label : undefined}
+                  aria-label={item.label}
                   className={itemClasses}
                 >
                   {renderContent}
@@ -99,6 +103,7 @@ export default function MenuPanel({ sections }: { sections: MenuSection[] }) {
                   href={item.href}
                   key={item.label}
                   aria-current={active ? "page" : undefined}
+                  title={collapsed ? item.label : undefined}
                   className={itemClasses}
                 >
                   {renderContent}

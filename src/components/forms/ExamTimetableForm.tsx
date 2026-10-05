@@ -27,10 +27,12 @@ const ExamTimetableForm = ({
       classId: number;
       subject: { name: string };
     }[];
+    teachers: { id: string; name: string; surname: string }[];
   };
 }) => {
-  const classes = relatedData?.classes ?? [];
-  const lessons = relatedData?.lessons ?? [];
+  const classes = relatedData?.classes;
+  const lessons = relatedData?.lessons;
+  const teachers = relatedData?.teachers;
 
   const {
     register,
@@ -49,7 +51,7 @@ const ExamTimetableForm = ({
   const selectedClassIds = watch("classIds") as Array<number | string>;
 
   const filteredClasses = useMemo(
-    () => classes.filter((c) => c.gradingLevel === gradeSelection),
+    () => (classes ?? []).filter((c) => c.gradingLevel === gradeSelection),
     [classes, gradeSelection]
   );
 
@@ -60,7 +62,7 @@ const ExamTimetableForm = ({
       ? [selectedClassIds]
       : [];
     const selectedIds = idsArray.map(Number);
-    return lessons.filter((lesson) => selectedIds.includes(lesson.classId));
+    return (lessons ?? []).filter((lesson) => selectedIds.includes(lesson.classId));
   }, [lessons, selectedClassIds]);
 
   useEffect(() => {
@@ -91,7 +93,10 @@ const ExamTimetableForm = ({
       setOpen(false);
       router.refresh();
     } else if (state.error) {
-      toast.error("Unable to create the timetable entry. Verify current term dates.");
+      toast.error(
+        state.message ??
+          "Unable to create the timetable entry. Verify current term dates and invigilator availability."
+      );
     }
   }, [state, router, setOpen]);
 
@@ -206,8 +211,39 @@ const ExamTimetableForm = ({
         />
       </div>
 
+      <fieldset className="flex flex-col gap-2">
+        <legend className="input-label">Exam invigilators</legend>
+        <div className="grid max-h-48 gap-2 overflow-y-auto rounded-md border border-slate-200 bg-white p-3 sm:grid-cols-2">
+          {teachers?.length ? (
+            teachers.map((teacher) => (
+              <label
+                key={teacher.id}
+                className="flex items-center gap-2 rounded px-2 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                <input
+                  type="checkbox"
+                  value={teacher.id}
+                  {...register("invigilatorIds")}
+                  className="h-4 w-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500"
+                />
+                {teacher.name} {teacher.surname}
+              </label>
+            ))
+          ) : (
+            <p className="text-sm text-slate-500">No active teachers available.</p>
+          )}
+        </div>
+        {errors.invigilatorIds?.message && (
+          <p className="text-xs text-red-400">
+            {errors.invigilatorIds.message.toString()}
+          </p>
+        )}
+      </fieldset>
+
       {state.error && (
-        <span className="text-red-500">Unable to create exam timetable. Confirm the active term window.</span>
+        <span className="text-red-500">
+          {state.message ?? "Unable to create exam timetable. Confirm the active term window and invigilator availability."}
+        </span>
       )}
 
       <div className="flex items-center gap-3">

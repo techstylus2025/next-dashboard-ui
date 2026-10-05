@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { PlusCircle } from "lucide-react";
+import { BadgeCheck, PlusCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "react-toastify";
@@ -50,6 +50,7 @@ type AssignmentOption = {
   paidSoFar: number;
   balance: number;
   lastPaymentDate: string | null;
+  paymentCount: number;
 };
 type PaymentRow = {
   id: number;
@@ -60,22 +61,33 @@ type PaymentRow = {
   academicYear: string;
   amount: number;
   paidAt: string;
+  paymentCount: number;
   paymentMethod?: string | null;
   methodDetails?: string | null;
   studentId?: number;
   parentId?: string | null;
 };
 type ReceiptData = {
+  paymentId: number;
   studentName: string;
   className: string;
   term: string;
   academicYear: string;
   amount: number;
   paymentDate: string;
+  paymentCount: number;
   paymentMethod: string;
   methodDetails?: string | null;
   mobileMoneyService?: string | null;
   balance?: number;
+};
+type ReceiptSchoolDetails = {
+  name: string;
+  address?: string | null;
+  telephone?: string | null;
+  location?: string | null;
+  email?: string | null;
+  logoUrl?: string | null;
 };
 type FeeSummary = {
   totalFeesCollected: number;
@@ -84,12 +96,136 @@ type FeeSummary = {
   activeFeeSchedules: number;
 };
 
+function groupFeeSchedules(cards: ClassFeeCard[]) {
+  const byYear = new Map<string, Map<string, ClassFeeCard[]>>();
+
+  for (const card of cards) {
+    const byTerm = byYear.get(card.academicYear) ?? new Map<string, ClassFeeCard[]>();
+    const termCards = byTerm.get(card.term) ?? [];
+    termCards.push(card);
+    byTerm.set(card.term, termCards);
+    byYear.set(card.academicYear, byTerm);
+  }
+
+  return Array.from(byYear.entries())
+    .sort(([yearA], [yearB]) => yearB.localeCompare(yearA, undefined, { numeric: true }))
+    .map(([academicYear, terms]) => ({
+      academicYear,
+      terms: Array.from(terms.entries())
+        .sort(([termA], [termB]) => termA.localeCompare(termB))
+        .map(([term, termCards]) => ({ term, cards: termCards })),
+    }));
+}
+
+function FeePaymentReceipt({
+  school,
+  receipt,
+  onClose,
+}: {
+  school: ReceiptSchoolDetails;
+  receipt: ReceiptData;
+  onClose: () => void;
+}) {
+  const paymentMethod = receipt.paymentMethod === "mobile_money"
+    ? `${receipt.mobileMoneyService || "MTN"} Mobile Money`
+    : receipt.paymentMethod === "bank_payment"
+      ? "Bank Payment"
+      : receipt.paymentMethod.charAt(0).toUpperCase() + receipt.paymentMethod.slice(1);
+  const schoolAddress = [school.address, school.location].filter(Boolean).join(" · ");
+  const schoolInitials = school.name
+    .split(/\s+/)
+    .map((word) => word.replace(/[^a-z0-9]/gi, "")[0] ?? "")
+    .join("")
+    .toUpperCase() || "SCH";
+  const paymentDate = new Date(receipt.paymentDate);
+  const paymentDateStamp = receipt.paymentDate.slice(0, 10).replace(/-/g, "");
+  const receiptNumber = `${schoolInitials}-${paymentDateStamp}-${String(receipt.paymentId).padStart(6, "0")}`;
+
+  return (
+    <article className="fee-receipt-print w-full max-w-3xl overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-slate-200">
+      <div className="h-2 bg-gradient-to-r from-blue-950 via-blue-700 to-sky-400" />
+      <div className="p-6 sm:p-9">
+        <header className="grid gap-5 border-b border-slate-200 pb-6 sm:grid-cols-[minmax(0,1fr)_240px] sm:items-start">
+          <div className="flex min-w-0 items-start gap-4">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white p-1">
+              <Image
+                src={school.logoUrl || "/logo.png"}
+                alt={`${school.name} logo`}
+                width={56}
+                height={56}
+                className="h-full w-full object-contain"
+              />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-800">Official school receipt</p>
+              <h1 className="mt-1 truncate whitespace-nowrap text-base font-bold leading-tight text-slate-900 sm:text-xl" title={school.name}>{school.name}</h1>
+              <address className="mt-2 space-y-0.5 text-xs not-italic leading-relaxed text-slate-600">
+                {schoolAddress ? <p>{schoolAddress}</p> : null}
+                {school.telephone ? <p>Tel: {school.telephone}</p> : null}
+                {school.email ? <p>{school.email}</p> : null}
+              </address>
+            </div>
+          </div>
+          <div className="min-w-0 border-t border-slate-200 pt-4 sm:border-l sm:border-t-0 sm:pl-5 sm:pt-0 sm:text-right">
+            <p className="text-sm font-semibold uppercase tracking-[0.08em] text-slate-800">Fee payment receipt</p>
+            <dl className="mt-2 space-y-1.5 text-xs">
+              <div className="flex justify-between gap-3 sm:justify-end"><dt className="text-slate-500">Receipt no.</dt><dd className="font-mono font-semibold text-slate-900">{receiptNumber}</dd></div>
+              <div className="flex justify-between gap-3 sm:justify-end"><dt className="text-slate-500">Payment count</dt><dd className="font-medium text-slate-800">{receipt.paymentCount}</dd></div>
+              <div className="flex justify-between gap-3 sm:justify-end"><dt className="text-slate-500">Date</dt><dd className="font-medium text-slate-800">{paymentDate.toLocaleDateString()}</dd></div>
+            </dl>
+          </div>
+        </header>
+
+        <section className="mt-6 rounded-lg bg-blue-950 px-5 py-4 text-white sm:flex sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-[0.14em] text-sky-200">Payment received</p>
+            <p className="mt-1 text-3xl font-semibold">₵{receipt.amount.toFixed(2)}</p>
+          </div>
+          <p className="mt-3 text-sm text-sky-100 sm:mt-0">Thank you for your payment.</p>
+        </section>
+
+        <div className="mt-6 grid gap-6 sm:grid-cols-2">
+          <section>
+            <h2 className="border-b border-slate-200 pb-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Student and billing</h2>
+            <dl className="mt-3 space-y-3 text-sm">
+              <div><dt className="text-xs text-slate-500">Student</dt><dd className="mt-0.5 font-semibold text-slate-900">{receipt.studentName}</dd></div>
+              <div><dt className="text-xs text-slate-500">Class</dt><dd className="mt-0.5 font-medium text-slate-800">{receipt.className}</dd></div>
+              <div><dt className="text-xs text-slate-500">Academic period</dt><dd className="mt-0.5 font-medium text-slate-800">{termLabel(receipt.term)} · {receipt.academicYear}</dd></div>
+            </dl>
+          </section>
+
+          <section>
+            <h2 className="border-b border-slate-200 pb-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Payment details</h2>
+            <dl className="mt-3 space-y-3 text-sm">
+              <div><dt className="text-xs text-slate-500">Payment method</dt><dd className="mt-0.5 font-medium text-slate-800">{paymentMethod}</dd></div>
+              {receipt.methodDetails ? <div><dt className="text-xs text-slate-500">Reference / payer details</dt><dd className="mt-0.5 break-words font-medium text-slate-800">{receipt.methodDetails}</dd></div> : null}
+              {receipt.balance !== undefined ? <div><dt className="text-xs text-slate-500">Remaining balance</dt><dd className={`mt-0.5 font-semibold ${receipt.balance > 0 ? "text-rose-700" : "text-blue-800"}`}>₵{receipt.balance.toFixed(2)}</dd></div> : null}
+            </dl>
+          </section>
+        </div>
+
+        <footer className="mt-7 border-t border-dashed border-slate-300 pt-4 text-center text-xs text-slate-500">
+          <p>This receipt confirms payment received by {school.name}.</p>
+          <p className="mt-1">Please retain it for your records.</p>
+        </footer>
+
+        <div className="mt-6 flex justify-end gap-3">
+          <button type="button" onClick={onClose} className="rounded-md px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100">Close</button>
+          <button type="button" onClick={() => window.print()} className="rounded-md bg-blue-800 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-950">Print receipt</button>
+        </div>
+      </div>
+    </article>
+  );
+}
+
 
 export default function FeesManagement({
   role,
+  schoolDetails,
   classes,
   classFeeCards,
   assignmentOptions,
+  feeStatusAssignments,
   payments,
   canAdmin,
   canCollect,
@@ -98,9 +234,11 @@ export default function FeesManagement({
   previousTermArrears,
 }: {
   role: string | undefined;
+  schoolDetails: ReceiptSchoolDetails;
   classes: ClassOption[];
   classFeeCards: ClassFeeCard[];
   assignmentOptions: AssignmentOption[];
+  feeStatusAssignments: AssignmentOption[];
   payments: PaymentRow[];
   canAdmin: boolean;
   canCollect: boolean;
@@ -112,6 +250,11 @@ export default function FeesManagement({
   const [pending, startTransition] = useTransition();
 
   const isViewer = role === "parent" || role === "student";
+  const feeScheduleGroups = useMemo(() => groupFeeSchedules(classFeeCards), [classFeeCards]);
+  const recentFeeScheduleGroups = useMemo(
+    () => groupFeeSchedules(classFeeCards.slice(0, 4)),
+    [classFeeCards]
+  );
   const [activeTab, setActiveTab] = useState<"overview" | "feeBills" | "payments">(
     isViewer ? "payments" : "overview"
   );
@@ -236,6 +379,12 @@ export default function FeesManagement({
     if (!q) return assignmentOptions;
     return assignmentOptions.filter((a) => a.studentName.toLowerCase().includes(q));
   }, [assignmentOptions, paymentSearch]);
+
+  const filteredFeeStatusAssignments = useMemo(() => {
+    const q = paymentSearch.trim().toLowerCase();
+    if (!q) return feeStatusAssignments;
+    return feeStatusAssignments.filter((assignment) => assignment.studentName.toLowerCase().includes(q));
+  }, [feeStatusAssignments, paymentSearch]);
 
   const activeArrearsTerm = (activeTermArrears ?? [])[0]?.term ?? "";
   const previousArrearsTerm = (previousTermArrears ?? [])[0]?.term ?? "";
@@ -506,41 +655,64 @@ export default function FeesManagement({
                 </span>
               </div>
 
-              <div className="mt-4 grid gap-3 lg:grid-cols-2">
-                {classFeeCards.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
-                    No fee schedules created yet.
-                  </div>
-                ) : (
-                  classFeeCards.slice(0, 4).map((card) => (
-                    <div key={card.id} className="rounded-3xl bg-gradient-to-br from-white via-slate-50 to-slate-100 p-4 shadow-sm">
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <p className="text-sm font-semibold text-slate-900">{card.className}</p>
-                          <p className="text-xs text-slate-500">{termLabel(card.term)} • {card.academicYear}</p>
+              {classFeeCards.length === 0 ? (
+                <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+                  No fee schedules created yet.
+                </div>
+              ) : (
+                <div className="mt-4 space-y-5">
+                  {recentFeeScheduleGroups.map((yearGroup) => (
+                    <details key={yearGroup.academicYear} className="smooth-disclosure group rounded-lg border border-slate-200 bg-white">
+                      <summary className="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-slate-800 marker:text-slate-400">
+                        {yearGroup.academicYear}<span className="ml-2 text-xs font-normal text-slate-500">{yearGroup.terms.length} term{yearGroup.terms.length === 1 ? "" : "s"}</span>
+                      </summary>
+                      <div className="smooth-disclosure-panel">
+                        <div className="smooth-disclosure-panel-inner">
+                        <div className="space-y-3 border-t border-slate-100 p-3">
+                        {yearGroup.terms.map((termGroup) => (
+                          <details key={termGroup.term} className="smooth-disclosure group/term rounded-lg border border-slate-200">
+                            <summary className="cursor-pointer select-none px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600 marker:text-slate-400">
+                              {termLabel(termGroup.term)}<span className="ml-2 font-normal normal-case tracking-normal text-slate-500">{termGroup.cards.length} schedule{termGroup.cards.length === 1 ? "" : "s"}</span>
+                            </summary>
+                            <div className="smooth-disclosure-panel">
+                              <div className="smooth-disclosure-panel-inner">
+                                <div className="grid gap-3 border-t border-slate-100 p-3 lg:grid-cols-2">
+                              {termGroup.cards.map((card) => (
+                                <div key={card.id} className="rounded-3xl bg-gradient-to-br from-white via-slate-50 to-slate-100 p-4 shadow-sm">
+                                  <div className="flex items-start justify-between gap-4">
+                                    <p className="text-sm font-semibold text-slate-900">{card.className}</p>
+                                    <span className="rounded-full bg-slate-900 px-2 py-1 text-xs font-semibold uppercase tracking-[0.1em] text-white">{card.studentCount}</span>
+                                  </div>
+                                  <div className="mt-4 grid gap-3 text-sm text-slate-600">
+                                    <div className="rounded-2xl bg-slate-100 p-3">
+                                      <p className="text-xs uppercase tracking-[0.15em] text-slate-500">Total bill</p>
+                                      <p className="mt-1 font-semibold text-slate-900">₵{card.totalBill.toFixed(2)}</p>
+                                    </div>
+                                    <div className="grid gap-2 sm:grid-cols-2">
+                                      <div className="rounded-2xl bg-emerald-50 p-3">
+                                        <p className="text-xs uppercase tracking-[0.15em] text-emerald-700">Collected</p>
+                                        <p className="mt-1 font-semibold text-emerald-900">₵{card.totalCollected.toFixed(2)}</p>
+                                      </div>
+                                      <div className="rounded-2xl bg-amber-50 p-3">
+                                        <p className="text-xs uppercase tracking-[0.15em] text-amber-700">Outstanding</p>
+                                        <p className="mt-1 font-semibold text-amber-900">₵{card.outstanding.toFixed(2)}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                                </div>
+                              </div>
+                            </div>
+                          </details>
+                        ))}
                         </div>
-                        <span className="rounded-full bg-slate-900 px-2 py-1 text-xs font-semibold uppercase tracking-[0.1em] text-white">{card.studentCount}</span>
+                        </div>
                       </div>
-                      <div className="mt-4 grid gap-3 text-sm text-slate-600">
-                        <div className="rounded-2xl bg-slate-100 p-3">
-                          <p className="text-xs uppercase tracking-[0.15em] text-slate-500">Total bill</p>
-                          <p className="mt-1 font-semibold text-slate-900">₵{card.totalBill.toFixed(2)}</p>
-                        </div>
-                        <div className="grid gap-2 sm:grid-cols-2">
-                          <div className="rounded-2xl bg-emerald-50 p-3">
-                            <p className="text-xs uppercase tracking-[0.15em] text-emerald-700">Collected</p>
-                            <p className="mt-1 font-semibold text-emerald-900">₵{card.totalCollected.toFixed(2)}</p>
-                          </div>
-                          <div className="rounded-2xl bg-amber-50 p-3">
-                            <p className="text-xs uppercase tracking-[0.15em] text-amber-700">Outstanding</p>
-                            <p className="mt-1 font-semibold text-amber-900">₵{card.outstanding.toFixed(2)}</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
+                    </details>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -562,36 +734,56 @@ export default function FeesManagement({
                 No fee schedules available. Create a new fee bill to get started.
               </div>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {classFeeCards.map((card) => (
-                  <div key={card.id} className="rounded-3xl bg-gradient-to-br from-white via-slate-50 to-slate-100 p-5 transition hover:-translate-y-1">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-slate-900">{card.className}</p>
-                        <p className="text-xs text-slate-500">{termLabel(card.term)} • {card.academicYear}</p>
+              <div className="space-y-6">
+                {feeScheduleGroups.map((yearGroup) => (
+                  <details key={yearGroup.academicYear} className="smooth-disclosure group rounded-lg border border-slate-200 bg-white">
+                    <summary className="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-slate-800 marker:text-slate-400">
+                      {yearGroup.academicYear}<span className="ml-2 text-xs font-normal text-slate-500">{yearGroup.terms.length} term{yearGroup.terms.length === 1 ? "" : "s"}</span>
+                    </summary>
+                    <div className="smooth-disclosure-panel">
+                      <div className="smooth-disclosure-panel-inner">
+                      <div className="space-y-3 border-t border-slate-100 p-3">
+                      {yearGroup.terms.map((termGroup) => (
+                        <details key={termGroup.term} className="smooth-disclosure group/term rounded-lg border border-slate-200">
+                          <summary className="cursor-pointer select-none px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600 marker:text-slate-400">
+                            {termLabel(termGroup.term)}<span className="ml-2 font-normal normal-case tracking-normal text-slate-500">{termGroup.cards.length} schedule{termGroup.cards.length === 1 ? "" : "s"}</span>
+                          </summary>
+                          <div className="smooth-disclosure-panel">
+                            <div className="smooth-disclosure-panel-inner">
+                              <div className="grid gap-4 border-t border-slate-100 p-3 md:grid-cols-2 xl:grid-cols-3">
+                            {termGroup.cards.map((card) => (
+                              <div key={card.id} className="rounded-3xl bg-gradient-to-br from-white via-slate-50 to-slate-100 p-5 transition hover:-translate-y-1">
+                                <div className="flex items-center justify-between gap-3">
+                                  <p className="text-sm font-semibold text-slate-900">{card.className}</p>
+                                  <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold uppercase tracking-[0.1em] text-white">{card.studentCount} students</span>
+                                </div>
+                                <div className="mt-4 space-y-3 text-sm text-slate-600">
+                                  <div className="grid grid-cols-2 gap-3">
+                                    <div className="rounded-2xl bg-slate-50 p-4 shadow-inner shadow-slate-100">
+                                      <p className="text-xs uppercase tracking-[0.15em] text-slate-500">Total bill</p>
+                                      <p className="mt-2 text-lg font-semibold text-slate-900">₵{card.totalBill.toFixed(2)}</p>
+                                    </div>
+                                    <div className="rounded-2xl bg-emerald-50 p-4">
+                                      <p className="text-xs uppercase tracking-[0.15em] text-emerald-700">Collected</p>
+                                      <p className="mt-2 text-lg font-semibold text-emerald-900">₵{card.totalCollected.toFixed(2)}</p>
+                                    </div>
+                                  </div>
+                                  <div className="rounded-2xl bg-amber-50 p-4">
+                                    <p className="text-xs uppercase tracking-[0.15em] text-amber-700">Outstanding</p>
+                                    <p className="mt-2 text-lg font-semibold text-amber-900">₵{card.outstanding.toFixed(2)}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                              </div>
+                            </div>
+                          </div>
+                        </details>
+                      ))}
                       </div>
-                      <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold uppercase tracking-[0.1em] text-white">
-                        {card.studentCount} students
-                      </span>
+                      </div>
                     </div>
-
-                    <div className="mt-4 space-y-3 text-sm text-slate-600">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="rounded-2xl bg-slate-50 p-4 shadow-inner shadow-slate-100">
-                          <p className="text-xs uppercase tracking-[0.15em] text-slate-500">Total bill</p>
-                          <p className="mt-2 text-lg font-semibold text-slate-900">₵{card.totalBill.toFixed(2)}</p>
-                        </div>
-                        <div className="rounded-2xl bg-emerald-50 p-4">
-                          <p className="text-xs uppercase tracking-[0.15em] text-emerald-700">Collected</p>
-                          <p className="mt-2 text-lg font-semibold text-emerald-900">₵{card.totalCollected.toFixed(2)}</p>
-                        </div>
-                      </div>
-                      <div className="rounded-2xl bg-amber-50 p-4">
-                        <p className="text-xs uppercase tracking-[0.15em] text-amber-700">Outstanding</p>
-                        <p className="mt-2 text-lg font-semibold text-amber-900">₵{card.outstanding.toFixed(2)}</p>
-                      </div>
-                    </div>
-                  </div>
+                  </details>
                 ))}
               </div>
             )}
@@ -603,12 +795,17 @@ export default function FeesManagement({
             {/* If viewer (parent/student), show a compact student fee summary above payments */}
             {isViewer && (
               <div className="mb-4 grid gap-3 sm:grid-cols-2">
-                {assignmentOptions.length === 0 ? (
+                {feeStatusAssignments.length === 0 ? (
                   <div className="rounded-2xl bg-white p-4 text-sm text-slate-600">No fee assignments found.</div>
                 ) : (
-                  assignmentOptions.map((a) => (
+                  feeStatusAssignments.map((a) => {
+                    const paidInFull = a.balance <= 0.009;
+                    return (
                     <div key={a.id} className="rounded-2xl bg-white p-4">
-                      <p className="text-sm font-medium text-slate-900">{a.studentName}</p>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-medium text-slate-900">{a.studentName}</p>
+                        {paidInFull ? <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700"><BadgeCheck size={16} aria-hidden="true" />Paid in full</span> : null}
+                      </div>
                       <p className="text-xs text-slate-500">{a.className} • {a.academicYear} • {termLabel(a.term)}</p>
                       <div className="mt-3 grid grid-cols-3 gap-2 items-center">
                         <div>
@@ -616,8 +813,8 @@ export default function FeesManagement({
                           <p className="font-semibold">₵{a.totalBill.toFixed(2)}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-slate-500">Outstanding</p>
-                          <p className="font-semibold text-amber-700">₵{a.balance.toFixed(2)}</p>
+                          <p className="text-xs text-slate-500">Remaining balance</p>
+                          <p className={`font-semibold ${paidInFull ? "text-emerald-700" : "text-amber-700"}`}>₵{a.balance.toFixed(2)}</p>
                         </div>
                         <div>
                           <p className="text-xs text-slate-500">Last payment</p>
@@ -625,7 +822,8 @@ export default function FeesManagement({
                         </div>
                       </div>
                     </div>
-                  ))
+                    );
+                  })
                 )}
 
                 {/* Show active arrears relevant to viewer */}
@@ -686,7 +884,7 @@ export default function FeesManagement({
                 <div className="space-y-3">
                   {studentPaymentGroups.map((group) => {
                     const groupKey = `${group.studentName}-${group.className}-${group.term}-${group.academicYear}`;
-                    const isExpanded = expandedStudentKeys[groupKey] ?? true;
+                    const isExpanded = expandedStudentKeys[groupKey] ?? false;
 
                     return (
                       <div key={groupKey} className="rounded-xl bg-slate-50 overflow-hidden">
@@ -694,6 +892,7 @@ export default function FeesManagement({
                           type="button"
                           onClick={() => toggleStudentGroup(groupKey)}
                           className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+                          aria-expanded={isExpanded}
                         >
                           <div>
                             <p className="font-semibold text-slate-800">{group.studentName}</p>
@@ -712,9 +911,11 @@ export default function FeesManagement({
                         </button>
 
                         <div
-                          className={`grid overflow-hidden transition-all duration-300 ease-in-out ${
+                          className={`grid overflow-hidden transition-[grid-template-rows,opacity] duration-300 ease-in-out motion-reduce:transition-none ${
                             isExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
                           }`}
+                          aria-hidden={!isExpanded}
+                          inert={!isExpanded}
                         >
                           <div className="overflow-hidden">
                             <div className="space-y-2 border-t border-slate-100 p-3">
@@ -747,12 +948,14 @@ export default function FeesManagement({
                                         setViewingReceiptPayment(p);
                                         const matching = assignmentOptions.find((a) => a.id === p.assignmentId);
                                         setReceiptData({
+                                          paymentId: p.id,
                                           studentName: p.studentName,
                                           className: p.className,
                                           term: p.term,
                                           academicYear: p.academicYear,
                                           amount: p.amount,
                                           paymentDate: p.paidAt,
+                                          paymentCount: p.paymentCount,
                                           paymentMethod: p.paymentMethod ?? "cash",
                                           methodDetails: p.methodDetails ?? null,
                                           mobileMoneyService: p.paymentMethod === "mobile_money" ? (p.methodDetails?.split(" - ")[0] || "MTN") : null,
@@ -796,34 +999,45 @@ export default function FeesManagement({
               )}
             </div>
 
-            <div>
-              <h3 className="text-sm font-medium text-slate-700 mb-2">Students (record payment)</h3>
-              <div className="space-y-2">
-                {filteredStudents.length === 0 ? (
-                  <p className="text-sm text-slate-600">No students found.</p>
-                ) : (
-                  filteredStudents.map((s) => (
-                    <div key={s.id} className="flex items-center justify-between rounded-lg border p-3">
-                      <div>
-                        <p className="font-semibold">{s.studentName}</p>
-                        <p className="text-xs text-slate-500">{s.className} — {s.academicYear}</p>
+            {canCollect && (
+              <div>
+                <h3 className="text-sm font-medium text-slate-700 mb-2">Students (record payment)</h3>
+                <div className="space-y-2">
+                  {filteredFeeStatusAssignments.length === 0 ? (
+                    <p className="text-sm text-slate-600">No students found.</p>
+                  ) : (
+                      filteredFeeStatusAssignments.map((s) => {
+                        const paidInFull = s.balance <= 0.009;
+                        return (
+                      <div key={s.id} className="flex items-center justify-between rounded-lg border p-3">
+                        <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="font-semibold">{s.studentName}</p>
+                              {paidInFull ? <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700"><BadgeCheck size={16} aria-hidden="true" />Paid in full</span> : null}
+                            </div>
+                          <p className="text-xs text-slate-500">{s.className} — {s.academicYear}</p>
+                            <p className={`mt-1 text-xs font-semibold ${paidInFull ? "text-emerald-700" : "text-red-600"}`}>Remaining balance: ₵{s.balance.toFixed(2)}</p>
+                        </div>
+                          {!paidInFull ? (
+                          <div>
+                          <button
+                            className="rounded bg-sky-600 px-3 py-1 text-white"
+                            onClick={() => {
+                              setSelectedAssignment(s);
+                              setRecordModalOpen(true);
+                            }}
+                          >
+                            Record
+                          </button>
+                        </div>
+                        ) : null}
                       </div>
-                      <div>
-                        <button
-                          className="rounded bg-sky-600 px-3 py-1 text-white"
-                          onClick={() => {
-                            setSelectedAssignment(s);
-                            setRecordModalOpen(true);
-                          }}
-                        >
-                          Record
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
+                      );
+                    })
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
       </div>
@@ -951,7 +1165,7 @@ export default function FeesManagement({
         </div>
       )}
 
-      {recordModalOpen && (
+      {recordModalOpen && canCollect && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
             <h3 className="text-lg font-semibold">Record fee payment</h3>
@@ -970,6 +1184,7 @@ export default function FeesManagement({
                     <div>
                       <p className="font-semibold">{s.studentName}</p>
                       <p className="text-xs text-slate-500">{s.className}</p>
+                      <p className="mt-1 text-xs font-semibold text-red-600">Remaining balance: ₵{s.balance.toFixed(2)}</p>
                     </div>
                     <div className="flex gap-2">
                       <button
@@ -1010,13 +1225,14 @@ export default function FeesManagement({
                       return;
                     }
                     const fullMethodDetails = paymentMethod === 'mobile_money' ? `${mobileMoneyService} Momo - ${methodDetails}` : methodDetails;
-                    const receiptPayload: ReceiptData = {
+                    const receiptPayload: Omit<ReceiptData, "paymentId"> = {
                       studentName: selectedAssignment.studentName,
                       className: selectedAssignment.className,
                       term: selectedAssignment.term,
                       academicYear: selectedAssignment.academicYear,
                       amount: amt,
                       paymentDate: payDate,
+                      paymentCount: selectedAssignment.paymentCount + 1,
                       paymentMethod,
                       methodDetails: fullMethodDetails,
                       mobileMoneyService: paymentMethod === 'mobile_money' ? mobileMoneyService : null,
@@ -1033,7 +1249,7 @@ export default function FeesManagement({
                         });
                         if (res.success) {
                           toast.success('Payment recorded.');
-                          setReceiptData(receiptPayload);
+                          setReceiptData({ ...receiptPayload, paymentId: res.paymentId ?? Date.now() });
                           setReceiptModalOpen(true);
                           setRecordModalOpen(false);
                           setSelectedAssignment(null);
@@ -1104,168 +1320,21 @@ export default function FeesManagement({
 
       {receiptModalOpen && receiptData && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="fee-receipt-print w-full max-w-2xl rounded-2xl bg-white p-8 shadow-xl max-h-[90vh] overflow-y-auto">
-            <div className="mb-6 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Image src="/logo.png" alt={process.env.NEXT_PUBLIC_SCHOOL_NAME || 'School'} width={32} height={32} />
-                <h2 className="text-2xl font-bold text-slate-800">{process.env.NEXT_PUBLIC_SCHOOL_NAME || 'School Name'}</h2>
-              </div>
-              <h3 className="text-lg font-semibold text-slate-600">PAYMENT RECEIPT</h3>
-            </div>
-
-            <div className="mb-6 border-y border-slate-200 py-4">
-              <p className="text-center text-sm text-slate-600">Fees Payment Receipt</p>
-              <p className="mt-1 text-center text-xs text-slate-500">Receipt ID: {new Date().getTime()}</p>
-            </div>
-
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-xs text-slate-500">STUDENT NAME</p>
-                  <p className="font-semibold text-slate-800">{receiptData.studentName}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500">CLASS</p>
-                  <p className="font-semibold text-slate-800">{receiptData.className}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500">TERM</p>
-                  <p className="font-semibold text-slate-800">{termLabel(receiptData.term)}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500">ACADEMIC YEAR</p>
-                  <p className="font-semibold text-slate-800">{receiptData.academicYear}</p>
-                </div>
-              </div>
-
-              <div className="border-y border-slate-200 py-4">
-                <div className="mb-2 flex justify-between">
-                  <span className="text-slate-600">Amount paid:</span>
-                  <span className="font-bold text-slate-800">₵{receiptData.amount.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-600">Payment date:</span>
-                  <span className="text-slate-800">{new Date(receiptData.paymentDate).toLocaleDateString()}</span>
-                </div>
-              </div>
-
-              <div className="mt-3">
-                <div className="flex justify-between">
-                  <span className="text-slate-600">Remaining balance:</span>
-                  <span className={`font-bold ${receiptData.balance && receiptData.balance > 0 ? 'text-red-600' : 'text-emerald-700'}`}>
-                    ₵{(receiptData.balance ?? 0).toFixed(2)}
-                  </span>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <p className="text-sm font-semibold text-slate-800">PAYMENT METHOD</p>
-                <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
-                  <p className="font-medium capitalize">
-                    {receiptData.paymentMethod === 'mobile_money'
-                      ? `${receiptData.mobileMoneyService || 'MTN'} Mobile Money`
-                      : receiptData.paymentMethod === 'bank_payment'
-                      ? 'Bank Payment'
-                      : receiptData.paymentMethod.charAt(0).toUpperCase() + receiptData.paymentMethod.slice(1)}
-                  </p>
-                  {receiptData.methodDetails ? <p className="mt-1 text-xs text-slate-600">{receiptData.methodDetails}</p> : null}
-                </div>
-              </div>
-
-              <div className="border-t border-slate-200 pt-4 text-center">
-                <p className="text-xs text-slate-500">Thank you for your payment!</p>
-                <p className="mt-1 text-xs text-slate-500">Please keep this receipt for your records.</p>
-              </div>
-            </div>
-
-            <div className="mt-8 flex justify-end gap-3">
-              <button type="button" onClick={() => setReceiptModalOpen(false)} className="rounded-lg px-4 py-2 text-sm text-slate-600 hover:bg-slate-100">
-                Close
-              </button>
-              <button type="button" onClick={() => window.print()} className="rounded-lg bg-sky-600 px-6 py-2 text-sm font-medium text-white hover:bg-sky-700">
-                Print Receipt
-              </button>
-            </div>
-          </div>
+          <FeePaymentReceipt
+            school={schoolDetails}
+            receipt={receiptData}
+            onClose={() => setReceiptModalOpen(false)}
+          />
         </div>
       )}
 
       {viewingReceiptPayment && receiptData && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="fee-receipt-print w-full max-w-2xl rounded-2xl bg-white p-8 shadow-xl max-h-[90vh] overflow-y-auto">
-            <div className="mb-6 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Image src="/logo.png" alt="TechStylus" width={32} height={32} />
-                <h2 className="text-2xl font-bold text-slate-800">TechStylus</h2>
-              </div>
-              <h3 className="text-lg font-semibold text-slate-600">PAYMENT RECEIPT</h3>
-            </div>
-
-            <div className="mb-6 border-y border-slate-200 py-4">
-              <p className="text-center text-sm text-slate-600">School Management System</p>
-              <p className="mt-1 text-center text-xs text-slate-500">Receipt ID: {viewingReceiptPayment.id}</p>
-            </div>
-
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-xs text-slate-500">STUDENT NAME</p>
-                  <p className="font-semibold text-slate-800">{receiptData.studentName}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500">CLASS</p>
-                  <p className="font-semibold text-slate-800">{receiptData.className}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500">TERM</p>
-                  <p className="font-semibold text-slate-800">{termLabel(receiptData.term)}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500">ACADEMIC YEAR</p>
-                  <p className="font-semibold text-slate-800">{receiptData.academicYear}</p>
-                </div>
-              </div>
-
-              <div className="border-y border-slate-200 py-4">
-                <div className="mb-2 flex justify-between">
-                  <span className="text-slate-600">Amount paid:</span>
-                  <span className="font-bold text-slate-800">₵{receiptData.amount.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-600">Payment date:</span>
-                  <span className="text-slate-800">{new Date(receiptData.paymentDate).toLocaleDateString()}</span>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <p className="text-sm font-semibold text-slate-800">PAYMENT METHOD</p>
-                <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
-                  <p className="font-medium capitalize">
-                    {receiptData.paymentMethod === 'mobile_money'
-                      ? `${receiptData.mobileMoneyService || 'MTN'} Mobile Money`
-                      : receiptData.paymentMethod === 'bank_payment'
-                      ? 'Bank Payment'
-                      : receiptData.paymentMethod.charAt(0).toUpperCase() + receiptData.paymentMethod.slice(1)}
-                  </p>
-                  {receiptData.methodDetails ? <p className="mt-1 text-xs text-slate-600">{receiptData.methodDetails}</p> : null}
-                </div>
-              </div>
-
-              <div className="border-t border-slate-200 pt-4 text-center">
-                <p className="text-xs text-slate-500">Thank you for your payment!</p>
-                <p className="mt-1 text-xs text-slate-500">Please keep this receipt for your records.</p>
-              </div>
-            </div>
-
-            <div className="mt-8 flex justify-end gap-3">
-              <button type="button" onClick={() => { setViewingReceiptPayment(null); setReceiptData(null); }} className="rounded-lg px-4 py-2 text-sm text-slate-600 hover:bg-slate-100">
-                Close
-              </button>
-              <button type="button" onClick={() => window.print()} className="rounded-lg bg-sky-600 px-6 py-2 text-sm font-medium text-white hover:bg-sky-700">
-                Print Receipt
-              </button>
-            </div>
-          </div>
+          <FeePaymentReceipt
+            school={schoolDetails}
+            receipt={receiptData}
+            onClose={() => { setViewingReceiptPayment(null); setReceiptData(null); }}
+          />
         </div>
       )}
     </div>

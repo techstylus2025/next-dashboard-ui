@@ -68,13 +68,17 @@ const EventListPage = async ({
       className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-lamaPurpleLight"
     >
       <td className="p-4">
-        <details>
+        <details className="smooth-disclosure">
           <summary className="cursor-pointer font-medium text-slate-900 hover:text-sky-700">
             {item.title}
           </summary>
-          <p className="mt-2 max-w-prose whitespace-pre-wrap text-sm text-slate-600">
-            {item.description || "No description provided."}
-          </p>
+          <div className="smooth-disclosure-panel">
+            <div className="smooth-disclosure-panel-inner">
+              <p className="mt-2 max-w-prose whitespace-pre-wrap text-sm text-slate-600">
+                {item.description || "No description provided."}
+              </p>
+            </div>
+          </div>
         </details>
       </td>
       <td>{item.class?.name || "-"}</td>
@@ -202,11 +206,15 @@ const EventListPage = async ({
               </div>
               <div className="space-y-6">
                 {yearGroup.terms.map((termGroup) => (
-                  <details key={termGroup.termNumber} className="space-y-3" open>
+                  <details key={termGroup.termNumber} className="smooth-disclosure">
                     <summary className="cursor-pointer rounded-lg border border-slate-200 bg-white p-3 font-semibold text-slate-800">
                       Term {termGroup.termNumber} ({termGroup.events.length} events)
                     </summary>
-                    <Table columns={columns} renderRow={renderRow} data={termGroup.events} />
+                    <div className="smooth-disclosure-panel">
+                      <div className="smooth-disclosure-panel-inner pt-3">
+                        <Table columns={columns} renderRow={renderRow} data={termGroup.events} />
+                      </div>
+                    </div>
                   </details>
                 ))}
               </div>

@@ -26,7 +26,7 @@ export default function QuickActionCard({ title, description, href = "#", icon, 
   return (
     <Link
       href={href}
-      className="group flex min-h-[72px] items-center rounded-lg bg-slate-50 p-3 transition-all duration-150 hover:-translate-y-0.5 hover:bg-white"
+      className="group flex min-h-[88px] items-center rounded-2xl border border-slate-200/70 bg-slate-50/70 p-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-sky-200 hover:bg-white hover:shadow-md"
     >
       <div className="flex w-full items-center gap-3">
         <div className="relative overflow-visible">
@@ -38,7 +38,10 @@ export default function QuickActionCard({ title, description, href = "#", icon, 
           </div>
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-slate-900 leading-5">{title}</p>
+          <p className="text-sm font-semibold leading-5 text-slate-900">{title}</p>
+          {description ? (
+            <p className="mt-1 text-xs leading-4 text-slate-500">{description}</p>
+          ) : null}
         </div>
       </div>
     </Link>

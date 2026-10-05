@@ -231,7 +231,9 @@ const StudentsByClass = ({ groups, allClasses, canManage = false }: { groups: Cl
               </div>
 
               <div
-                className={`overflow-hidden transition-max-h duration-300 ease-in-out ${expanded[group.id] ? "max-h-[1200px]" : "max-h-0"}`}
+                className={`overflow-hidden transition-max-h duration-300 ease-in-out motion-reduce:transition-none ${expanded[group.id] ? "max-h-[1200px]" : "max-h-0"}`}
+                aria-hidden={!expanded[group.id]}
+                inert={!expanded[group.id]}
               >
                 <div className="border-t border-slate-100 p-2 sm:p-3">
                   <div className="hidden sm:block overflow-x-auto">

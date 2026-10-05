@@ -58,9 +58,19 @@ export async function GET(request: Request) {
     }
     case "teacher": {
       const teacherSubjects = await prisma.subject.findMany({
-        select: { id: true, name: true },
+        select: {
+          id: true,
+          name: true,
+          grade: { select: { level: true, label: true } },
+          classes: { select: { id: true, name: true } },
+        },
+        orderBy: [{ name: "asc" }, { gradeId: "asc" }],
       });
-      relatedData = { subjects: teacherSubjects };
+      const teacherClasses = await prisma.class.findMany({
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      });
+      relatedData = { subjects: teacherSubjects, classes: teacherClasses };
       break;
     }
     case "student": {

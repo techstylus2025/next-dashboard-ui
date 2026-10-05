@@ -238,7 +238,7 @@ function toMenuItem(
   };
 }
 
-const Menu = ({ customUser }: { customUser?: DashboardUser | null }) => {
+const Menu = ({ customUser, collapsed = false }: { customUser?: DashboardUser | null; collapsed?: boolean }) => {
   const { user } = useUser();
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -287,7 +287,7 @@ const Menu = ({ customUser }: { customUser?: DashboardUser | null }) => {
 
   return (
     <div className="mt-2 flex h-full min-h-0 flex-col lg:mt-3 lg:border lg:border-slate-800/60 lg:bg-slate-950 lg:shadow-xl lg:shadow-slate-950/20 lg:ring-1 lg:ring-slate-800/40 lg:overflow-hidden">
-      <MenuPanel sections={sections} />
+      <MenuPanel sections={sections} collapsed={collapsed} />
     </div>
   );
 };

@@ -27,18 +27,18 @@ export default function StatCard({
   }[accent] ?? "from-slate-100 via-slate-50 to-white";
 
   return (
-    <div className={`min-h-[96px] rounded-lg bg-gradient-to-br ${cardBackground} p-4 shadow-sm transition-transform duration-150 hover:-translate-y-0.5`}>
+    <div className={`min-h-[132px] rounded-2xl border border-slate-200/80 bg-gradient-to-br ${cardBackground} p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md`}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm font-medium text-slate-500">{title}</p>
-          <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">{value}</p>
+          <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">{value}</p>
         </div>
-        <div className={`flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br ${accent} text-white shadow`}>
+        <div className={`flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br ${accent} text-white shadow-md`}>
           {icon}
         </div>
       </div>
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <p className="text-sm text-slate-600">{detail}</p>
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <p className="text-xs text-slate-600 sm:text-sm">{detail}</p>
         {trend ? <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">{trend}</span> : null}
       </div>
     </div>

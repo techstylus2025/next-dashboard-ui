@@ -9,7 +9,11 @@ import Link from "next/link";
 import { ITEM_PER_PAGE } from "@/lib/settings";
 import { auth } from "@clerk/nextjs/server";
 
-type TeacherList = Teacher & { subjects: Subject[] } & { classes: Class[] };
+type TeacherList = Teacher & {
+  subjects: Subject[];
+  classes: Class[];
+  assignedClasses: Class[];
+};
 
 const TeacherListPage = async ({
   searchParams,
@@ -81,7 +85,12 @@ const TeacherListPage = async ({
         {item.subjects.map((subject) => subject.name).join(",")}
       </td>
       <td className="hidden md:table-cell">
-        {item.classes.map((classItem) => classItem.name).join(",")}
+        {[...new Map(
+          [...item.assignedClasses, ...item.classes].map((classItem) => [
+            classItem.id,
+            classItem,
+          ])
+        ).values()].map((classItem) => classItem.name).join(",")}
       </td>
       <td className="hidden md:table-cell">{item.phone}</td>
       <td className="hidden md:table-cell">{item.address}</td>
@@ -115,11 +124,11 @@ const TeacherListPage = async ({
       if (value !== undefined) {
         switch (key) {
           case "classId":
-            query.lessons = {
-              some: {
-                classId: parseInt(value),
-              },
-            };
+            query.OR = [
+              { lessons: { some: { classId: parseInt(value) } } },
+              { assignedClasses: { some: { id: parseInt(value) } } },
+              { classes: { some: { id: parseInt(value) } } },
+            ];
             break;
           case "search":
             query.name = { contains: value, mode: "insensitive" };
@@ -137,6 +146,7 @@ const TeacherListPage = async ({
       include: {
         subjects: true,
         classes: true,
+        assignedClasses: true,
       },
       take: ITEM_PER_PAGE,
       skip: ITEM_PER_PAGE * (p - 1),

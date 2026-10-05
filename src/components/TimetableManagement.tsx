@@ -21,24 +21,20 @@ type LessonOption = {
   name: string;
 };
 
-type TeacherOption = {
-  id: string;
-  name: string;
-  surname: string;
-};
-
 type TimetableManagementProps = {
   lessons: LessonItem[];
-  teachers: TeacherOption[];
   subjects: LessonOption[];
-  classes: LessonOption[];
+  classes: (LessonOption & {
+    subjects: (LessonOption & {
+      teachers: { id: string; name: string; surname: string }[];
+    })[];
+  })[];
 };
 
 const parseDate = (value: string | Date) => new Date(value);
 
 const TimetableManagement = ({
   lessons,
-  teachers,
   subjects,
   classes,
 }: TimetableManagementProps) => {
@@ -138,7 +134,6 @@ const TimetableManagement = ({
                   teacherId: editingLesson.teacher?.id ?? "",
                 }
               : undefined}
-            teachers={teachers}
             subjects={subjects}
             classes={classes}
             onSuccess={handleFormSuccess}
@@ -150,7 +145,7 @@ const TimetableManagement = ({
         <div className="bg-gray-100 p-8 rounded-lg text-center">
           <p className="text-slate-600">No lessons created yet.</p>
           <p className="text-slate-600 text-sm mt-2">
-            Click "Add Lesson" to create your first lesson.
+            Click &quot;Add Lesson&quot; to create your first lesson.
           </p>
         </div>
       ) : (
@@ -167,6 +162,7 @@ const TimetableManagement = ({
                   type="button"
                   onClick={() => toggleDay(day)}
                   className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left bg-slate-100 hover:bg-slate-200 transition-colors"
+                  aria-expanded={isExpanded}
                 >
                   <div>
                     <p className="text-sm uppercase tracking-[0.18em] text-slate-600">{day}</p>
@@ -185,9 +181,11 @@ const TimetableManagement = ({
 
                 <div
                   className={
-                    "overflow-hidden transition-all duration-300 " +
+                    "overflow-hidden transition-all duration-300 motion-reduce:transition-none " +
                     (isExpanded ? "max-h-[2000px]" : "max-h-0")
                   }
+                  aria-hidden={!isExpanded}
+                  inert={!isExpanded}
                 >
                   <div className="px-4 pb-4 pt-2 space-y-2">
                     {lessonsForDay.map((lesson) => {
