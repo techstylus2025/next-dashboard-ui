@@ -6,6 +6,7 @@ import type { ParentSchema } from "@/lib/formValidationSchemas";
 import Image from "next/image";
 import { Eye } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { createPortal } from "react-dom";
 import { useState, useTransition } from "react";
 import { toast } from "react-toastify";
 
@@ -65,7 +66,7 @@ export default function ParentRowActions({ parent }: { parent: ParentRow }) {
         <Image src="/delete.svg" alt="" width={14} height={14} />
       </button>
 
-      {viewOpen && (
+      {viewOpen && typeof document !== "undefined" && createPortal(
         <div
           className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm"
           onClick={() => setViewOpen(false)}
@@ -131,10 +132,11 @@ export default function ParentRowActions({ parent }: { parent: ParentRow }) {
               )}
             </div>
           </section>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {editOpen && (
+      {editOpen && typeof document !== "undefined" && createPortal(
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-lg p-4 relative w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-xl">
             <button
@@ -147,10 +149,11 @@ export default function ParentRowActions({ parent }: { parent: ParentRow }) {
             </button>
             <ParentForm type="update" data={parent} setOpen={setEditOpen} />
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {deleteOpen && (
+      {deleteOpen && typeof document !== "undefined" && createPortal(
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-lg p-4 max-w-sm w-full shadow-xl">
             <p className="text-sm text-slate-700 mb-4">
@@ -175,7 +178,8 @@ export default function ParentRowActions({ parent }: { parent: ParentRow }) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

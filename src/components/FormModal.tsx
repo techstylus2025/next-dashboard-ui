@@ -21,6 +21,7 @@ import {
   useEffect,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "react-toastify";
 import { FormContainerProps } from "./FormContainer";
 
@@ -227,11 +228,13 @@ const FormModal = ({
         type="button"
         className={`${size} flex items-center justify-center rounded-full ${bgColor}`}
         onClick={() => setOpen(true)}
+        aria-label={`${type === "update" ? "Edit" : type === "delete" ? "Delete" : "Create"} ${table}`}
+        title={`${type === "update" ? "Edit" : type === "delete" ? "Delete" : "Create"} ${table}`}
       >
         <Image src={iconSrc} alt="" width={16} height={16} />
       </button>
-      {open && (
-        <div className="w-screen h-screen absolute left-0 top-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
+      {open && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-4">
           <div className="bg-white p-4 rounded-md relative w-full max-w-2xl md:w-[95%] lg:w-[85%] xl:w-[75%] 2xl:w-[65%] max-h-[85vh] overflow-y-auto">
             <Form />
             <button
@@ -242,7 +245,8 @@ const FormModal = ({
               <Image src="/close.png" alt="" width={14} height={14} />
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

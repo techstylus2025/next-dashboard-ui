@@ -23,12 +23,13 @@ const TeacherPage = async ({ searchParams }: { searchParams: Promise<{ [key: str
     select: { name: true },
   });
   const today = new Date();
+  const now = new Date();
   const todayName = new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(today).toUpperCase();
   
   const validDays = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"];
   const isWeekday = validDays.includes(todayName);
 
-  const [classes, lessonCount, examCount, assignmentCount, todayLessons] = await Promise.all([
+  const [classes, lessonCount, examCount, assignmentCount, todayLessons, upcomingExams, upcomingAssignments] = await Promise.all([
     prisma.class.findMany({
       where: {
         OR: [
@@ -61,6 +62,46 @@ const TeacherPage = async ({ searchParams }: { searchParams: Promise<{ [key: str
           orderBy: { startTime: "asc" },
         })
       : Promise.resolve([]),
+    prisma.exam.findMany({
+      where: {
+        isArchived: false,
+        startTime: { gte: now },
+        lesson: { teacherId: userId },
+      },
+      select: {
+        id: true,
+        title: true,
+        startTime: true,
+        lesson: {
+          select: {
+            class: { select: { name: true } },
+            subject: { select: { name: true } },
+          },
+        },
+      },
+      orderBy: { startTime: "asc" },
+      take: 5,
+    }),
+    prisma.assignment.findMany({
+      where: {
+        isArchived: false,
+        dueDate: { gte: now },
+        lesson: { teacherId: userId },
+      },
+      select: {
+        id: true,
+        title: true,
+        dueDate: true,
+        lesson: {
+          select: {
+            class: { select: { name: true } },
+            subject: { select: { name: true } },
+          },
+        },
+      },
+      orderBy: { dueDate: "asc" },
+      take: 5,
+    }),
   ]);
 
   const classIds = classes.map((classItem) => classItem.id);
@@ -111,6 +152,26 @@ const TeacherPage = async ({ searchParams }: { searchParams: Promise<{ [key: str
   const totalStudents = classes.reduce((total, classItem) => total + classItem._count.students, 0);
   const assessments = examCount + assignmentCount;
   const performanceRows = performance.filter((item) => item.reportCount > 0 && item.averagePercentage !== null);
+  const upcomingAssessments = [
+    ...upcomingExams.map((exam) => ({
+      id: `exam-${exam.id}`,
+      title: exam.title,
+      type: "Exam",
+      dueAt: exam.startTime,
+      className: exam.lesson.class.name,
+      subjectName: exam.lesson.subject.name,
+    })),
+    ...upcomingAssignments.map((assignment) => ({
+      id: `assignment-${assignment.id}`,
+      title: assignment.title,
+      type: "Assignment",
+      dueAt: assignment.dueDate,
+      className: assignment.lesson.class.name,
+      subjectName: assignment.lesson.subject.name,
+    })),
+  ]
+    .sort((a, b) => a.dueAt.getTime() - b.dueAt.getTime())
+    .slice(0, 5);
 
   const currentDate = new Date().toLocaleDateString("en-US", {
     weekday: "long",
@@ -223,6 +284,38 @@ const TeacherPage = async ({ searchParams }: { searchParams: Promise<{ [key: str
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
+        <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5" aria-labelledby="upcoming-assessments-heading">
+          <div className="mb-4 flex items-end justify-between gap-3">
+            <div>
+              <h2 id="upcoming-assessments-heading" className="text-lg font-semibold text-slate-950">Upcoming assessments</h2>
+              <p className="mt-1 text-sm text-slate-500">Your next exams and assignment deadlines</p>
+            </div>
+            <Link href="/list/exams" className="shrink-0 text-sm font-medium text-amber-800 hover:text-amber-950">View all</Link>
+          </div>
+          {upcomingAssessments.length ? (
+            <ul className="divide-y divide-slate-100">
+              {upcomingAssessments.map((assessment) => (
+                <li key={assessment.id} className="flex items-center gap-3 py-3 first:pt-1 last:pb-1">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-800">
+                    <ClipboardCheck size={17} aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-slate-900">{assessment.title}</p>
+                    <p className="mt-0.5 truncate text-xs text-slate-500">
+                      {assessment.type} · {assessment.subjectName} · {assessment.className}
+                    </p>
+                  </div>
+                  <time className="shrink-0 text-right text-xs text-slate-500">
+                    {assessment.dueAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                    <span className="mt-0.5 block">{assessment.dueAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span>
+                  </time>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="rounded-lg bg-slate-50 px-4 py-7 text-center text-sm text-slate-500">No upcoming exams or assignment deadlines.</p>
+          )}
+        </section>
         <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5" aria-labelledby="performance-heading">
           <div className="mb-4">
             <h2 id="performance-heading" className="text-lg font-semibold text-slate-950">Student performance</h2>

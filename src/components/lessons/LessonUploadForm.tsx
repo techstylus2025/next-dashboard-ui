@@ -227,6 +227,7 @@ const LessonUploadForm = ({
                 <label className="input-label">Subject</label>
                 <select
                   value={row.lessonId}
+                  disabled={lessons.length === 0}
                   onChange={(event) => {
                     const lessonId = Number(event.target.value);
                     const selected = lessons.find((l) => l.id === lessonId);
@@ -237,13 +238,22 @@ const LessonUploadForm = ({
                   }}
                   className="ring-[1.5px] ring-gray-300 rounded-md p-2 text-sm"
                 >
-                  <option value={0}>Select a subject</option>
+                  <option value={0}>
+                    {lessons.length > 0
+                      ? "Select an assigned subject and class"
+                      : "No scheduled lessons for your assignments"}
+                  </option>
                   {lessons.map((lesson) => (
                     <option key={lesson.id} value={lesson.id}>
-                      {lesson.subject.name}
+                      {lesson.subject.name} — {lesson.class.name}
                     </option>
                   ))}
                 </select>
+                {lessons.length === 0 ? (
+                  <p className="text-xs text-amber-700">
+                    Ask an administrator to add your assigned class and subject to the timetable before uploading.
+                  </p>
+                ) : null}
               </div>
 
               <div className="flex flex-col gap-2">

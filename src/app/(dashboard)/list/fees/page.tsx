@@ -238,6 +238,7 @@ export default async function FeesPage() {
     <div className="flex-1 p-2 min-h-[60vh] rounded-xl bg-slate-50">
       <FeesManagement
         role={role ?? undefined}
+        reportingDate={new Date().toISOString()}
         schoolDetails={schoolDetails}
         classes={classes}
         classFeeCards={classFeeCards}

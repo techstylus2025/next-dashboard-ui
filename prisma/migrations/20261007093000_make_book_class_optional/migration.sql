@@ -1,0 +1,8 @@
+ALTER TABLE "Book" ALTER COLUMN "classId" DROP NOT NULL;
+
+ALTER TABLE "Book" DROP CONSTRAINT "Book_classId_fkey";
+ALTER TABLE "Book"
+  ADD CONSTRAINT "Book_classId_fkey"
+  FOREIGN KEY ("classId") REFERENCES "Class"("id")
+  ON DELETE SET NULL
+  ON UPDATE CASCADE;

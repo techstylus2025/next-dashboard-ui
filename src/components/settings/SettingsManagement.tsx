@@ -19,6 +19,14 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition, type ChangeEvent } from "react";
 import { toast } from "react-toastify";
 import { calculateTermDays } from "@/lib/academicYearUtils";
+import {
+  Archive,
+  BookOpenCheck,
+  Building2,
+  CalendarDays,
+  Settings2,
+  ShieldCheck,
+} from "lucide-react";
 
 export type TermRow = {
   termNumber: number;
@@ -473,53 +481,68 @@ export default function SettingsManagement({
   };
 
   return (
-    <div className="flex flex-col gap-8 p-4 md:p-6 w-full">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-800 sm:text-3xl">Settings</h1>
-          <p className="mt-1 max-w-2xl text-sm text-slate-500">
-            Manage school information, academic years, grading scales, and archival operations. Administrator access only.
-          </p>
-          {activeYear && settingsTab === "academic" && (
-            <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1 text-sm font-medium text-sky-700">
-              <span className="text-xs uppercase tracking-wide">Active year</span>
-              <span className="font-semibold">{activeYear.label}</span>
+    <div className="mx-auto flex w-full max-w-screen-2xl flex-col gap-5 p-3 sm:p-5 lg:p-6">
+      <section className="relative isolate overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-sky-950 px-5 py-7 text-white shadow-xl shadow-slate-900/10 sm:px-8 sm:py-8">
+        <div className="absolute -right-10 -top-16 -z-10 h-56 w-56 rounded-full bg-sky-400/20 blur-3xl" />
+        <div className="absolute -bottom-20 right-1/3 -z-10 h-40 w-40 rounded-full bg-indigo-400/20 blur-3xl" />
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-2xl">
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.15em] text-sky-100">
+              <Settings2 className="h-4 w-4" aria-hidden="true" />
+              Administration workspace
+            </span>
+            <h1 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">School configuration</h1>
+            <p className="mt-2 text-sm leading-6 text-slate-300 sm:text-base">
+              Configure school identity, academic calendars, grading rules, and record retention.
             </p>
-          )}
+            <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.08] px-3 py-1.5 text-xs font-medium text-slate-200">
+              <ShieldCheck className="h-4 w-4 text-emerald-300" aria-hidden="true" />
+              Administrator controls
+              {activeYear ? <><span className="text-slate-500">·</span>Active year: {activeYear.label}</> : null}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:min-w-[390px] sm:grid-cols-4 sm:gap-3">
+            {[
+              { label: "Academic years", value: academicYears.length, icon: CalendarDays },
+              { label: "Active year", value: activeYear ? 1 : 0, icon: BookOpenCheck },
+              { label: "Grading levels", value: gradingLevels.length, icon: Settings2 },
+              { label: "Archived records", value: Object.values(archivedCounts).reduce((total, value) => total + value, 0), icon: Archive },
+            ].map(({ label: metricLabel, value, icon: Icon }) => (
+              <div key={metricLabel} className="rounded-2xl border border-white/10 bg-white/[0.08] p-3 backdrop-blur sm:p-4">
+                <Icon className="mb-3 h-4 w-4 text-sky-200" aria-hidden="true" />
+                <p className="text-xl font-bold tabular-nums sm:text-2xl">{value}</p>
+                <p className="mt-1 text-[10px] leading-4 text-slate-300 sm:text-xs">{metricLabel}</p>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3 lg:justify-end">
-          <nav className="flex flex-nowrap items-center gap-1.5 overflow-x-auto rounded-md bg-white p-1 shadow-sm sm:gap-2">
-            <button
-              type="button"
-              onClick={() => setSettingsTab("school")}
-              className={`shrink-0 rounded-md px-3 py-2 text-sm font-medium whitespace-nowrap ${settingsTab === "school" ? "bg-sky-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}
-            >
-              School
-            </button>
-            <button
-              type="button"
-              onClick={() => setSettingsTab("academic")}
-              className={`shrink-0 rounded-md px-3 py-2 text-sm font-medium whitespace-nowrap ${settingsTab === "academic" ? "bg-sky-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}
-            >
-              Academic
-            </button>
-            <button
-              type="button"
-              onClick={() => setSettingsTab("grading")}
-              className={`shrink-0 rounded-md px-3 py-2 text-sm font-medium whitespace-nowrap ${settingsTab === "grading" ? "bg-sky-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}
-            >
-              Grading
-            </button>
-            <button
-              type="button"
-              onClick={() => setSettingsTab("archives")}
-              className={`shrink-0 rounded-md px-3 py-2 text-sm font-medium whitespace-nowrap ${settingsTab === "archives" ? "bg-sky-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}
-            >
-              Archives
-            </button>
-          </nav>
+      </section>
 
-          <button
+      <section className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-4">
+        <nav aria-label="School settings sections" className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 sm:flex sm:w-auto sm:gap-1">
+          {([
+            { key: "school", label: "School profile", icon: Building2 },
+            { key: "academic", label: "Academic calendar", icon: CalendarDays },
+            { key: "grading", label: "Grading system", icon: BookOpenCheck },
+            { key: "archives", label: "Archives", icon: Archive },
+          ] as const).map(({ key, label: tabLabel, icon: Icon }) => (
+            <button
+              key={key}
+              type="button"
+              aria-current={settingsTab === key ? "page" : undefined}
+              onClick={() => setSettingsTab(key)}
+              className={`inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-xs font-semibold transition sm:px-4 sm:text-sm ${
+                settingsTab === key
+                  ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <Icon className="h-4 w-4" aria-hidden="true" />
+              {tabLabel}
+            </button>
+          ))}
+        </nav>
+        <button
             type="button"
             disabled={pending}
             onClick={async () => {
@@ -541,12 +564,11 @@ export default function SettingsManagement({
                 }
               });
             }}
-            className="shrink-0 rounded-xl bg-rose-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-rose-700 disabled:opacity-50"
+            className="shrink-0 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-50"
           >
             Reset app data
-          </button>
-        </div>
-      </header>
+        </button>
+      </section>
 
       {settingsTab === "grading" ? (
         <GradingSystemSection entries={gradingEntries} levels={gradingLevels} />

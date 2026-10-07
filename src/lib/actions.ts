@@ -482,56 +482,55 @@ export const updateTeacher = async (
   currentState: CurrentState,
   data: TeacherSchema
 ) => {
-  const parsedTeacherData = teacherSchema.safeParse(data);
-  if (!parsedTeacherData.success) {
-    return {
-      success: false,
-      error: true,
-      message: parsedTeacherData.error.issues[0]?.message ?? "Invalid teacher data.",
-    };
-  }
-
-  const validTeacherData = parsedTeacherData.data;
-
-  if (!validTeacherData.id) {
-    return { success: false, error: true, message: "Teacher id is required." };
-  }
-
-  const assignmentError = await validateTeacherAssignments(
-    validTeacherData.classIds ?? [],
-    validTeacherData.subjects ?? [],
-    false
-  );
-  if (assignmentError) {
-    return { success: false, error: true, message: assignmentError };
-  }
-
-  const phone = validTeacherData.phone?.trim() || null;
-  if (phone) {
-    const existingTeacher = await prisma.teacher.findFirst({
-      where: {
-        phone,
-        id: { not: validTeacherData.id },
-      },
-      select: { id: true },
-    });
-    if (existingTeacher) {
+  try {
+    const parsedTeacherData = teacherSchema.safeParse(data);
+    if (!parsedTeacherData.success) {
       return {
         success: false,
         error: true,
-        message: "This phone number is already assigned to another teacher.",
+        message: parsedTeacherData.error.issues[0]?.message ?? "Invalid teacher data.",
       };
     }
-  }
 
-  try {
+    const validTeacherData = parsedTeacherData.data;
+    if (!validTeacherData.id) {
+      return { success: false, error: true, message: "Teacher id is required." };
+    }
+
+    const assignmentError = await validateTeacherAssignments(
+      validTeacherData.classIds ?? [],
+      validTeacherData.subjects ?? [],
+      false
+    );
+    if (assignmentError) {
+      return { success: false, error: true, message: assignmentError };
+    }
+
+    const phone = validTeacherData.phone?.trim() || null;
+    if (phone) {
+      const existingTeacher = await prisma.teacher.findFirst({
+        where: {
+          phone,
+          id: { not: validTeacherData.id },
+        },
+        select: { id: true },
+      });
+      if (existingTeacher) {
+        return {
+          success: false,
+          error: true,
+          message: "This phone number is already assigned to another teacher.",
+        };
+      }
+    }
+
     const client = await clerkClient();
     const primaryEmail = validTeacherData.email?.trim() || undefined;
 
     await client.users.updateUser(validTeacherData.id, {
       username: validTeacherData.username,
       ...(primaryEmail ? { emailAddress: primaryEmail } : {}),
-      ...(validTeacherData.password !== "" && { password: validTeacherData.password }),
+      ...(validTeacherData.password ? { password: validTeacherData.password } : {}),
       firstName: validTeacherData.name,
       lastName: validTeacherData.surname,
     });
@@ -541,7 +540,7 @@ export const updateTeacher = async (
         id: validTeacherData.id,
       },
       data: {
-        ...(validTeacherData.password !== "" && { password: validTeacherData.password }),
+        ...(validTeacherData.password ? { password: validTeacherData.password } : {}),
         username: validTeacherData.username,
         name: validTeacherData.name,
         surname: validTeacherData.surname,
@@ -651,7 +650,7 @@ export const deleteTeacher = async (
 export const createStudent = async (
   currentState: CurrentState,
   data: StudentSchema
-) => {
+): Promise<CurrentState> => {
   console.log(data);
   try {
     const classItem = await prisma.class.findUnique({
@@ -739,14 +738,14 @@ export const createStudent = async (
 export const updateStudent = async (
   currentState: CurrentState,
   data: StudentSchema
-) => {
+): Promise<CurrentState> => {
   const { role } = await getCurrentAuthContext();
   if (role !== "admin") {
-    return { success: false, error: true };
+    return { success: false, error: true, message: "Only an administrator can update student records." };
   }
 
   if (!data.id) {
-    return { success: false, error: true };
+    return { success: false, error: true, message: "Student id is required." };
   }
   try {
     const client = await clerkClient();
@@ -802,10 +801,10 @@ export const updateStudent = async (
       },
     });
     // revalidatePath("/list/students");
-    return { success: true, error: false };
+    return { success: true, error: false, message: undefined };
   } catch (err) {
     console.log(err);
-    return { success: false, error: true };
+    return { success: false, error: true, message: getErrorMessage(err) };
   }
 };
 
@@ -1726,6 +1725,41 @@ export const uploadExamQuestion = async (data: {
   }
 };
 
+const teacherHasLessonAssignment = async (
+  teacherId: string,
+  lessonId: number
+): Promise<boolean> => {
+  const lesson = await prisma.lesson.findUnique({
+    where: { id: lessonId },
+    include: {
+      class: {
+        select: {
+          assignedTeachers: {
+            where: { id: teacherId, isArchived: false },
+            select: { id: true },
+          },
+        },
+      },
+      subject: {
+        select: {
+          id: true,
+          teachers: {
+            where: { id: teacherId, isArchived: false },
+            select: { id: true },
+          },
+        },
+      },
+    },
+  });
+
+  return Boolean(
+    lesson &&
+      (lesson.teacherId === teacherId ||
+        (lesson.class.assignedTeachers.length > 0 &&
+          lesson.subject.teachers.length > 0))
+  );
+};
+
 export const uploadLessonDocument = async (data: {
   title: string;
   lessonId: number;
@@ -1784,19 +1818,11 @@ export const uploadLessonDocument = async (data: {
     } as any;
   }
 
-  const lesson = await prisma.lesson.findUnique({
-    where: { id: lessonId },
-    include: { class: true },
-  });
-
-  if (
-    !lesson ||
-    (lesson.teacherId !== teacherProfile.id && lesson.class.supervisorId !== teacherProfile.id)
-  ) {
+  if (!(await teacherHasLessonAssignment(teacherProfile.id, lessonId))) {
     return {
       success: false,
       error: true,
-      message: "You are not authorized to upload documents for the selected lesson.",
+      message: "You may only upload documents for a subject and class assigned to you.",
     } as any;
   }
 
@@ -1881,6 +1907,23 @@ export const updateLessonDocument = async (
 
   if (role !== "admin" && existingUpload.uploadedById !== userId) {
     return { success: false, error: true, message: "Unauthorized." } as any;
+  }
+
+  if (role === "teacher") {
+    const teacherProfile = await prisma.teacher.findFirst({
+      where: { id: userId ?? undefined, isArchived: false },
+      select: { id: true },
+    });
+    if (
+      !teacherProfile ||
+      !(await teacherHasLessonAssignment(teacherProfile.id, existingUpload.lessonId))
+    ) {
+      return {
+        success: false,
+        error: true,
+        message: "You may only manage uploads for a subject and class assigned to you.",
+      } as any;
+    }
   }
 
   let fileUpdate: { fileName?: string; fileUrl?: string } = {};

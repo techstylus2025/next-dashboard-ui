@@ -204,7 +204,7 @@ model Class {
 model Book {
   id              Int             @id @default(autoincrement())
   title           String
-  classId         Int
+  classId         Int?
   priceCedis      Decimal         @db.Decimal(12, 2)
   quantity        Int
   supplierName    String
@@ -212,7 +212,7 @@ model Book {
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
   publication     String          @default("")
-  class           Class           @relation(fields: [classId], references: [id], onDelete: Cascade)
+  class           Class?          @relation(fields: [classId], references: [id], onDelete: SetNull)
   orderItems      BookOrderItem[]
 }
 

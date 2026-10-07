@@ -7,5 +7,7 @@ export async function GET() {
     badge: period.badge,
     yearLabel: period.yearLabel,
     termNumber: period.termNumber,
+    termStart: period.termStart?.toISOString() ?? null,
+    termEnd: period.termEnd?.toISOString() ?? null,
   });
 }

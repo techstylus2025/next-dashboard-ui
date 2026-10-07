@@ -27,4 +27,24 @@ declare module "lucide-react" {
   export const Pencil: LucideIcon;
   export const Trash2: LucideIcon;
   export const BadgeCheck: LucideIcon;
+  export const Archive: LucideIcon;
+  export const BookOpenCheck: LucideIcon;
+  export const Boxes: LucideIcon;
+  export const Building2: LucideIcon;
+  export const ChevronDown: LucideIcon;
+  export const CircleDollarSign: LucideIcon;
+  export const ClipboardList: LucideIcon;
+  export const Clock3: LucideIcon;
+  export const ContactRound: LucideIcon;
+  export const Layers3: LucideIcon;
+  export const Mail: LucideIcon;
+  export const MapPin: LucideIcon;
+  export const Phone: LucideIcon;
+  export const Search: LucideIcon;
+  export const Settings2: LucideIcon;
+  export const ShieldCheck: LucideIcon;
+  export const ShoppingBag: LucideIcon;
+  export const TrendingUp: LucideIcon;
+  export const UserRound: LucideIcon;
+  export const WalletCards: LucideIcon;
 }

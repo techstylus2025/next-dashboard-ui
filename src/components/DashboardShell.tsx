@@ -24,6 +24,7 @@ export default function DashboardShell({
   customUser?: DashboardUser | null;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [messagesOpen, setMessagesOpen] = useState(false);
   const [desktopMenuCollapsed, setDesktopMenuCollapsed] = useState(false);
   const clerkSyncStarted = useRef(false);
@@ -54,6 +55,7 @@ export default function DashboardShell({
 
   useEffect(() => {
     setMenuOpen(false);
+    setMobileNavOpen(false);
   }, [pathname]);
 
   useEffect(() => {
@@ -116,24 +118,26 @@ export default function DashboardShell({
           menuOpen ? "translate-x-0" : "-translate-x-full"
         } ${desktopMenuCollapsed ? "md:w-20" : "md:w-64"}`}
       >
-        <div className="sticky top-0 z-10 px-4 py-3 sm:px-5 bg-slate-950">
+        <div className={`sticky top-0 z-10 px-4 py-3 sm:px-5 bg-slate-950 ${desktopMenuCollapsed ? "md:px-2" : ""}`}>
           <div className="flex items-start justify-between gap-2">
-            <Link href={homeHref} className={`flex flex-col items-center gap-2 text-center bg-white/5 rounded-lg px-2 py-2 hover:bg-white/10 transition-colors duration-200 ${desktopMenuCollapsed ? "md:hidden" : ""}`}>
-              <Image src="/logo.png" alt="logo" width={52} height={52} />
-              <div className="flex flex-col gap-1">
-                <span className="text-sm font-bold uppercase tracking-wide text-white">KING&apos;S HEART</span>
+            <Link
+              href={homeHref}
+              className={`flex flex-col items-center gap-2 text-center bg-white/5 rounded-lg px-2 py-2 hover:bg-white/10 transition-colors duration-200 ${
+                desktopMenuCollapsed ? "md:w-full md:justify-center" : ""
+              }`}
+            >
+              <Image
+                src="/logo.png"
+                alt="logo"
+                width={52}
+                height={52}
+                className={desktopMenuCollapsed ? "md:h-10 md:w-10" : ""}
+              />
+              <div className={`flex flex-col gap-1 ${desktopMenuCollapsed ? "md:hidden" : ""}`}>
+                <span className="text-xl font-bold uppercase tracking-wide text-white">KING&apos;S HEART</span>
                 <span className="text-sm font-bold uppercase tracking-wide text-white">MONTESSORI SCHOOL</span>
               </div>
             </Link>
-            <button
-              type="button"
-              className={`inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-800 text-slate-200 hover:bg-slate-700 transition-colors ${desktopMenuCollapsed ? "md:w-12 md:h-12" : ""}`}
-              onClick={() => setDesktopMenuCollapsed(!desktopMenuCollapsed)}
-              aria-label={desktopMenuCollapsed ? "Expand menu" : "Collapse menu"}
-              title={desktopMenuCollapsed ? "Expand" : "Collapse"}
-            >
-              {desktopMenuCollapsed ? "→" : "←"}
-            </button>
             <button
               type="button"
               className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-800 text-slate-200 hover:bg-slate-700 md:hidden"
@@ -155,15 +159,18 @@ export default function DashboardShell({
         <div className="sticky top-0 z-40 flex items-center justify-center border-b border-slate-200 bg-white/90 px-2 py-2.5 backdrop-blur-md shadow-sm md:hidden">
           <Link href={homeHref} className="flex items-center gap-2">
             <Image src="/logo.png" alt="logo" width={28} height={28} />
-            <span className="text-sm font-semibold text-slate-900">KING&apos;S HEART MONTESSORI SCHOOL</span>
+            <span className="text-xxl font-bold text-slate-900">KING&apos;S HEART MONTESSORI SCHOOL</span>
           </Link>
         </div>
 
         <div className="sticky top-0 z-30 border-b border-slate-200 bg-slate-950 shadow-sm">
           <Navbar
             onMessagesOpen={() => setMessagesOpen(true)}
+            homeHref={homeHref}
             customUser={customUser}
             supervisorClassName={supervisorClassName}
+            sidebarCollapsed={desktopMenuCollapsed}
+            onToggleSidebar={() => setDesktopMenuCollapsed((collapsed) => !collapsed)}
           />
         </div>
 
@@ -191,37 +198,57 @@ export default function DashboardShell({
         <Image src="/message.svg" alt="Messages" width={24} height={24} className="invert" />
       </button>
 
-      <div className="fixed left-4 right-4 bottom-4 z-40 md:hidden rounded-full border border-slate-800/20 bg-slate-950/95 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-3xl items-center justify-center gap-2 px-2 py-2">
-          {bottomNavItems.filter((item) => item.show).map((item) => {
-            const active = item.href !== "#menu" && pathname === item.href;
-            return item.action ? (
-              <button
-                key={item.label}
-                type="button"
-                onClick={item.action}
-                className={`inline-flex flex-col items-center justify-center gap-1 rounded-full px-2.5 py-2 text-[11px] font-medium transition-colors border-b-2 ${
-                  active ? "text-sky-400 border-b-sky-400" : "text-slate-400 border-b-transparent hover:text-slate-300"
-                }`}
-              >
-                <Image src={item.icon} alt={item.label} width={18} height={18} className="invert" />
-                <span>{item.label}</span>
-              </button>
-            ) : (
-              <Link
-                key={item.label}
-                href={item.href}
-                aria-current={active ? "page" : undefined}
-                className={`inline-flex flex-col items-center justify-center gap-1 rounded-full px-2.5 py-2 text-[11px] font-medium transition-colors border-b-2 ${
-                  active ? "text-sky-400 border-b-sky-400" : "text-slate-400 border-b-transparent hover:text-slate-300"
-                }`}
-              >
-                <Image src={item.icon} alt={item.label} width={18} height={18} className="invert" />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-        </div>
+      <div className={`fixed bottom-3 z-40 md:hidden ${mobileNavOpen ? "left-2 right-2" : "right-3"}`}>
+        {mobileNavOpen ? (
+          <div className="mx-auto flex max-w-3xl items-center justify-center gap-0.5 rounded-full border border-slate-800/20 bg-slate-950/95 p-1.5 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
+            {bottomNavItems.filter((item) => item.show).map((item) => {
+              const active = item.href !== "#menu" && pathname === item.href;
+              const className = `inline-flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-full px-1 py-1.5 text-[9px] font-medium transition-colors ${
+                active ? "text-sky-400" : "text-slate-400 hover:text-slate-200"
+              }`;
+              return item.action ? (
+                <button
+                  key={item.label}
+                  type="button"
+                  onClick={item.action}
+                  className={className}
+                >
+                  <Image src={item.icon} alt="" width={16} height={16} className="invert" />
+                  <span>{item.label}</span>
+                </button>
+              ) : (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  aria-current={active ? "page" : undefined}
+                  className={className}
+                >
+                  <Image src={item.icon} alt="" width={16} height={16} className="invert" />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => setMobileNavOpen(false)}
+              aria-label="Collapse bottom navigation"
+              aria-expanded={true}
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-lg text-slate-300 hover:bg-white/10"
+            >
+              <span aria-hidden="true">×</span>
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setMobileNavOpen(true)}
+            aria-label="Show bottom navigation"
+            aria-expanded={false}
+            className="ml-auto inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-800/20 bg-slate-950/95 shadow-xl shadow-slate-950/30 backdrop-blur-xl"
+          >
+            <Image src="/more.svg" alt="" width={18} height={18} className="invert" />
+          </button>
+        )}
       </div>
 
       <MessagesModal open={messagesOpen} onClose={() => setMessagesOpen(false)} />

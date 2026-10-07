@@ -22,10 +22,22 @@ function toDecimal(value: number): Prisma.Decimal {
   return new Prisma.Decimal(value.toFixed(2));
 }
 
+function getBookActionError(error: unknown): string {
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (error.code === "P2003") {
+      return "The selected class is no longer available. Refresh and try again.";
+    }
+    if (error.code === "P2025") {
+      return "The book or selected class could not be found. Refresh and try again.";
+    }
+  }
+  return error instanceof Error ? error.message : "An unexpected error occurred.";
+}
+
 export async function createBook(input: {
   title: string;
   publication: string;
-  classId: number;
+  classId: number | null;
   priceCedis: number;
   quantity: number;
   supplierName: string;
@@ -37,6 +49,9 @@ export async function createBook(input: {
   }
   if (input.quantity < 0 || input.priceCedis <= 0) {
     return { success: false, error: "Invalid price or quantity." };
+  }
+  if (input.classId !== null && (!Number.isInteger(input.classId) || input.classId <= 0)) {
+    return { success: false, error: "Select a valid class or choose general access." };
   }
   try {
     await db.book.create({
@@ -54,7 +69,7 @@ export async function createBook(input: {
     return { success: true, error: null };
   } catch (e) {
     console.error(e);
-    return { success: false, error: "Could not create book." };
+    return { success: false, error: `Could not create book: ${getBookActionError(e)}` };
   }
 }
 
@@ -62,7 +77,7 @@ export async function updateBook(input: {
   id: number;
   title: string;
   publication: string;
-  classId: number;
+  classId: number | null;
   priceCedis: number;
   quantity: number;
   supplierName: string;
@@ -71,6 +86,9 @@ export async function updateBook(input: {
   const { role } = await getRole();
   if (role !== "admin") {
     return { success: false, error: "Only administrators can edit books." };
+  }
+  if (input.classId !== null && (!Number.isInteger(input.classId) || input.classId <= 0)) {
+    return { success: false, error: "Select a valid class or choose general access." };
   }
   try {
     await db.book.update({
@@ -89,7 +107,7 @@ export async function updateBook(input: {
     return { success: true, error: null };
   } catch (e) {
     console.error(e);
-    return { success: false, error: "Could not update book." };
+    return { success: false, error: `Could not update book: ${getBookActionError(e)}` };
   }
 }
 

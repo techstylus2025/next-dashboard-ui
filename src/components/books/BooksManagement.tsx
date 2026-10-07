@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { BookOpen, Search, ShoppingBag, Boxes } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "react-toastify";
@@ -19,7 +20,7 @@ export type BookRow = {
   id: number;
   title: string;
   publication: string;
-  classId: number;
+  classId: number | null;
   className: string;
   price: number;
   quantity: number;
@@ -29,6 +30,7 @@ export type BookRow = {
 
 export type BookOrderRow = {
   id: number;
+  parentId: string;
   parentName: string;
   status: string;
   pickupCode: string;
@@ -62,6 +64,8 @@ export default function BooksManagement({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [adminTab, setAdminTab] = useState<"books" | "orders">("books");
+  const [catalogSearch, setCatalogSearch] = useState("");
+  const [catalogClassId, setCatalogClassId] = useState("all");
 
   const [bookFormOpen, setBookFormOpen] = useState(false);
   const [editingBook, setEditingBook] = useState<BookRow | null>(null);
@@ -81,10 +85,31 @@ export default function BooksManagement({
     books: BookRow[];
   };
 
-  const booksByClass = useMemo(() => {
-    const sections = new Map<number, { classId: number; className: string; books: BookRow[] }>();
+  const filteredBooks = useMemo(() => {
+    const query = catalogSearch.trim().toLowerCase();
+    return books.filter((book) => {
+      const matchesClass =
+        catalogClassId === "all" ||
+        book.classId === null ||
+        book.classId === Number(catalogClassId);
+      const matchesSearch =
+        !query ||
+        [book.title, book.publication, book.className].some((value) =>
+          value.toLowerCase().includes(query)
+        );
+      return matchesClass && matchesSearch;
+    });
+  }, [books, catalogClassId, catalogSearch]);
 
-    books.forEach((book) => {
+  const inventoryCopies = books.reduce((total, book) => total + book.quantity, 0);
+  const classCount = new Set(
+    books.flatMap((book) => book.classId === null ? [] : [book.classId])
+  ).size;
+
+  const booksByClass = useMemo(() => {
+    const sections = new Map<number | null, { classId: number | null; className: string; books: BookRow[] }>();
+
+    filteredBooks.forEach((book) => {
       const section = sections.get(book.classId) ?? {
         classId: book.classId,
         className: book.className,
@@ -100,7 +125,7 @@ export default function BooksManagement({
         books: section.books.sort((a, b) => a.title.localeCompare(b.title)),
       }))
       .sort((a, b) => a.className.localeCompare(b.className));
-  }, [books]);
+  }, [filteredBooks]);
 
   const groupedBooksByClass = useMemo(
     () => booksByClass.map((section) => {
@@ -145,7 +170,7 @@ export default function BooksManagement({
     setEditingBook(book);
     setTitle(book.title);
     setPublication(book.publication ?? "");
-    setClassId(String(book.classId));
+    setClassId(book.classId === null ? "general" : String(book.classId));
     setPrice(String(book.price));
     setQuantity(String(book.quantity));
     setSupplierName(book.supplierName ?? "");
@@ -154,11 +179,11 @@ export default function BooksManagement({
   };
 
   const handleSaveBook = () => {
-    const cId = parseInt(classId, 10);
+    const cId = classId === "general" ? null : Number.parseInt(classId, 10);
     const p = parseFloat(price);
     const q = parseInt(quantity, 10);
-    if (!title.trim() || !publication.trim() || !classId || Number.isNaN(cId)) {
-      toast.error("Enter book title, publication, and class.");
+    if (!title.trim() || !publication.trim() || (cId !== null && Number.isNaN(cId))) {
+      toast.error("Enter book title, publication, and choose a class or general access.");
       return;
     }
     if (Number.isNaN(p) || p <= 0) {
@@ -286,12 +311,39 @@ export default function BooksManagement({
   };
 
   const pendingOrders = orders.filter((o) => o.status === "PENDING");
+  const parentOrderGroups = useMemo(() => {
+    const groups = new Map<string, { parentId: string; parentName: string; orders: BookOrderRow[] }>();
+    for (const order of orders) {
+      const group = groups.get(order.parentId) ?? {
+        parentId: order.parentId,
+        parentName: order.parentName,
+        orders: [],
+      };
+      group.orders.push(order);
+      groups.set(order.parentId, group);
+    }
+    return Array.from(groups.values()).sort((a, b) => {
+      const latestOrderA = a.orders[0]?.createdAt ?? "";
+      const latestOrderB = b.orders[0]?.createdAt ?? "";
+      return latestOrderB.localeCompare(latestOrderA);
+    });
+  }, [orders]);
 
   return (
-    <div className="flex flex-col gap-6 p-4 md:p-6 w-full">
-      <div>
-        <h1 className="text-2xl font-semibold text-slate-800">Purchase books</h1>
-        <p className="text-sm text-slate-500 mt-1">
+    <div className="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 p-3 sm:p-5 lg:p-6">
+      <section className="relative isolate overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 px-6 py-8 text-white shadow-xl shadow-slate-900/10 sm:px-8 sm:py-10">
+        <div className="absolute -right-12 -top-16 -z-10 h-64 w-64 rounded-full bg-sky-400/20 blur-3xl" />
+        <div className="absolute -bottom-24 right-1/3 -z-10 h-48 w-48 rounded-full bg-indigo-400/20 blur-3xl" />
+        <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
+          <div className="max-w-2xl">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-sky-100">
+              <BookOpen className="h-4 w-4" aria-hidden="true" />
+              School bookstore
+            </div>
+            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+              {canAdmin ? "Books & inventory" : "Find your next book"}
+            </h1>
+            <p className="mt-3 max-w-xl text-sm leading-6 text-slate-300 sm:text-base">
           {canAdmin
             ? "Manage inventory, supplier details, and parent book orders."
             : isParent
@@ -299,8 +351,60 @@ export default function BooksManagement({
               : role === "teacher"
                 ? "Browse available books and prices. Ordering is available to parents."
                 : "Browse available books and prices."}
-        </p>
-      </div>
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:max-w-md sm:grid-cols-3 lg:min-w-[390px]">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.08] p-4 backdrop-blur">
+              <BookOpen className="mb-3 h-5 w-5 text-sky-300" aria-hidden="true" />
+              <p className="text-2xl font-bold">{books.length}</p>
+              <p className="mt-1 text-xs text-slate-300">Book listings</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.08] p-4 backdrop-blur">
+              <Boxes className="mb-3 h-5 w-5 text-emerald-300" aria-hidden="true" />
+              <p className="text-2xl font-bold">{inventoryCopies}</p>
+              <p className="mt-1 text-xs text-slate-300">Copies in stock</p>
+            </div>
+            <div className="col-span-2 rounded-2xl border border-white/10 bg-white/[0.08] p-4 backdrop-blur sm:col-span-1">
+              <ShoppingBag className="mb-3 h-5 w-5 text-violet-300" aria-hidden="true" />
+              <p className="text-2xl font-bold">{classCount}</p>
+              <p className="mt-1 text-xs text-slate-300">Classes covered</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {(!canAdmin || adminTab === "books") && (
+        <section className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-[minmax(0,1fr)_220px] sm:items-end sm:p-5">
+          <label className="block">
+            <span className="mb-2 block text-sm font-semibold text-slate-700">Search the catalogue</span>
+            <span className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-3 transition focus-within:border-sky-400 focus-within:bg-white focus-within:ring-4 focus-within:ring-sky-100">
+              <Search className="h-5 w-5 shrink-0 text-slate-400" aria-hidden="true" />
+              <input
+                type="search"
+                value={catalogSearch}
+                onChange={(event) => setCatalogSearch(event.target.value)}
+                placeholder="Search title, publication, or class"
+                className="w-full bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
+              />
+            </span>
+          </label>
+          <label className="block">
+            <span className="mb-2 block text-sm font-semibold text-slate-700">Class</span>
+            <select
+              value={catalogClassId}
+              onChange={(event) => setCatalogClassId(event.target.value)}
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-3 text-sm text-slate-800 outline-none focus:border-sky-400 focus:bg-white focus:ring-4 focus:ring-sky-100"
+            >
+              <option value="all">All classes</option>
+              {classes.map((classOption) => (
+                <option key={classOption.id} value={classOption.id}>
+                  {classOption.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </section>
+      )}
 
       {canAdmin && (
         <div className="flex gap-2 border-b border-slate-200/80">
@@ -378,7 +482,8 @@ export default function BooksManagement({
                     value={classId}
                     onChange={(e) => setClassId(e.target.value)}
                   >
-                    <option value="">Select class</option>
+                    <option value="">Select book access</option>
+                    <option value="general">General access (all classes)</option>
                     {classes.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.name}
@@ -446,32 +551,33 @@ export default function BooksManagement({
             )}
           </section>
 
-          <section className="rounded-2xl border border-white/60 bg-white/90 backdrop-blur-sm p-6 shadow-sm overflow-x-auto">
-            <h2 className="text-lg font-medium text-slate-800 mb-4">
-              Book records
-            </h2>
-            {books.length === 0 ? (
-              <p className="text-sm text-slate-500">No books in inventory yet.</p>
+          <section className="overflow-x-auto rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+            <div className="mb-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Stock control</p>
+              <h2 className="mt-1 text-xl font-bold tracking-tight text-slate-900">Book inventory</h2>
+            </div>
+            {filteredBooks.length === 0 ? (
+              <p className="text-sm text-slate-500">{books.length ? "No books match these filters." : "No books in inventory yet."}</p>
             ) : (
               <table className="w-full min-w-[720px] text-left text-sm">
                 <thead>
-                  <tr className="text-slate-500 border-b border-slate-200">
-                    <th className="pb-3 pr-2">Title</th>
-                    <th className="pb-3 pr-2">Publication</th>
-                    <th className="pb-3 pr-2">Class</th>
-                    <th className="pb-3 pr-2 text-right">Price (₵)</th>
-                    <th className="pb-3 pr-2 text-center">Stock</th>
-                    <th className="pb-3 pr-2">Supplier</th>
-                    <th className="pb-3 pr-2">Contact</th>
-                    <th className="pb-3 w-24 text-center">Actions</th>
+                  <tr className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <th className="px-3 py-3">Title</th>
+                    <th className="px-3 py-3">Publication</th>
+                    <th className="px-3 py-3">Class</th>
+                    <th className="px-3 py-3 text-right">Price (₵)</th>
+                    <th className="px-3 py-3 text-center">Stock</th>
+                    <th className="px-3 py-3">Supplier</th>
+                    <th className="px-3 py-3">Contact</th>
+                    <th className="w-24 px-3 py-3 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {booksByClass.map((section) => (
-                    <tr key={section.classId} className="border-b border-slate-200">
+                    <tr key={section.classId ?? "general"} className="border-b border-slate-200">
                       <td colSpan={8} className="p-0">
                         <details className="smooth-disclosure">
-                          <summary className="cursor-pointer list-none bg-slate-50 px-3 py-2.5 font-semibold text-slate-800 hover:bg-slate-100">
+                          <summary className="cursor-pointer list-none bg-slate-50 px-3 py-3 font-semibold text-slate-800 transition-colors hover:bg-sky-50">
                             {section.className}
                             <span className="ml-2 text-xs font-medium text-slate-500">
                               {section.books.length} book{section.books.length === 1 ? "" : "s"}
@@ -482,15 +588,19 @@ export default function BooksManagement({
                               <table className="w-full min-w-[720px] text-left text-sm">
                                 <tbody>
                                   {section.books.map((book) => (
-                                    <tr key={book.id} className="border-b border-slate-100 hover:bg-slate-50/80">
-                                      <td className="py-3 pr-2 font-medium">{book.title}</td>
-                                      <td className="py-3 pr-2 text-slate-600">{book.publication || "—"}</td>
-                                      <td className="py-3 pr-2">{book.className}</td>
-                                      <td className="py-3 pr-2 text-right">{book.price.toFixed(2)}</td>
-                                      <td className="py-3 pr-2 text-center">{book.quantity}</td>
-                                      <td className="py-3 pr-2">{book.supplierName}</td>
-                                      <td className="py-3 pr-2">{book.supplierContact}</td>
-                                      <td className="py-3">
+                                    <tr key={book.id} className="border-b border-slate-100 text-slate-700 transition-colors hover:bg-sky-50/50">
+                                      <td className="px-3 py-3 font-semibold text-slate-900">{book.title}</td>
+                                      <td className="px-3 py-3 text-slate-600">{book.publication || "—"}</td>
+                                      <td className="px-3 py-3">{book.className}</td>
+                                      <td className="px-3 py-3 text-right font-semibold">₵{book.price.toFixed(2)}</td>
+                                      <td className="px-3 py-3 text-center">
+                                        <span className={`inline-flex min-w-9 justify-center rounded-full px-2 py-1 text-xs font-semibold ${book.quantity > 0 ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>
+                                          {book.quantity}
+                                        </span>
+                                      </td>
+                                      <td className="px-3 py-3">{book.supplierName || "—"}</td>
+                                      <td className="px-3 py-3">{book.supplierContact || "—"}</td>
+                                      <td className="px-3 py-3">
                                         <div className="flex justify-center gap-2">
                                           <button type="button" title="Edit" onClick={() => openEditBook(book)} className="rounded-lg p-2 hover:bg-sky-100"><Image src="/edit.svg" alt="" width={16} height={16} /></button>
                                           <button type="button" title="Delete" onClick={() => handleDeleteBook(book.id)} className="rounded-lg p-2 hover:bg-red-100"><Image src="/delete.svg" alt="" width={16} height={16} /></button>
@@ -514,78 +624,99 @@ export default function BooksManagement({
       )}
 
       {canAdmin && adminTab === "orders" && (
-        <section className="rounded-2xl border border-white/60 bg-white/90 backdrop-blur-sm p-6 shadow-sm">
-          <h2 className="text-lg font-medium text-slate-800 mb-4">
-            Orders from parents
-            {pendingOrderCount > 0 && (
-              <span className="ml-2 inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700">
-                {pendingOrderCount} pending
-              </span>
-            )}
-          </h2>
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Order management</p>
+              <h2 className="mt-1 text-xl font-bold tracking-tight text-slate-900">Parent orders</h2>
+            </div>
+            <div className="flex items-center gap-2 text-xs font-medium">
+              <span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-600">{parentOrderGroups.length} families</span>
+              {pendingOrderCount > 0 && (
+                <span className="rounded-full bg-amber-50 px-3 py-1.5 text-amber-700">{pendingOrderCount} pending</span>
+              )}
+            </div>
+          </div>
           {orders.length === 0 ? (
-            <p className="text-sm text-slate-500">No orders yet.</p>
+            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-6 py-12 text-center text-sm text-slate-500">
+              No parent orders have been placed yet.
+            </div>
           ) : (
             <div className="space-y-4">
-              {orders.map((order) => (
-                <div
-                  key={order.id}
-                  className="rounded-xl border border-slate-200 p-4 bg-slate-50/50"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-2 mb-3">
+              {parentOrderGroups.map((group) => (
+                <details key={group.parentId} className="group overflow-hidden rounded-2xl border border-slate-200">
+                  <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 bg-slate-50 px-4 py-3 sm:px-5 [&::-webkit-details-marker]:hidden">
                     <div>
-                      <p className="font-semibold text-slate-800">
-                        {order.parentName}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        {new Date(order.createdAt).toLocaleString()} · Pickup: {order.pickupCode} ·{" "}
-                        <span
-                          className={
-                            order.status === "PENDING"
-                              ? "text-amber-700 font-medium"
-                              : order.status === "CONFIRMED"
-                                ? "text-emerald-700 font-medium"
-                                : "text-slate-500"
-                          }
-                        >
-                          {order.status}
-                        </span>
+                      <h3 className="font-semibold text-slate-900">{group.parentName}</h3>
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        {group.orders.length} order{group.orders.length === 1 ? "" : "s"} · {group.orders.reduce((total, order) => total + order.items.length, 0)} line items
                       </p>
                     </div>
-                    {order.status === "PENDING" && (
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          disabled={pending}
-                          onClick={() => handleConfirmOrder(order.id)}
-                          className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
-                        >
-                          Confirm & adjust stock
-                        </button>
-                        <button
-                          type="button"
-                          disabled={pending}
-                          onClick={() => handleCancelOrder(order.id)}
-                          className="rounded-lg bg-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-300"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                  <ul className="text-sm space-y-1">
-                    {order.items.map((item) => (
-                      <li key={item.id} className="flex justify-between gap-4">
-                        <span>
-                          {item.bookTitle} ({item.className}) × {item.quantity}
-                        </span>
-                        <span className="text-slate-600">
-                          ₵{(item.unitPrice * item.quantity).toFixed(2)}
-                        </span>
-                      </li>
+                    <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">
+                      {group.orders.filter((order) => order.status === "PENDING").length} pending
+                    </span>
+                    <span className="ml-auto text-xs font-semibold text-sky-700 group-open:hidden">View orders</span>
+                    <span className="ml-auto hidden text-xs font-semibold text-slate-500 group-open:inline">Hide orders</span>
+                  </summary>
+                  <div className="space-y-3 p-3 sm:p-4">
+                    {group.orders.map((order) => (
+                      <article key={order.id} className="rounded-xl border border-slate-200 bg-white p-4">
+                        <div className="flex flex-col gap-3 border-b border-slate-100 pb-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-sm font-semibold text-slate-800">Order #{order.id}</span>
+                              <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                                order.status === "PENDING"
+                                  ? "bg-amber-50 text-amber-700"
+                                  : order.status === "CONFIRMED"
+                                    ? "bg-emerald-50 text-emerald-700"
+                                    : "bg-slate-100 text-slate-600"
+                              }`}>{order.status}</span>
+                            </div>
+                            <p className="mt-1 text-xs text-slate-500">
+                              {new Date(order.createdAt).toLocaleString()} · Pickup: {order.pickupCode}
+                            </p>
+                          </div>
+                          {order.status === "PENDING" && (
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                disabled={pending}
+                                onClick={() => handleConfirmOrder(order.id)}
+                                className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                              >
+                                Confirm & adjust stock
+                              </button>
+                              <button
+                                type="button"
+                                disabled={pending}
+                                onClick={() => handleCancelOrder(order.id)}
+                                className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        <ul className="mt-3 space-y-2 text-sm">
+                          {order.items.map((item) => (
+                            <li key={item.id} className="flex justify-between gap-4">
+                              <span className="text-slate-700">
+                                {item.bookTitle} <span className="text-slate-400">({item.className})</span> × {item.quantity}
+                              </span>
+                              <span className="shrink-0 font-medium tabular-nums text-slate-700">
+                                ₵{(item.unitPrice * item.quantity).toFixed(2)}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                        <div className="mt-3 flex justify-end border-t border-slate-100 pt-3 text-sm font-bold text-slate-900">
+                          Total: ₵{order.items.reduce((total, item) => total + item.unitPrice * item.quantity, 0).toFixed(2)}
+                        </div>
+                      </article>
                     ))}
-                  </ul>
-                </div>
+                  </div>
+                </details>
               ))}
             </div>
           )}
@@ -594,69 +725,84 @@ export default function BooksManagement({
 
       {isParent && (
         <>
-          <section className="rounded-2xl border border-white/60 bg-white/90 backdrop-blur-sm p-6 shadow-sm">
-            <h2 className="text-lg font-medium text-slate-800 mb-4">
-              Available books
-            </h2>
-            {books.length === 0 ? (
-              <p className="text-sm text-slate-500">No books available right now.</p>
+          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+            <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">Browse & choose</p>
+                <h2 className="mt-1 text-xl font-bold tracking-tight text-slate-900">Available books</h2>
+              </div>
+              <p className="text-sm text-slate-500">{filteredBooks.length} listing{filteredBooks.length === 1 ? "" : "s"} shown</p>
+            </div>
+            {filteredBooks.length === 0 ? (
+              <p className="text-sm text-slate-500">{books.length ? "No books match these filters." : "No books available right now."}</p>
             ) : (
               <div className="space-y-6">
                 {groupedBooksByClass.map(({ classId, className, groups }) => (
-                  <details key={classId} className="smooth-disclosure">
-                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 border-b border-slate-200 py-2 text-left">
-                      <span className="text-base font-semibold text-slate-800">{className}</span>
-                      <span className="shrink-0 text-xs font-medium text-slate-500">{groups.length} book set{groups.length === 1 ? "" : "s"}</span>
+                  <details key={classId ?? "general"} open className="group smooth-disclosure rounded-2xl border border-slate-200 bg-slate-50/60 p-4 sm:p-5">
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-left">
+                      <span>
+                        <span className="block text-lg font-bold text-slate-900">{className}</span>
+                        <span className="mt-0.5 block text-xs text-slate-500">
+                          {classId === null ? "Available to all classes" : "Recommended books for this class"}
+                        </span>
+                      </span>
+                      <span className="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600">{groups.length} book set{groups.length === 1 ? "" : "s"}</span>
                     </summary>
                     <div className="smooth-disclosure-panel">
                       <div className="smooth-disclosure-panel-inner">
-                        <div className="grid gap-4 pt-3 sm:grid-cols-2 xl:grid-cols-3">
+                        <div className="grid gap-4 pt-5 sm:grid-cols-2 xl:grid-cols-3">
                         {groups.map((group) => (
                         <div
                           key={`${group.title}-${group.publication}`}
-                          className="rounded-xl border border-slate-200 bg-white p-4"
+                          className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-lg hover:shadow-slate-900/5"
                         >
-                          <div className="flex items-start justify-between gap-2">
-                            <div>
-                              <h4 className="font-semibold text-slate-800">{group.title}</h4>
-                              <p className="text-xs text-slate-500 mt-0.5">
+                          <div className="flex items-start gap-3 p-4">
+                            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-100 to-indigo-100 text-sky-800">
+                              <BookOpen className="h-6 w-6" aria-hidden="true" />
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-start justify-between gap-2">
+                                <h3 className="line-clamp-2 font-bold leading-snug text-slate-900">{group.title}</h3>
+                                <span className="shrink-0 rounded-full bg-sky-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-sky-700">
+                                  {group.books.length} option{group.books.length === 1 ? "" : "s"}
+                                </span>
+                              </div>
+                              <p className="mt-1 truncate text-sm text-slate-500">
                                 {group.publication || "General publication"}
                               </p>
                             </div>
-                            <span className="rounded-full bg-sky-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-sky-700">
-                              {group.books.length} option{group.books.length === 1 ? "" : "s"}
-                            </span>
                           </div>
 
-                          <div className="mt-3 space-y-2">
+                          <div className="space-y-2 border-t border-slate-100 bg-slate-50/70 p-3">
                             {group.books.map((book) => {
                               const qty = cart[book.id] ?? 0;
                               const inStock = book.quantity > 0;
                               return (
                                 <div
                                   key={book.id}
-                                  className={`rounded-lg border p-3 ${
+                                  className={`rounded-xl border p-3 transition-colors ${
                                     inStock
-                                      ? "border-slate-200 bg-slate-50/70"
-                                      : "border-slate-100 bg-slate-50 opacity-60"
+                                      ? "border-slate-200 bg-white"
+                                      : "border-slate-100 bg-slate-100 opacity-70"
                                   }`}
                                 >
-                                  <div className="flex items-center justify-between gap-2 text-sm">
-                                    <span className="font-medium text-slate-700">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-sm font-semibold text-slate-800">
                                       {book.className}
                                     </span>
-                                    <span className="text-sky-700">
+                                    <span className="text-base font-bold text-sky-800">
                                       ₵{book.price.toFixed(2)}
                                     </span>
                                   </div>
-                                  <p className="mt-1 text-xs text-slate-500">
+                                  <p className={`mt-1 text-xs font-medium ${inStock ? "text-emerald-700" : "text-rose-600"}`}>
                                     {inStock ? `${book.quantity} in stock` : "Out of stock"}
                                   </p>
                                   {inStock && (
-                                    <div className="mt-2 flex items-center gap-2">
-                                      <label className="text-xs text-slate-600">Qty</label>
+                                    <label className="mt-3 flex items-center justify-between gap-3 border-t border-slate-100 pt-3 text-xs font-medium text-slate-600">
+                                      Quantity
                                       <input
                                         type="number"
+                                        aria-label={`Quantity of ${book.title} for ${book.className}`}
                                         min={0}
                                         max={book.quantity}
                                         value={qty || ""}
@@ -666,9 +812,9 @@ export default function BooksManagement({
                                             parseInt(e.target.value, 10) || 0
                                           )
                                         }
-                                        className="w-16 rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                                        className="w-20 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-900 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
                                       />
-                                    </div>
+                                    </label>
                                   )}
                                 </div>
                               );
@@ -759,23 +905,33 @@ export default function BooksManagement({
               ? "Teacher access is view-only. Parents can place book orders from their account."
               : "Book orders can be placed from a parent account."}
           </p>
-          {books.length > 0 ? (
-            <div className="mt-5 space-y-6">
+          {filteredBooks.length > 0 ? (
+            <div className="mt-5 space-y-4">
               {booksByClass.map((section) => (
-                <section key={section.classId} aria-label={`${section.className} books`}>
-                  <details className="smooth-disclosure">
-                    <summary className="mb-3 flex cursor-pointer list-none items-center justify-between gap-3 border-b border-slate-200 pb-2 text-left">
-                      <span className="font-semibold text-slate-800">{section.className}</span>
-                      <span className="shrink-0 text-xs text-slate-500">{section.books.length} book{section.books.length === 1 ? "" : "s"}</span>
+                <section key={section.classId ?? "general"} aria-label={`${section.className} books`}>
+                <details className="smooth-disclosure rounded-2xl border border-slate-200 bg-white p-4">
+                  <summary className="mb-3 flex cursor-pointer list-none items-center justify-between gap-3 text-left">
+                    <span className="font-bold text-slate-900">{section.className}</span>
+                    <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{section.books.length} book{section.books.length === 1 ? "" : "s"}</span>
                     </summary>
                     <div className="smooth-disclosure-panel">
                       <div className="smooth-disclosure-panel-inner">
                         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                           {section.books.map((book) => (
-                            <div key={book.id} className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
-                              <p className="font-medium text-slate-800">{book.title}</p>
-                              <p className="mt-1 text-slate-500">{book.publication || "General publication"}</p>
-                              <p className="mt-2 font-semibold text-sky-700">₵{book.price.toFixed(2)}</p>
+                            <div key={book.id} className="rounded-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4 text-sm shadow-sm">
+                              <div className="flex items-start gap-3">
+                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-800">
+                                  <BookOpen className="h-5 w-5" aria-hidden="true" />
+                                </span>
+                                <div className="min-w-0">
+                                  <p className="font-bold text-slate-900">{book.title}</p>
+                                  <p className="mt-1 text-slate-500">{book.publication || "General publication"}</p>
+                                </div>
+                              </div>
+                              <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
+                                <span className="text-xs font-medium text-slate-500">Available for {book.className}</span>
+                                <span className="font-bold text-sky-800">₵{book.price.toFixed(2)}</span>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -786,7 +942,7 @@ export default function BooksManagement({
               ))}
             </div>
           ) : (
-            <p className="mt-4 text-sm text-slate-500">No books are available right now.</p>
+            <p className="mt-4 text-sm text-slate-500">{books.length ? "No books match these filters." : "No books are available right now."}</p>
           )}
         </section>
       )}

@@ -11,6 +11,7 @@ import type { ResultsPageContext, TermlyReportRow } from "@/lib/resultsData";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "react-toastify";
+import { ClipboardList, GraduationCap, Layers3 } from "lucide-react";
 import ReportEditorCard from "./ReportEditorCard";
 import ReportPreviewModal from "./ReportPreviewModal";
 import ResultsFiltersModal from "./ResultsFiltersModal";
@@ -476,47 +477,83 @@ export default function ResultsManagement(ctx: ResultsPageContext) {
   const canManageMetaForReport = (report: TermlyReportRow) =>
     ctx.isAdmin;
 
+  const publishedReportCount = ctx.reports.filter(
+    (report) => report.isPublished && !report.isWithheld
+  ).length;
+  const reportClassCount = new Set(ctx.reports.map((report) => report.classId)).size;
+
   return (
-    <div className="flex flex-col gap-6 p-4 sm:p-6 w-full">
-      {/* Header */}
-      <div className="flex flex-col gap-2">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex-1">
-            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">
-              Results & Reports
-            </h1>
-            <p className="text-sm text-slate-500 mt-2">
-              Manage termly report cards with preview and PDF export capabilities. Vacation and reopening
-              dates are taken from the active academic year calendar.
+    <div className="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 p-3 sm:p-5 lg:p-6">
+      <section className="relative isolate overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 px-6 py-8 text-white shadow-xl shadow-slate-900/10 sm:px-8 sm:py-10">
+        <div className="absolute -right-12 -top-16 -z-10 h-64 w-64 rounded-full bg-sky-400/20 blur-3xl" />
+        <div className="absolute -bottom-24 right-1/3 -z-10 h-48 w-48 rounded-full bg-indigo-400/20 blur-3xl" />
+        <div className="flex flex-col justify-between gap-7 lg:flex-row lg:items-end">
+          <div className="max-w-2xl">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-sky-100">
+              <ClipboardList className="h-4 w-4" aria-hidden="true" />
+              Academic performance
+            </div>
+            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Results &amp; reports</h1>
+            <p className="mt-3 max-w-xl text-sm leading-6 text-slate-300 sm:text-base">
+              {ctx.isAdmin
+                ? "Generate, review, and publish term reports with clear oversight of student and class progress."
+                : ctx.canRecordScores
+                  ? "Record subject results and review the reports for students in your assigned classes."
+                  : "View term reports and track academic progress for your student."}
             </p>
           </div>
-          {ctx.isAdmin && tab === "reports" && (
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => setViewMode("reports")}
-                className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${
-                  viewMode === "reports"
-                    ? "bg-sky-100 text-sky-700 shadow-sm"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                }`}
-              >
-                Student progress
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode("class-progress")}
-                className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${
-                  viewMode === "class-progress"
-                    ? "bg-sky-100 text-sky-700 shadow-sm"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                }`}
-              >
-                Class progress
-              </button>
+          <div className="grid grid-cols-2 gap-3 sm:min-w-[390px] sm:grid-cols-3">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.08] p-4 backdrop-blur">
+              <ClipboardList className="mb-3 h-5 w-5 text-sky-300" aria-hidden="true" />
+              <p className="text-2xl font-bold">{ctx.reports.length}</p>
+              <p className="mt-1 text-xs text-slate-300">Reports available</p>
             </div>
-          )}
+            <div className="rounded-2xl border border-white/10 bg-white/[0.08] p-4 backdrop-blur">
+              <GraduationCap className="mb-3 h-5 w-5 text-emerald-300" aria-hidden="true" />
+              <p className="text-2xl font-bold">{publishedReportCount}</p>
+              <p className="mt-1 text-xs text-slate-300">Published reports</p>
+            </div>
+            <div className="col-span-2 rounded-2xl border border-white/10 bg-white/[0.08] p-4 backdrop-blur sm:col-span-1">
+              <Layers3 className="mb-3 h-5 w-5 text-violet-300" aria-hidden="true" />
+              <p className="text-2xl font-bold">{reportClassCount}</p>
+              <p className="mt-1 text-xs text-slate-300">Classes represented</p>
+            </div>
+          </div>
         </div>
+        {activeYearLabel ? (
+          <div className="mt-6 inline-flex items-center rounded-full border border-white/15 bg-white/[0.08] px-3 py-1.5 text-xs font-medium text-slate-200">
+            Academic year <span className="mx-2 text-slate-500">·</span>{activeYearLabel}
+          </div>
+        ) : null}
+      </section>
+
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        {ctx.isAdmin && tab === "reports" ? (
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setViewMode("reports")}
+              className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${
+                viewMode === "reports"
+                  ? "bg-sky-100 text-sky-700 shadow-sm"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+              }`}
+            >
+              Student progress
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("class-progress")}
+              className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${
+                viewMode === "class-progress"
+                  ? "bg-sky-100 text-sky-700 shadow-sm"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+              }`}
+            >
+              Class progress
+            </button>
+          </div>
+        ) : <div />}
       </div>
 
       {/* Tabs */}

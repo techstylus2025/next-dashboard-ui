@@ -2,6 +2,7 @@
 
 import { createAnnouncement } from "@/lib/announcementActions";
 import { dispatchAnnouncementsUpdated } from "@/components/NavbarAnnouncementBell";
+import { ChevronDown, Megaphone } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "react-toastify";
@@ -45,63 +46,70 @@ export default function AnnouncementCreateForm({
   };
 
   return (
-    <div className="rounded-2xl border border-amber-200/80 bg-gradient-to-br from-amber-50/90 to-yellow-50/50 shadow-sm">
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left sm:px-5"
+        aria-expanded={isOpen}
+        className="flex w-full items-center justify-between gap-4 px-4 py-4 text-left transition hover:bg-slate-50 sm:px-5"
       >
-        <div>
-          <h2 className="text-base sm:text-lg font-semibold text-slate-800">
-            Create announcement
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-500">
-            School-wide if no class is selected. The navbar count updates automatically.
-          </p>
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-700">
+            <Megaphone className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold text-slate-900 sm:text-lg">
+              Create announcement
+            </h2>
+            <p className="text-xs text-slate-500 sm:text-sm">
+              Send a school-wide notice or target a specific class.
+            </p>
+          </div>
         </div>
-        <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-semibold text-slate-700 shadow-sm">
-          {isOpen ? "Hide" : "Open"}
+        <span className="flex shrink-0 items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700">
+          {isOpen ? "Close" : "Compose"}
+          <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? "rotate-180" : ""}`} aria-hidden="true" />
         </span>
       </button>
 
       {isOpen && (
-        <form onSubmit={handleSubmit} className="border-t border-amber-200/70 p-4 sm:p-5">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-              Title
+        <form onSubmit={handleSubmit} className="border-t border-slate-100 bg-slate-50/70 p-4 sm:p-5">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700 sm:col-span-2">
+              Announcement title
               <input
                 required
-                className="rounded-lg border border-slate-200 bg-white px-3 py-2 w-full text-slate-900"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. Parent–teacher meeting"
+                placeholder="e.g. Parent-teacher meeting"
               />
             </label>
-            <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-              Description
+            <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700 sm:col-span-2">
+              Message
               <textarea
                 required
-                rows={3}
-                className="rounded-lg border border-slate-200 bg-white px-3 py-2 w-full resize-y text-slate-900"
+                rows={4}
+                className="w-full resize-y rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Details for students, teachers, and parents…"
+                placeholder="Share the details your school community needs to know."
               />
             </label>
-            <label className="flex flex-col gap-1 text-sm">
-              Date
+            <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
+              Announcement date
               <input
                 type="date"
                 required
-                className="rounded-lg border border-slate-200 bg-white px-3 py-2 w-full text-slate-900"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
               />
             </label>
-            <label className="flex flex-col gap-1 text-sm">
-              Class (optional)
+            <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
+              Audience
               <select
-                className="rounded-lg border border-slate-200 bg-white px-3 py-2 w-full text-slate-900"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
                 value={classId}
                 onChange={(e) => setClassId(e.target.value)}
               >
@@ -114,11 +122,11 @@ export default function AnnouncementCreateForm({
               </select>
             </label>
           </div>
-          <div className="mt-4 flex justify-center">
+          <div className="mt-5 flex justify-end">
             <button
               type="submit"
               disabled={pending}
-              className="w-full rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-2.5 text-sm font-medium text-white shadow-md hover:from-amber-600 hover:to-orange-600 disabled:opacity-50 sm:w-auto"
+              className="w-full rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
             >
               {pending ? "Publishing…" : "Publish announcement"}
             </button>

@@ -6,8 +6,6 @@ import InputField from "../InputField";
 import {
   Dispatch,
   SetStateAction,
-  startTransition,
-  useActionState,
   useEffect,
   useState,
 } from "react";
@@ -34,6 +32,33 @@ const formatBirthday = (value: string | Date | undefined) => {
   return value.toISOString().split("T")[0];
 };
 
+const normalizeStudentFormData = (student: any) => ({
+  ...student,
+  password: student?.password ?? "",
+  otherNames: student?.otherNames ?? "",
+  gpsAddress: student?.gpsAddress ?? "",
+  languagesSpoken: student?.languagesSpoken ?? "",
+  img: student?.img ?? undefined,
+  previousSchoolName: student?.previousSchoolName ?? "",
+  previousClass: student?.previousClass ?? "",
+  reasonForTransfer: student?.reasonForTransfer ?? "",
+  knownMedicalConditions: student?.knownMedicalConditions ?? "",
+  allergyDetails: student?.allergyDetails ?? "",
+  hearingDetails: student?.hearingDetails ?? "",
+  correctiveGlassesDetails: student?.correctiveGlassesDetails ?? "",
+  fitnessDetails: student?.fitnessDetails ?? "",
+  otherIssues: student?.otherIssues ?? "",
+  emergencyContactPerson: student?.emergencyContactPerson ?? "",
+  emergencyContactNumber: student?.emergencyContactNumber ?? "",
+  alternativeEmergencyContactPerson: student?.alternativeEmergencyContactPerson ?? "",
+  alternativeEmergencyContactNumber: student?.alternativeEmergencyContactNumber ?? "",
+  declarationName: student?.declarationName ?? "",
+  birthday: formatBirthday(student?.birthday) ?? "",
+  declarationDate: formatBirthday(student?.declarationDate) ?? "",
+  department: student?.department ?? "PRESCHOOL",
+  yearsAttended: student?.yearsAttended ?? 0,
+});
+
 const StudentForm = ({
   type,
   data,
@@ -53,11 +78,7 @@ const StudentForm = ({
     trigger,
   } = useForm<StudentSchema>({
     resolver: zodResolver(studentSchema) as any,
-    defaultValues: {
-      ...data,
-      birthday: formatBirthday(data?.birthday),
-      declarationDate: formatBirthday(data?.declarationDate),
-    },
+    defaultValues: normalizeStudentFormData(data),
   });
 
   const [img, setImg] = useState<any>(data?.img);
@@ -65,11 +86,7 @@ const StudentForm = ({
 
   useEffect(() => {
     if (data) {
-      reset({
-        ...data,
-        birthday: formatBirthday(data?.birthday),
-        declarationDate: formatBirthday(data?.declarationDate),
-      });
+      reset(normalizeStudentFormData(data));
       setImg(data?.img);
     }
   }, [data, reset]);
@@ -128,31 +145,51 @@ const StudentForm = ({
 
   const goPrev = () => setCurrentStep((s) => Math.max(s - 1, 0));
 
-  const [state, formAction] = useActionState(
-    type === "create" ? createStudent : updateStudent,
-    {
-      success: false,
-      error: false,
+  const router = useRouter();
+  const [isPending, setIsPending] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const onSubmit = handleSubmit(
+    async (formData) => {
+      setIsPending(true);
+      setSubmitError(null);
+
+      try {
+        const action = type === "create" ? createStudent : updateStudent;
+        const result = await action(
+          { success: false, error: false },
+          {
+            ...formData,
+            img: img?.secure_url ?? data?.img ?? undefined,
+          } as StudentSchema
+        );
+
+        if (result.success) {
+          toast(`Student has been ${type === "create" ? "created" : "updated"}!`);
+          setOpen(false);
+          router.refresh();
+        } else {
+          setSubmitError(result.message ?? "Unable to save the student. Please try again.");
+        }
+      } catch (error) {
+        console.error("Failed to save student:", error);
+        setSubmitError(
+          error instanceof Error
+            ? error.message
+            : "Unable to save the student. Please try again."
+        );
+      } finally {
+        setIsPending(false);
+      }
+    },
+    (validationErrors) => {
+      const firstError = Object.values(validationErrors).find((error) => error?.message);
+      setSubmitError(
+        firstError?.message?.toString() ??
+          "Please correct the highlighted fields and try again."
+      );
     }
   );
-
-  const onSubmit = handleSubmit((formData) => {
-    startTransition(() => {
-      formAction({ ...(formData as any), img: img?.secure_url ?? data?.img } as any);
-    });
-  });
-
-  const router = useRouter();
-
-  useEffect(() => {
-    if (state.success) {
-      toast(`Student has been ${type === "create" ? "created" : "updated"}!`);
-      setOpen(false);
-      router.refresh();
-    } else if (state.error) {
-      toast.error("Could not save student record. Please check the form and try again.");
-    }
-  }, [state, router, type, setOpen]);
 
   const { classes, parents } = relatedData;
 
@@ -607,12 +644,13 @@ const StudentForm = ({
             onNext={goNext}
             isLastStep={currentStep === stepLabels.length - 1}
             submitLabel={type === "create" ? "Create student" : "Save changes"}
+            isPending={isPending}
           />
         </div>
       </div>
 
-      {state.error ? (
-        <FormErrorBanner message="Something went wrong. Please review the form and try again." />
+      {submitError ? (
+        <FormErrorBanner message={submitError} />
       ) : null}
     </form>
   );

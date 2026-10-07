@@ -10,14 +10,36 @@ import FeePaymentChart from "@/components/dashboard/FeePaymentChart";
 import AdminDashboardAutoRefresh from "@/components/dashboard/AdminDashboardAutoRefresh";
 import { getPendingPasswordChangeRequests } from "@/lib/profileActions";
 import { loadAdminDashboardSummary } from "@/lib/dashboardStats";
+import prisma from "@/lib/prisma";
 import { CalendarDays, ChartColumn, GraduationCap, Megaphone, School, Sparkles, Users, ClipboardCheck, BookOpen, FileText, Bell, PlusCircle } from "lucide-react";
 import Link from "next/link";
 
 const AdminPage = async ({ searchParams }: { searchParams: Promise<{ [key: string]: string | undefined }> }) => {
-  const [pendingRequests, summary] = await Promise.all([
+  const [pendingRequests, summary, pendingReviews] = await Promise.all([
     getPendingPasswordChangeRequests(),
     loadAdminDashboardSummary(),
+    Promise.all([
+      prisma.examQuestionUpload.count({
+        where: { documentType: "EXAM_QUESTION", status: "PENDING" },
+      }),
+      prisma.examQuestionUpload.count({
+        where: { documentType: "LESSON_DOCUMENT", status: "PENDING" },
+      }),
+      prisma.termlyReport.count({
+        where: { isPublished: false, isWithheld: false },
+      }),
+      prisma.bookOrder.count({ where: { status: "PENDING" } }),
+      prisma.transportRequest.count({ where: { status: "PENDING" } }),
+    ]),
   ]);
+  const reviewItems = [
+    { label: "Exam questions", detail: "Awaiting review", count: pendingReviews[0], href: "/list/exams", icon: <FileText size={18} /> },
+    { label: "Lesson uploads", detail: "Awaiting approval", count: pendingReviews[1], href: "/list/lessons", icon: <BookOpen size={18} /> },
+    { label: "Student reports", detail: "Ready to publish", count: pendingReviews[2], href: "/list/results", icon: <ClipboardCheck size={18} /> },
+    { label: "Book orders", detail: "Awaiting confirmation", count: pendingReviews[3], href: "/list/purchase-books", icon: <School size={18} /> },
+    { label: "Transport requests", detail: "Awaiting response", count: pendingReviews[4], href: "/list/transport", icon: <Users size={18} /> },
+  ];
+  const pendingReviewCount = reviewItems.reduce((total, item) => total + item.count, 0);
 
   const currentDate = new Date().toLocaleDateString("en-US", {
     weekday: "long",
@@ -93,6 +115,35 @@ const AdminPage = async ({ searchParams }: { searchParams: Promise<{ [key: strin
         <StatCard title="Classes" value={summary.totalClasses.toLocaleString()} detail="Currently available classes" accent="from-emerald-500 to-teal-600" icon={<School size={18} />} />
         <StatCard title="Attendance Today" value={`${summary.attendanceTodayRate}%`} detail={`${summary.attendanceTodayPresent}/${summary.attendanceTodayTotal} marked`} accent="from-amber-500 to-orange-500" icon={<ChartColumn size={18} />} />
       </section>
+      <SectionCard
+        title="Administrator review queue"
+        subtitle={
+          pendingReviewCount > 0
+            ? `${pendingReviewCount.toLocaleString()} item${pendingReviewCount === 1 ? "" : "s"} need${pendingReviewCount === 1 ? "s" : ""} attention`
+            : "No pending reviews or requests"
+        }
+      >
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          {reviewItems.map((item) => (
+            <Link
+              key={item.label}
+              href={item.href}
+              className="flex min-w-0 items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-3 transition hover:border-sky-200 hover:bg-white hover:shadow-sm"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-sky-700">
+                {item.icon}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-semibold text-slate-900">{item.label}</span>
+                <span className="block truncate text-xs text-slate-500">{item.detail}</span>
+              </span>
+              <span className={`rounded-full px-2.5 py-1 text-sm font-bold tabular-nums ${item.count > 0 ? "bg-amber-100 text-amber-800" : "bg-slate-200 text-slate-600"}`}>
+                {item.count}
+              </span>
+            </Link>
+          ))}
+        </div>
+      </SectionCard>
       <SectionCard title="Quick Actions" subtitle="Move quickly across the most common school operations">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {quickActions.map((action, index) => (

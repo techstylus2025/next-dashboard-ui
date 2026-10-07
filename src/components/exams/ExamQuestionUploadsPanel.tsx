@@ -7,7 +7,7 @@ import { toast } from "react-toastify";
 import ExamQuestionUploadForm from "@/components/forms/ExamQuestionUploadForm";
 import ExamQuestionPreviewModal from "@/components/exams/ExamQuestionPreviewModal";
 import { approveExamQuestion, deleteExamQuestionUpload } from "@/lib/actions";
-import { BadgeCheck, Eye, Pencil, Trash2 } from "lucide-react";
+import { BadgeCheck, ChevronDown, Eye, Pencil, Trash2 } from "lucide-react";
 import { groupUploadsByAcademicPeriod } from "@/lib/groupUploadsByAcademicPeriod";
 
 export type ExamQuestionEditItem = {
@@ -71,6 +71,7 @@ const ExamQuestionUploadsPanel = ({
   const [previewTitle, setPreviewTitle] = useState("");
   const [previewUrl, setPreviewUrl] = useState("");
   const [previewedIds, setPreviewedIds] = useState<number[]>([]);
+  const [expandedUploadIds, setExpandedUploadIds] = useState<Record<number, boolean>>({});
   const router = useRouter();
 
   const [approveState, approveAction] = useActionState(approveExamQuestion, {
@@ -140,6 +141,13 @@ const ExamQuestionUploadsPanel = ({
     );
   };
 
+  const toggleUploadDetails = (uploadId: number) => {
+    setExpandedUploadIds((current) => ({
+      ...current,
+      [uploadId]: !current[uploadId],
+    }));
+  };
+
   const showTeacherUpload =
     role === "teacher" && lessons.length > 0 && Boolean(activeTermBadge);
   const showPendingSection =
@@ -153,7 +161,7 @@ const ExamQuestionUploadsPanel = ({
       <div className="flex flex-col md:flex-row items-start justify-between gap-4 mb-4">
         <div>
           <h2 className="text-lg font-semibold">Exam Question Review</h2>
-          <p className="text-sm text-slate-600">
+          <p className="text-xs text-slate-600">
             {activeTermBadge
               ? `New uploads use the current term: ${activeTermBadge}. Existing uploads are grouped by academic year and term.`
               : "Existing uploads are grouped by academic year and term. New uploads are restricted until a current term is set."}
@@ -188,13 +196,13 @@ const ExamQuestionUploadsPanel = ({
       )}
 
       {role === "student" || role === "parent" ? (
-        <div className="text-sm text-slate-600">
+        <div className="text-xs text-slate-600">
           Exam question uploads are available only to subject teachers and class supervisors.
         </div>
       ) : null}
 
       {showPendingSection && (
-        <div className="overflow-x-auto mt-4">
+        <div className="mt-4">
           <div className="mb-3 flex items-center justify-between gap-4">
             <h3 className="text-base font-semibold">
               {role === "admin" ? "Pending Review" : "Your Pending Uploads"}
@@ -206,6 +214,7 @@ const ExamQuestionUploadsPanel = ({
             )}
           </div>
 
+          <div className="hidden overflow-x-auto md:block">
           <table className="min-w-full text-left text-sm">
             <thead className="border-b border-slate-300 text-slate-600">
               <tr>
@@ -248,6 +257,82 @@ const ExamQuestionUploadsPanel = ({
               </tbody>
             )))}
           </table>
+          </div>
+          <div className="space-y-3 md:hidden">
+            {pendingUploadGroups.flatMap((yearGroup) =>
+              yearGroup.terms.flatMap((termGroup) =>
+                termGroup.records.map((upload) => {
+                  const isExpanded = expandedUploadIds[upload.id] ?? false;
+                  return (
+                    <article key={upload.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                      <div className="flex items-start justify-between gap-3 p-3">
+                        <div className="min-w-0 space-y-1">
+                          <p className="truncate text-sm font-semibold text-slate-900" title={`${upload.lesson.subject.name} / ${upload.lesson.class.name}`}>
+                            {upload.lesson.subject.name} / {upload.lesson.class.name}
+                          </p>
+                          <p className="truncate text-xs text-slate-500">
+                            {upload.uploadedBy.name} {upload.uploadedBy.surname}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => toggleUploadDetails(upload.id)}
+                          aria-expanded={isExpanded}
+                          className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-slate-100 px-2.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200"
+                        >
+                          {isExpanded ? "Hide details" : "View details"}
+                          <ChevronDown className={`h-4 w-4 transition-transform ${isExpanded ? "rotate-180" : ""}`} aria-hidden="true" />
+                        </button>
+                      </div>
+                      {isExpanded && (
+                        <div className="space-y-3 border-t border-slate-100 bg-slate-50/70 p-3">
+                          <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
+                            <div className="col-span-2">
+                              <dt className="text-slate-500">Title</dt>
+                              <dd className="mt-0.5 font-medium text-slate-800">{upload.title}</dd>
+                            </div>
+                            <div>
+                              <dt className="text-slate-500">Academic period</dt>
+                              <dd className="mt-0.5 font-medium text-slate-800">{upload.academicYearLabel} · Term {upload.termNumber}</dd>
+                            </div>
+                            <div>
+                              <dt className="text-slate-500">Submitted</dt>
+                              <dd className="mt-0.5 font-medium text-slate-800">{new Intl.DateTimeFormat("en-US").format(new Date(upload.createdAt))}</dd>
+                            </div>
+                            <div className="col-span-2 min-w-0">
+                              <dt className="text-slate-500">Document</dt>
+                              <dd className="mt-0.5 break-all">
+                                <a className="font-medium text-sky-700 underline underline-offset-2" href={upload.fileUrl} target="_blank" rel="noreferrer">{upload.fileName}</a>
+                              </dd>
+                            </div>
+                          </dl>
+                          <div className="flex flex-wrap items-center gap-2 border-t border-slate-200 pt-3">
+                            <button type="button" className="inline-flex h-9 items-center gap-2 rounded-lg bg-white px-3 text-xs font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100" onClick={() => handlePreview(upload)} aria-label="Preview exam question">
+                              <Eye size={16} /> Preview
+                            </button>
+                            {role === "admin" && (
+                              <>
+                                <button type="button" className="inline-flex h-9 items-center gap-2 rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50" onClick={() => handleApprove(upload.id)} disabled={!previewedIds.includes(upload.id)} aria-label="Approve exam question">
+                                  <BadgeCheck size={16} /> Approve
+                                </button>
+                                {!previewedIds.includes(upload.id) && <span className="text-xs text-slate-500">Preview first</span>}
+                              </>
+                            )}
+                            {role === "teacher" && upload.uploadedBy.id === currentUserId && (
+                              <>
+                                <button type="button" onClick={() => handleEdit(upload)} className="inline-flex h-9 items-center gap-2 rounded-lg bg-amber-100 px-3 text-xs font-semibold text-amber-800 hover:bg-amber-200" aria-label="Edit exam question"><Pencil size={15} /> Edit</button>
+                                <button type="button" onClick={() => handleDelete(upload.id)} className="inline-flex h-9 items-center gap-2 rounded-lg bg-rose-600 px-3 text-xs font-semibold text-white hover:bg-rose-700" aria-label="Delete exam question"><Trash2 size={15} /> Delete</button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </article>
+                  );
+                })
+              )
+            )}
+          </div>
         </div>
       )}
 
@@ -255,11 +340,8 @@ const ExamQuestionUploadsPanel = ({
         <div className="mt-8">
           <div className="mb-3 flex items-center justify-between gap-4">
             <h3 className="text-base font-semibold">Approved Exam Questions</h3>
-            <span className="text-xs text-slate-500">
-              Approved questions are stored for future reference.
-            </span>
           </div>
-          <div className="overflow-x-auto">
+          <div className="hidden overflow-x-auto md:block">
             <table className="min-w-full text-left text-sm">
               <thead className="border-b border-slate-300 text-slate-600">
                 <tr>
@@ -298,6 +380,78 @@ const ExamQuestionUploadsPanel = ({
                 </tbody>
               )))}
             </table>
+          </div>
+          <div className="space-y-3 md:hidden">
+            {approvedUploadGroups.flatMap((yearGroup) =>
+              yearGroup.terms.flatMap((termGroup) =>
+                termGroup.records.map((upload) => {
+                  const isExpanded = expandedUploadIds[upload.id] ?? false;
+                  const submittedDate = upload.approvedAt ?? upload.createdAt;
+                  return (
+                    <article key={upload.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                      <div className="flex items-start justify-between gap-3 p-3">
+                        <div className="min-w-0 space-y-1">
+                          <p className="truncate text-sm font-semibold text-slate-900" title={`${upload.lesson.subject.name} / ${upload.lesson.class.name}`}>
+                            {upload.lesson.subject.name} / {upload.lesson.class.name}
+                          </p>
+                          <p className="truncate text-xs text-slate-500">
+                            {upload.uploadedBy.name} {upload.uploadedBy.surname}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => toggleUploadDetails(upload.id)}
+                          aria-expanded={isExpanded}
+                          className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-slate-100 px-2.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200"
+                        >
+                          {isExpanded ? "Hide details" : "View details"}
+                          <ChevronDown className={`h-4 w-4 transition-transform ${isExpanded ? "rotate-180" : ""}`} aria-hidden="true" />
+                        </button>
+                      </div>
+                      {isExpanded && (
+                        <div className="space-y-3 border-t border-slate-100 bg-slate-50/70 p-3">
+                          <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
+                            <div className="col-span-2">
+                              <dt className="text-slate-500">Title</dt>
+                              <dd className="mt-0.5 font-medium text-slate-800">{upload.title}</dd>
+                            </div>
+                            <div>
+                              <dt className="text-slate-500">Academic period</dt>
+                              <dd className="mt-0.5 font-medium text-slate-800">{upload.academicYearLabel} · Term {upload.termNumber}</dd>
+                            </div>
+                            <div>
+                              <dt className="text-slate-500">Approved</dt>
+                              <dd className="mt-0.5 font-medium text-slate-800">{new Intl.DateTimeFormat("en-US").format(new Date(submittedDate))}</dd>
+                            </div>
+                            <div className="col-span-2">
+                              <dt className="text-slate-500">Approved by</dt>
+                              <dd className="mt-0.5 font-medium text-slate-800">{upload.approvedByName || "Unknown administrator"}</dd>
+                            </div>
+                            <div className="col-span-2 min-w-0">
+                              <dt className="text-slate-500">Document</dt>
+                              <dd className="mt-0.5 break-all">
+                                <a className="font-medium text-sky-700 underline underline-offset-2" href={upload.fileUrl} target="_blank" rel="noreferrer">{upload.fileName}</a>
+                              </dd>
+                            </div>
+                          </dl>
+                          <div className="flex flex-wrap items-center gap-2 border-t border-slate-200 pt-3">
+                            <button type="button" className="inline-flex h-9 items-center gap-2 rounded-lg bg-white px-3 text-xs font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100" onClick={() => handlePreview(upload)} aria-label="Preview exam question">
+                              <Eye size={16} /> Preview
+                            </button>
+                            {(role === "admin" || (role === "teacher" && upload.uploadedBy.id === currentUserId)) && (
+                              <button type="button" onClick={() => handleDelete(upload.id)} className="inline-flex h-9 items-center gap-2 rounded-lg bg-rose-600 px-3 text-xs font-semibold text-white hover:bg-rose-700" aria-label="Delete exam question"><Trash2 size={15} /> Delete</button>
+                            )}
+                            {role === "teacher" && upload.uploadedBy.id === currentUserId && (
+                              <button type="button" onClick={() => handleEdit(upload)} className="inline-flex h-9 items-center gap-2 rounded-lg bg-amber-100 px-3 text-xs font-semibold text-amber-800 hover:bg-amber-200" aria-label="Edit exam question"><Pencil size={15} /> Edit</button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </article>
+                  );
+                })
+              )
+            )}
           </div>
         </div>
       )}

@@ -24,6 +24,7 @@ const ParentPage = async () => {
       where: { id: userId },
       include: {
         students: {
+          where: { isArchived: false },
           include: { class: true },
           orderBy: { name: "asc" },
         },
@@ -39,6 +40,47 @@ const ParentPage = async () => {
   }
 
   const students = parent.students ?? [];
+  const studentIds = students.map((student) => student.id);
+  const [publishedReports, recentAttendance] = await Promise.all([
+    studentIds.length
+      ? prisma.termlyReport.findMany({
+          where: {
+            studentId: { in: studentIds },
+            isPublished: true,
+            isWithheld: false,
+          },
+          select: {
+            id: true,
+            overallPercentage: true,
+            overallGrade: true,
+            termNumber: true,
+            publishedAt: true,
+            academicYear: { select: { label: true } },
+            student: { select: { id: true, name: true, surname: true } },
+          },
+          orderBy: [{ publishedAt: "desc" }, { updatedAt: "desc" }],
+          take: 5,
+        })
+      : Promise.resolve([]),
+    studentIds.length
+      ? prisma.attendance.findMany({
+          where: {
+            studentId: { in: studentIds },
+            teacherId: null,
+            isArchived: false,
+            date: { lte: new Date() },
+          },
+          select: {
+            id: true,
+            date: true,
+            present: true,
+            student: { select: { name: true, surname: true, class: { select: { name: true } } } },
+          },
+          orderBy: { date: "desc" },
+          take: 5,
+        })
+      : Promise.resolve([]),
+  ]);
   const currentDate = new Date().toLocaleDateString("en-US", {
     weekday: "long",
     month: "long",
@@ -52,7 +94,7 @@ const ParentPage = async () => {
   const scheduledStudentCount = students.filter((student) => student.class).length;
 
   const parentActions = [
-    { title: "Academic reports", description: "Review learning progress", href: "/list/grades", icon: <FileText size={18} />, color: "bg-sky-100 text-sky-700" },
+    { title: "Academic reports", description: "Review learning progress", href: "/list/results", icon: <FileText size={18} />, color: "bg-sky-100 text-sky-700" },
     { title: "Attendance", description: "Check recent records", href: "/list/attendance", icon: <ClipboardCheck size={18} />, color: "bg-emerald-100 text-emerald-700" },
     { title: "Messages", description: "Contact the school", href: "/list/messages", icon: <MessageSquare size={18} />, color: "bg-amber-100 text-amber-700" },
     { title: "School calendar", description: "See dates and events", href: "/list/events", icon: <CalendarDays size={18} />, color: "bg-rose-100 text-rose-700" },
@@ -101,6 +143,75 @@ const ParentPage = async () => {
           </div>
         </div>
       </section>
+
+      <div className="grid gap-6 xl:grid-cols-2">
+        <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5" aria-labelledby="published-reports-heading">
+          <div className="mb-4 flex items-end justify-between gap-3">
+            <div>
+              <h2 id="published-reports-heading" className="text-lg font-semibold text-slate-950">Published reports</h2>
+              <p className="mt-1 text-sm text-slate-500">Latest reports released by the school</p>
+            </div>
+            <Link href="/list/results" className="shrink-0 text-sm font-medium text-emerald-800 hover:text-emerald-950">View reports</Link>
+          </div>
+          {publishedReports.length ? (
+            <ul className="divide-y divide-slate-100">
+              {publishedReports.map((report) => (
+                <li key={report.id} className="flex items-center gap-3 py-3 first:pt-1 last:pb-1">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-700">
+                    <FileText size={17} aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-slate-900">{report.student.name} {report.student.surname}</p>
+                    <p className="mt-0.5 text-xs text-slate-500">{report.academicYear.label} · Term {report.termNumber}</p>
+                  </div>
+                  <span className="shrink-0 text-right text-sm font-semibold text-slate-800">
+                    {report.overallPercentage === null ? report.overallGrade ?? "Report ready" : `${report.overallPercentage.toFixed(1)}%`}
+                    {report.overallGrade && report.overallPercentage !== null ? (
+                      <span className="mt-0.5 block text-xs font-normal text-slate-500">Grade {report.overallGrade}</span>
+                    ) : null}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="rounded-lg bg-slate-50 px-4 py-7 text-center text-sm text-slate-500">
+              Published reports for your children will appear here.
+            </p>
+          )}
+        </section>
+
+        <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5" aria-labelledby="child-attendance-heading">
+          <div className="mb-4 flex items-end justify-between gap-3">
+            <div>
+              <h2 id="child-attendance-heading" className="text-lg font-semibold text-slate-950">Recent attendance</h2>
+              <p className="mt-1 text-sm text-slate-500">Latest attendance records for your children</p>
+            </div>
+            <Link href="/list/attendance" className="shrink-0 text-sm font-medium text-emerald-800 hover:text-emerald-950">View attendance</Link>
+          </div>
+          {recentAttendance.length ? (
+            <ul className="divide-y divide-slate-100">
+              {recentAttendance.map((record) => (
+                <li key={record.id} className="flex items-center gap-3 py-3 first:pt-1 last:pb-1">
+                  <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xs font-semibold ${record.present ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"}`}>
+                    {record.present ? "P" : "A"}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-slate-900">{record.student?.name} {record.student?.surname}</p>
+                    <p className="mt-0.5 truncate text-xs text-slate-500">
+                      {record.student?.class.name ?? "Class not assigned"} · {record.present ? "Present" : "Absent"}
+                    </p>
+                  </div>
+                  <time className="shrink-0 text-xs text-slate-500">{record.date.toLocaleDateString()}</time>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="rounded-lg bg-slate-50 px-4 py-7 text-center text-sm text-slate-500">
+              No attendance records are available yet.
+            </p>
+          )}
+        </section>
+      </div>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(300px,0.85fr)]">
         <section className="min-w-0 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5" aria-labelledby="children-heading">

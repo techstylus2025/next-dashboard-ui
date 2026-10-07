@@ -6,7 +6,7 @@ import { getCurrentAuthContext } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { getActiveAcademicPeriod } from "@/lib/academicContext";
 import { Prisma } from "@prisma/client";
-import Image from "next/image";
+import { BookOpen, CalendarDays, ClipboardCheck } from "lucide-react";
 
 type FilterOption = {
   id: number;
@@ -76,7 +76,7 @@ const LessonListPage = async ({
       : null;
 
   const params = await searchParams;
-  const { page, ...queryParams } = params;
+  const queryParams = params;
 
   const uploadFilter: Prisma.ExamQuestionUploadWhereInput = {
     documentType: "LESSON_DOCUMENT",
@@ -138,22 +138,60 @@ const LessonListPage = async ({
     { weekNumber: "asc" },
   ].filter(Boolean) as Prisma.Enumerable<Prisma.ExamQuestionUploadOrderByWithRelationInput>;
 
-  const lessonOptions =
-    role === "teacher"
+  const teacherAssignments =
+    role === "teacher" && currentUserId
+      ? await prisma.teacher.findUnique({
+          where: { id: currentUserId },
+          select: {
+            isArchived: true,
+            subjects: { select: { id: true } },
+            assignedClasses: {
+              select: { id: true },
+            },
+          },
+        })
+      : null;
+
+  const assignedSubjectIds = new Set(
+    teacherAssignments && !teacherAssignments.isArchived
+      ? teacherAssignments.subjects.map((subject) => subject.id)
+      : []
+  );
+  const allowedClassSubjectPairs =
+    teacherAssignments && !teacherAssignments.isArchived
+      ? teacherAssignments.assignedClasses.flatMap((classItem) =>
+          Array.from(assignedSubjectIds).map((subjectId) => ({
+            classId: classItem.id,
+            subjectId,
+          }))
+        )
+      : [];
+
+  const teacherLessonRows =
+    currentUserId && (role === "teacher" || allowedClassSubjectPairs.length > 0)
       ? await prisma.lesson.findMany({
           where: {
             OR: [
-              { teacherId: currentUserId!, teacher: { isArchived: false } },
-              { class: { supervisorId: currentUserId! } },
+              { teacherId: currentUserId },
+              ...allowedClassSubjectPairs,
             ],
           },
           include: {
             subject: { select: { name: true } },
             class: { select: { name: true } },
           },
-          orderBy: { name: "asc" },
+          orderBy: [{ name: "asc" }, { id: "asc" }],
         })
       : [];
+
+  const lessonOptions = Array.from(
+    new Map(
+      teacherLessonRows.map((lesson) => [
+        `${lesson.classId}:${lesson.subjectId}`,
+        lesson,
+      ])
+    ).values()
+  );
 
   const teacherClassFilters = lessonOptions.reduce<FilterOption[]>((acc, lesson) => {
     if (!acc.some((item) => item.id === lesson.classId)) {
@@ -180,8 +218,9 @@ const LessonListPage = async ({
       : teacherSubjectFilters;
 
   const lessonRows: LessonRow[] =
-    role === "admin"
+    role === "admin" || (role === "teacher" && currentUserId)
       ? await prisma.lesson.findMany({
+          where: role === "teacher" ? { teacherId: currentUserId! } : undefined,
           include: {
             subject: { select: { id: true, name: true } },
             class: { select: { id: true, name: true } },
@@ -221,6 +260,29 @@ const LessonListPage = async ({
     role === "admin"
       ? await prisma.subject.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } })
       : [];
+
+  const scheduleClassOptions =
+    role === "teacher"
+      ? Array.from(
+          new Map(
+            lessonRows.map((lesson) => [
+              lesson.class.id,
+              { id: lesson.class.id, name: lesson.class.name },
+            ])
+          ).values()
+        )
+      : classOptions;
+  const scheduleSubjectOptions =
+    role === "teacher"
+      ? Array.from(
+          new Map(
+            lessonRows.map((lesson) => [
+              lesson.subject.id,
+              { id: lesson.subject.id, name: lesson.subject.name },
+            ])
+          ).values()
+        )
+      : subjectOptions;
 
   const [pendingUploads, approvedUploads] = await Promise.all([
     prisma.examQuestionUpload.findMany({
@@ -287,33 +349,101 @@ const LessonListPage = async ({
     approvedAt: upload.approvedAt?.toISOString() ?? null,
   }));
 
-  return (
-    <div className="flex-1 space-y-6">
-      {role === "admin" && (
-        <>
-          <LessonCalendar lessons={lessonRows} subjects={subjectOptions} classes={classOptions} />
-          <TimetableManagement
-            lessons={lessonRows}
-            subjects={subjectOptions}
-            classes={classOptions}
-          />
-        </>
-      )}
+  const uploadCount = serializedPendingUploads.length + serializedApprovedUploads.length;
+  const classCount = new Set([
+    ...serializedPendingUploads.map((upload) => upload.lesson.class.name),
+    ...serializedApprovedUploads.map((upload) => upload.lesson.class.name),
+  ]).size;
+  const isAdmin = role === "admin";
+  const visibleScheduleCount = isAdmin
+    ? lessonRows.length
+    : role === "teacher"
+      ? lessonRows.length
+      : lessonOptions.length;
 
-      <div>
-        <div className="flex items-center justify-between">
-          <h1 className="hidden md:block text-lg font-semibold">Lesson Uploads</h1>
-          <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
-            <TableSearch />
-            <div className="flex items-center gap-4 self-end">
-              <button className={`icon-action ${role === "teacher" ? "w-6 h-6" : "w-8 h-8"}`}>
-                <Image src="/filter.svg" alt="Filter" width={role === "teacher" ? 12 : 14} height={role === "teacher" ? 12 : 14} />
-              </button>
-              <button className={`icon-action ${role === "teacher" ? "w-6 h-6" : "w-8 h-8"}`}>
-                <Image src="/sort.svg" alt="Sort" width={role === "teacher" ? 12 : 14} height={role === "teacher" ? 12 : 14} />
-              </button>
+  return (
+    <div className="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 p-3 sm:p-5 lg:p-6">
+      <section className="relative isolate overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 px-6 py-8 text-white shadow-xl shadow-slate-900/10 sm:px-8 sm:py-10">
+        <div className="absolute -right-12 -top-16 -z-10 h-64 w-64 rounded-full bg-sky-400/20 blur-3xl" />
+        <div className="absolute -bottom-24 right-1/3 -z-10 h-48 w-48 rounded-full bg-indigo-400/20 blur-3xl" />
+        <div className="flex flex-col justify-between gap-7 lg:flex-row lg:items-end">
+          <div className="max-w-2xl">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-sky-100">
+              <BookOpen className="h-4 w-4" aria-hidden="true" />
+              Teaching & learning
+            </div>
+            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Class lessons</h1>
+            <p className="mt-3 max-w-xl text-sm leading-6 text-slate-300 sm:text-base">
+              {isAdmin
+                ? "Manage the school timetable and keep lesson resources organised for every class."
+                : role === "teacher"
+                  ? "Review your teaching schedule and manage the lesson resources shared with your classes."
+                  : "Explore lesson resources shared for your classes and stay up to date with learning."}
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:min-w-[390px] sm:grid-cols-3">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.08] p-4 backdrop-blur">
+              <CalendarDays className="mb-3 h-5 w-5 text-sky-300" aria-hidden="true" />
+              <p className="text-2xl font-bold">{isAdmin || role === "teacher" ? visibleScheduleCount : uploadCount}</p>
+              <p className="mt-1 text-xs text-slate-300">{isAdmin ? "Scheduled lessons" : role === "teacher" ? "Assigned lessons" : "Lesson resources"}</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.08] p-4 backdrop-blur">
+              <ClipboardCheck className="mb-3 h-5 w-5 text-emerald-300" aria-hidden="true" />
+              <p className="text-2xl font-bold">{uploadCount}</p>
+              <p className="mt-1 text-xs text-slate-300">Lesson uploads</p>
+            </div>
+            <div className="col-span-2 rounded-2xl border border-white/10 bg-white/[0.08] p-4 backdrop-blur sm:col-span-1">
+              <BookOpen className="mb-3 h-5 w-5 text-violet-300" aria-hidden="true" />
+              <p className="text-2xl font-bold">{classCount}</p>
+              <p className="mt-1 text-xs text-slate-300">Classes with resources</p>
             </div>
           </div>
+        </div>
+        {activeTermBadge ? (
+          <div className="mt-6 inline-flex items-center rounded-full border border-white/15 bg-white/[0.08] px-3 py-1.5 text-xs font-medium text-slate-200">
+            Active period <span className="mx-2 text-slate-500">·</span>{activeTermBadge}
+          </div>
+        ) : null}
+      </section>
+
+      {(role === "admin" || role === "teacher") && (
+        <section className="space-y-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">
+              {role === "admin" ? "School timetable" : "My timetable"}
+            </p>
+            <h2 className="mt-1 text-xl font-bold tracking-tight text-slate-900">
+              {role === "admin" ? "Schedule management" : "Weekly lessons"}
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              {role === "admin"
+                ? "Review the weekly schedule or manage lessons by day."
+                : "Review all lessons scheduled for you throughout the week."}
+            </p>
+          </div>
+          <LessonCalendar
+            lessons={lessonRows}
+            subjects={scheduleSubjectOptions}
+            classes={scheduleClassOptions}
+          />
+          {role === "admin" ? (
+            <TimetableManagement
+              lessons={lessonRows}
+              subjects={subjectOptions}
+              classes={classOptions}
+            />
+          ) : null}
+        </section>
+      )}
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">Learning materials</p>
+            <h2 className="mt-1 text-xl font-bold tracking-tight text-slate-900">Lesson resources</h2>
+            <p className="mt-1 text-sm text-slate-500">Browse, filter, and review lesson documents by class and subject.</p>
+          </div>
+          <TableSearch initialValue={queryParams.search ?? ""} />
         </div>
         <LessonUploadsPanel
           role={role}
@@ -326,7 +456,7 @@ const LessonListPage = async ({
           classFilters={classFilters}
           subjectFilters={subjectFilters}
         />
-      </div>
+      </section>
     </div>
   );
 };

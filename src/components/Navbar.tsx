@@ -10,7 +10,21 @@ import { usePathname } from "next/navigation";
 import { buildSuggestionGroups, flattenSuggestionGroups } from "@/lib/searchSuggestions";
 import type { DashboardUser } from "@/types/auth";
 
-const Navbar = ({ onMessagesOpen, customUser, supervisorClassName }: { onMessagesOpen?: () => void; customUser?: DashboardUser | null; supervisorClassName?: string | null }) => {
+const Navbar = ({
+  onMessagesOpen,
+  homeHref,
+  customUser,
+  supervisorClassName,
+  sidebarCollapsed = false,
+  onToggleSidebar,
+}: {
+  onMessagesOpen?: () => void;
+  homeHref: string;
+  customUser?: DashboardUser | null;
+  supervisorClassName?: string | null;
+  sidebarCollapsed?: boolean;
+  onToggleSidebar?: () => void;
+}) => {
   const { user } = useUser();
   const [messageCount, setMessageCount] = useState(0);
   const [supervisorClass, setSupervisorClass] = useState<string | null>(null);
@@ -29,7 +43,9 @@ const Navbar = ({ onMessagesOpen, customUser, supervisorClassName }: { onMessage
     badge: string;
     yearLabel: string | null;
     termNumber: number | null;
-  }>({ badge: "", yearLabel: null, termNumber: null });
+    termStart: string | null;
+    termEnd: string | null;
+  }>({ badge: "", yearLabel: null, termNumber: null, termStart: null, termEnd: null });
 
   useEffect(() => {
     const fetchCount = async () => {
@@ -60,6 +76,8 @@ const Navbar = ({ onMessagesOpen, customUser, supervisorClassName }: { onMessage
           badge: string;
           yearLabel: string | null;
           termNumber: number | null;
+          termStart: string | null;
+          termEnd: string | null;
         };
         setAcademicPeriod(data);
       } catch {
@@ -102,7 +120,7 @@ const Navbar = ({ onMessagesOpen, customUser, supervisorClassName }: { onMessage
     const baseItems =
       role === "admin"
         ? [
-            { href: "/", label: "Dashboard" },
+            { href: homeHref, label: "Dashboard" },
             { href: "/list/exams", label: "Exams" },
             { href: "/list/lessons", label: "Lessons" },
             { href: "/list/results", label: "Results" },
@@ -111,19 +129,19 @@ const Navbar = ({ onMessagesOpen, customUser, supervisorClassName }: { onMessage
           ]
         : role === "teacher"
         ? [
-            { href: "/", label: "Dashboard" },
+            { href: homeHref, label: "Dashboard" },
             { href: "/list/exams", label: "Exams" },
             { href: "/list/lessons", label: "Lessons" },
             { href: "/list/messages", label: "Messages" },
           ]
         : role === "parent"
         ? [
-            { href: "/", label: "Dashboard" },
+            { href: homeHref, label: "Dashboard" },
             { href: "/list/exams", label: "Exams" },
             { href: "/list/results", label: "Results" },
           ]
         : [
-            { href: "/", label: "Dashboard" },
+            { href: homeHref, label: "Dashboard" },
             { href: "/list/exams", label: "Exams" },
             { href: "/list/results", label: "Results" },
           ];
@@ -132,7 +150,7 @@ const Navbar = ({ onMessagesOpen, customUser, supervisorClassName }: { onMessage
       ...item,
       active: pathname === item.href || pathname.startsWith(item.href + "/"),
     }));
-  }, [role, pathname]);
+  }, [homeHref, role, pathname]);
 
   // Determine what to display below the welcome name
   const getSubtitle = () => {
@@ -149,9 +167,9 @@ const Navbar = ({ onMessagesOpen, customUser, supervisorClassName }: { onMessage
 
   const breadcrumbs = useMemo(() => {
     const segments = pathname.split("/").filter(Boolean);
-    if (segments.length === 0) return [{ href: "/", label: "Dashboard" }];
+    if (segments.length === 0) return [{ href: homeHref, label: "Dashboard" }];
 
-    const steps: { href: string; label: string }[] = [{ href: "/", label: "Home" }];
+    const steps: { href: string; label: string }[] = [{ href: homeHref, label: "Home" }];
     let currentPath = "";
 
     for (const segment of segments) {
@@ -169,8 +187,8 @@ const Navbar = ({ onMessagesOpen, customUser, supervisorClassName }: { onMessage
       });
     }
 
-    return steps.length > 0 ? steps : [{ href: "/", label: "Dashboard" }];
-  }, [pathname]);
+    return steps.length > 0 ? steps : [{ href: homeHref, label: "Dashboard" }];
+  }, [homeHref, pathname]);
 
   const formattedDate = now.toLocaleDateString(undefined, {
     weekday: "long",
@@ -188,6 +206,27 @@ const Navbar = ({ onMessagesOpen, customUser, supervisorClassName }: { onMessage
   const activeAcademicLabel = academicPeriod.yearLabel && academicPeriod.termNumber !== null
     ? `${academicPeriod.yearLabel} · Term ${academicPeriod.termNumber}`
     : academicPeriod.badge;
+
+  const termWeek = useMemo(() => {
+    if (!academicPeriod.termStart || !academicPeriod.termEnd) return null;
+
+    const toUtcDay = (year: number, month: number, day: number) =>
+      Date.UTC(year, month - 1, day);
+    const parseIsoDay = (value: string) => {
+      const [year, month, day] = value.slice(0, 10).split("-").map(Number);
+      return toUtcDay(year, month, day);
+    };
+
+    const start = parseIsoDay(academicPeriod.termStart);
+    const end = parseIsoDay(academicPeriod.termEnd);
+    const today = toUtcDay(now.getFullYear(), now.getMonth() + 1, now.getDate());
+    if (![start, end, today].every(Number.isFinite) || end < start) return null;
+
+    const daysInTerm = Math.floor((end - start) / 86_400_000) + 1;
+    const totalWeeks = Math.ceil(daysInTerm / 7);
+    const currentWeek = Math.floor((today - start) / (7 * 86_400_000)) + 1;
+    return Math.min(totalWeeks, Math.max(1, currentWeek));
+  }, [academicPeriod.termStart, academicPeriod.termEnd, now]);
 
   const adminDesktopItems = [
     { href: "/admin", label: "Overview" },
@@ -296,26 +335,27 @@ const Navbar = ({ onMessagesOpen, customUser, supervisorClassName }: { onMessage
       <header className="inset-x-0 w-full bg-slate-950">
         <div className="mx-auto grid min-h-16 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-3 py-2 text-white sm:px-5 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:gap-x-5 lg:px-6">
           <div className="flex min-w-0 items-center gap-3">
-            <Link href="/" className="flex min-w-0 items-center">
-              {role === "admin" ? (
-                <div className="flex min-w-0 items-center gap-2.5">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white p-1 shadow-sm shadow-black/20">
-                    <Image src="/logo.png" alt="" width={32} height={32} className="h-full w-full object-contain" />
-                  </span>
-                  <span className="hidden min-w-0 flex-col leading-tight sm:flex">
-                    <span className="truncate text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">King&apos;s Heart</span>
-                    <span className="text-sm font-semibold text-white">School Administration</span>
-                  </span>
-                </div>
-              ) : (
+            {onToggleSidebar ? (
+              <button
+                type="button"
+                onClick={onToggleSidebar}
+                className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-300 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/40 md:inline-flex"
+                aria-label={sidebarCollapsed ? "Expand menu" : "Collapse menu"}
+                title={sidebarCollapsed ? "Expand menu" : "Collapse menu"}
+              >
+                <span aria-hidden="true">{sidebarCollapsed ? "→" : "←"}</span>
+              </button>
+            ) : null}
+            {role !== "admin" ? (
+              <Link href={homeHref} className="flex min-w-0 items-center">
                 <div className="hidden flex-col leading-tight sm:flex">
                   <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">King&apos;s Heart</span>
                   <span className="text-xs font-medium text-slate-100">
                     {role === "teacher" ? "Teacher Dashboard" : role === "parent" ? "Parent Dashboard" : role === "student" ? "Student Dashboard" : "Dashboard"}
                   </span>
                 </div>
-              )}
-            </Link>
+              </Link>
+            ) : null}
 
             {supervisorClassName ? (
               <span className="hidden max-w-40 truncate rounded-md border border-sky-300/15 bg-sky-300/10 px-2.5 py-1.5 text-[11px] font-medium text-sky-100 xl:inline-flex" title={`Supervisor of ${supervisorClassName}`}>
@@ -325,16 +365,24 @@ const Navbar = ({ onMessagesOpen, customUser, supervisorClassName }: { onMessage
 
             {role === "admin" && (
               <div className="hidden items-center gap-3 border-l border-white/10 pl-3 xl:flex">
-                <div className="flex flex-col text-[11px] text-slate-400">
+                <div className="flex flex-col text-sm text-slate-300">
                   <span className="font-medium text-slate-100">{formattedDate}</span>
                   <span>{formattedTime}</span>
                 </div>
                 {activeAcademicLabel ? (
                   <>
                     <div className="h-7 w-px bg-white/10" />
-                    <div className="max-w-36 truncate text-[11px] text-slate-300" title={activeAcademicLabel}>
+                    <div className="max-w-48 truncate text-sm text-slate-300" title={activeAcademicLabel}>
                       <span className="font-medium text-slate-100">{activeAcademicLabel}</span>
                     </div>
+                  </>
+                ) : null}
+                {termWeek !== null ? (
+                  <>
+                    <div className="h-7 w-px bg-white/10" />
+                    <span className="shrink-0 rounded-full border border-sky-300/20 bg-sky-300/10 px-2 py-1 text-xs font-semibold text-sky-100">
+                      Week {termWeek}
+                    </span>
                   </>
                 ) : null}
               </div>
@@ -361,6 +409,11 @@ const Navbar = ({ onMessagesOpen, customUser, supervisorClassName }: { onMessage
           )}
 
           <div className="col-start-2 row-start-1 flex shrink-0 items-center justify-self-end gap-1.5 sm:gap-2 lg:col-start-3 lg:w-full">
+            {role !== "admin" && termWeek !== null ? (
+              <span className="shrink-0 rounded-full border border-sky-300/20 bg-sky-300/10 px-2 py-1 text-[11px] font-semibold text-sky-100 sm:px-2.5 sm:text-xs">
+                Week {termWeek}
+              </span>
+            ) : null}
             <form onSubmit={onSearchSubmit} className="relative hidden items-center gap-2 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 transition-colors focus-within:border-sky-300/40 focus-within:bg-white/10 lg:flex lg:max-w-52 lg:flex-1 xl:max-w-60">
               <button type="button" onClick={onSearchSubmit} className="flex h-6 w-6 shrink-0 items-center justify-center" aria-label="Search">
                 <Image src="/search.svg" alt="Search" width={14} height={14} className="opacity-70 invert" />
@@ -525,9 +578,9 @@ const Navbar = ({ onMessagesOpen, customUser, supervisorClassName }: { onMessage
               </Link>
             )}
 
-            <div className="hidden min-w-0 max-w-32 flex-col text-right xl:flex">
-              <span className="truncate text-xs font-medium text-slate-100">{user?.username || customUser?.username || displayName}</span>
-              <span className="truncate text-[10px] capitalize text-slate-400">{displayRole}</span>
+            <div className="hidden min-w-0 max-w-40 flex-col text-right xl:flex">
+              <span className="truncate text-sm font-medium text-slate-100">{user?.username || customUser?.username || displayName}</span>
+              <span className="truncate text-xs capitalize text-slate-400">{displayRole}</span>
             </div>
 
             {role === "parent" && studentProfiles.length > 0 ? (
@@ -653,7 +706,7 @@ const Navbar = ({ onMessagesOpen, customUser, supervisorClassName }: { onMessage
                   key={item.href}
                   href={item.href}
                   aria-current={active ? "page" : undefined}
-                  className={`relative shrink-0 rounded-lg px-3 py-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/40 ${
+                  className={`relative shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/40 ${
                     active
                       ? "bg-sky-50 text-sky-800"
                       : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"

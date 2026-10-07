@@ -321,12 +321,14 @@ export function FormNavButtons({
   onNext,
   submitLabel,
   isLastStep,
+  isPending = false,
 }: {
   currentStep: number;
   onPrevious: () => void;
   onNext: () => void;
   submitLabel: string;
   isLastStep: boolean;
+  isPending?: boolean;
 }) {
   return (
     <div className="flex items-center justify-between gap-3">
@@ -341,9 +343,10 @@ export function FormNavButtons({
       {isLastStep ? (
         <button
           type="submit"
-          className="rounded-lg bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm shadow-sky-200 transition hover:bg-sky-700"
+          disabled={isPending}
+          className="rounded-lg bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm shadow-sky-200 transition hover:bg-sky-700 disabled:cursor-wait disabled:opacity-60"
         >
-          {submitLabel}
+          {isPending ? "Saving..." : submitLabel}
         </button>
       ) : (
         <button

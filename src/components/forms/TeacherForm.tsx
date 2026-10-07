@@ -5,8 +5,6 @@ import { useForm } from "react-hook-form";
 import {
   Dispatch,
   SetStateAction,
-  startTransition,
-  useActionState,
   useEffect,
   useState,
 } from "react";
@@ -51,6 +49,10 @@ const TeacherForm = ({
     resolver: zodResolver(teacherSchema) as any,
     defaultValues: {
       ...data,
+      email: data?.email ?? "",
+      phone: data?.phone ?? "",
+      img: data?.img ?? undefined,
+      password: data?.password ?? "",
       birthday: formatDateValue(data?.birthday),
       subjects: data?.subjects?.map((subject: { id: number } | number) =>
         String(typeof subject === "number" ? subject : subject.id)
@@ -65,6 +67,10 @@ const TeacherForm = ({
     if (data) {
       reset({
         ...data,
+        email: data.email ?? "",
+        phone: data.phone ?? "",
+        img: data.img ?? undefined,
+        password: data.password ?? "",
         birthday: formatDateValue(data.birthday),
         subjects: data.subjects?.map((subject: { id: number } | number) =>
           String(typeof subject === "number" ? subject : subject.id)
@@ -75,29 +81,55 @@ const TeacherForm = ({
     }
   }, [data, reset]);
 
-  const [state, formAction] = useActionState(
-    type === "create" ? createTeacher : updateTeacher,
-    {
-      success: false,
-      error: false,
-    }
-  );
-
-  const onSubmit = handleSubmit((formData) => {
-    startTransition(() => {
-      formAction({ ...(formData as any), img: img?.secure_url ?? data?.img } as any);
-    });
-  });
-
   const router = useRouter();
 
-  useEffect(() => {
-    if (state.success) {
-      toast(`Teacher has been ${type === "create" ? "created" : "updated"}!`);
-      setOpen(false);
-      router.refresh();
+  const [isPending, setIsPending] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const onSubmit = handleSubmit(
+    async (formData) => {
+      setIsPending(true);
+      setSubmitError(null);
+
+      try {
+        const action = type === "create" ? createTeacher : updateTeacher;
+        const result = await action(
+          { success: false, error: false },
+          {
+            ...formData,
+            email: formData.email ?? "",
+            phone: formData.phone ?? "",
+            img: img?.secure_url ?? data?.img ?? undefined,
+            password: formData.password ?? "",
+          } as TeacherSchema
+        );
+
+        if (result.success) {
+          toast(`Teacher has been ${type === "create" ? "created" : "updated"}!`);
+          setOpen(false);
+          router.refresh();
+        } else {
+          setSubmitError(result.message ?? "Unable to save the teacher. Please try again.");
+        }
+      } catch (error) {
+        console.error("Failed to save teacher:", error);
+        setSubmitError(
+          error instanceof Error
+            ? error.message
+            : "Unable to save the teacher. Please try again."
+        );
+      } finally {
+        setIsPending(false);
+      }
+    },
+    (validationErrors) => {
+      const firstError = Object.values(validationErrors).find((error) => error?.message);
+      setSubmitError(
+        firstError?.message?.toString() ??
+          "Please correct the highlighted fields and try again."
+      );
     }
-  }, [state, router, type, setOpen]);
+  );
 
   const { subjects = [], classes = [] } = relatedData ?? {};
   const selectedSubjects = watch("subjects") ?? [];
@@ -112,7 +144,7 @@ const TeacherForm = ({
   );
 
   return (
-    <form className="flex flex-col gap-6" onSubmit={onSubmit}>
+    <form className="flex flex-col gap-6" onSubmit={onSubmit} aria-busy={isPending}>
       <FormHeader
         title={type === "create" ? "Register a new teacher" : "Update teacher profile"}
         description="Set up account access, personal details, and subject assignments in one place."
@@ -332,16 +364,19 @@ const TeacherForm = ({
         </fieldset>
       </FormSection>
 
-      {state.error ? (
-        <FormErrorBanner message={state.message ?? "Something went wrong. Please check the form and try again."} />
+      {submitError ? (
+        <FormErrorBanner message={submitError} />
       ) : null}
 
       <div className="border-t border-slate-100 pt-4">
         <button
           type="submit"
+          disabled={isPending}
           className="w-full rounded-lg bg-sky-600 px-5 py-3 text-sm font-semibold text-white shadow-sm shadow-sky-200 transition hover:bg-sky-700 sm:w-auto"
         >
-          {type === "create" ? "Create teacher" : "Save changes"}
+          {isPending
+            ? type === "create" ? "Creating teacher..." : "Saving changes..."
+            : type === "create" ? "Create teacher" : "Save changes"}
         </button>
       </div>
     </form>

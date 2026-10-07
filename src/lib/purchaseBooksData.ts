@@ -29,7 +29,7 @@ export async function loadPurchaseBooksPageData(
   const isParent = role === "parent";
 
   const books = booksRaw.map((b) => {
-    const className = b.class?.name ?? "Unknown class";
+    const className = b.class?.name ?? "General access";
     const base = {
       id: b.id,
       title: b.title,
@@ -69,6 +69,7 @@ export async function loadPurchaseBooksPageData(
 
   const orders = ordersRaw.map((o) => ({
     id: o.id,
+    parentId: o.parentId,
     parentName: safeParentName(o.parent),
     status: o.status,
     pickupCode: o.pickupCode || `BK-${String(o.id).padStart(4, "0")}`,
@@ -76,7 +77,7 @@ export async function loadPurchaseBooksPageData(
     items: (o.items ?? []).map((item) => ({
       id: item.id,
       bookTitle: item.book?.title ?? "Unknown book",
-      className: item.book?.class?.name ?? "Unknown class",
+      className: item.book?.class?.name ?? "General access",
       quantity: item.quantity,
       unitPrice: Number(item.book?.priceCedis ?? 0),
     })),

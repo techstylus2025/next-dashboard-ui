@@ -149,19 +149,19 @@ const StudentsByClass = ({ groups, allClasses, canManage = false }: { groups: Cl
       ) : null}
 
       {canManage && promotionHistory.length > 0 ? (
-        <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h3 className="font-semibold">Promotion history</h3>
-              <p className="text-sm text-slate-500">Last action is undoable.</p>
+              <h3 className="font-semibold text-slate-900">Promotion history</h3>
+              <p className="text-sm text-slate-500">The latest promotion can be undone.</p>
             </div>
-            <button onClick={undoLastPromotion} className="px-3 py-1 rounded-md bg-slate-900 text-white text-sm">
+            <button onClick={undoLastPromotion} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700">
               Undo last
             </button>
           </div>
           <div className="mt-3 space-y-2 text-sm text-slate-700">
             {promotionHistory.slice(0, 3).map((entry) => (
-              <div key={entry.id} className="rounded-md bg-white p-3 border border-slate-200">
+              <div key={entry.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                 <div className="font-medium">{entry.label}</div>
                 <div className="text-xs text-slate-500">{new Date(entry.timestamp).toLocaleString()}</div>
               </div>
@@ -180,33 +180,38 @@ const StudentsByClass = ({ groups, allClasses, canManage = false }: { groups: Cl
       ) : (
         <>
           {groups.map((group) => (
-            <div key={group.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-              <div className="cursor-pointer p-3 sm:p-4" onClick={() => toggle(group.id)}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm font-semibold text-slate-700">
+            <div key={group.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md">
+              <div className="p-3 sm:p-4">
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between gap-3 rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                  onClick={() => toggle(group.id)}
+                  aria-expanded={!!expanded[group.id]}
+                >
+                  <span className="flex min-w-0 items-center gap-3">
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-100 to-indigo-100 text-lg font-bold text-sky-800">
                       {group.name.charAt(0)}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="truncate font-semibold text-slate-900">{group.name}</div>
-                      <div className="text-xs text-slate-500">{group.students.length} students</div>
-                    </div>
-                  </div>
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate font-bold text-slate-900">{group.name}</span>
+                      <span className="mt-0.5 block text-sm text-slate-500">{group.students.length} student{group.students.length === 1 ? "" : "s"}</span>
+                    </span>
+                  </span>
+                  <span className="flex shrink-0 items-center gap-2">
+                    <span className="hidden rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 sm:inline">
+                      {expanded[group.id] ? "Hide students" : "View students"}
+                    </span>
+                    <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition hover:bg-slate-200">
+                      <Image src="/arrow.svg" alt="" width={16} height={16} className={`transition-transform ${expanded[group.id] ? "rotate-180" : ""}`} />
+                    </span>
+                  </span>
+                </button>
 
-                  <button
-                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-700 transition hover:bg-slate-200"
-                    onClick={(e) => { e.stopPropagation(); toggle(group.id); }}
-                    aria-label={expanded[group.id] ? "Collapse class" : "Expand class"}
-                  >
-                    <Image src="/arrow.svg" alt="" width={16} height={16} className={`transition-transform ${expanded[group.id] ? "rotate-180" : ""}`} />
-                  </button>
-                </div>
-
-                {canManage ? <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                {canManage ? <div className="mt-4 flex flex-col gap-2 border-t border-slate-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
                   <select
                     value={targetByClass[group.id] ?? ""}
                     onChange={(e) => setTargetByClass((s) => ({ ...s, [group.id]: e.target.value ? Number(e.target.value) : "" }))}
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 sm:w-auto"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 sm:w-auto"
                   >
                     <option value="">Select target class</option>
                     {allClasses
@@ -223,7 +228,7 @@ const StudentsByClass = ({ groups, allClasses, canManage = false }: { groups: Cl
                       const to = targetByClass[group.id];
                       if (to && typeof to === "number") handlePromoteAll(group, to);
                     }}
-                    className="inline-flex items-center justify-center rounded-lg bg-amber-400 px-3 py-2 text-sm font-medium text-slate-900"
+                    className="inline-flex items-center justify-center rounded-xl bg-amber-400 px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-amber-300"
                   >
                     Promote all
                   </button>
@@ -235,24 +240,24 @@ const StudentsByClass = ({ groups, allClasses, canManage = false }: { groups: Cl
                 aria-hidden={!expanded[group.id]}
                 inert={!expanded[group.id]}
               >
-                <div className="border-t border-slate-100 p-2 sm:p-3">
+                <div className="border-t border-slate-100 bg-slate-50/50 p-2 sm:p-3">
                   <div className="hidden sm:block overflow-x-auto">
-                    <table className="min-w-full text-left text-sm divide-y divide-slate-200">
-                      <thead className="bg-slate-50">
+                    <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+                      <thead className="bg-slate-100/80">
                         <tr>
-                          <th className="px-2.5 py-2.5 font-semibold text-slate-700">Student name</th>
-                          <th className="px-2.5 py-2.5 font-semibold text-slate-700">Username</th>
-                          <th className="px-2.5 py-2.5 font-semibold text-slate-700">Parent</th>
-                          <th className="px-2.5 py-2.5 font-semibold text-slate-700">Admission</th>
-                          <th className="px-2.5 py-2.5 font-semibold text-slate-700">DOB</th>
-                          <th className="px-2.5 py-2.5 font-semibold text-slate-700">Age</th>
-                          <th className="px-2.5 py-2.5 font-semibold text-slate-700">Action</th>
+                          <th className="px-3 py-3 font-semibold text-slate-600">Student name</th>
+                          <th className="px-3 py-3 font-semibold text-slate-600">Username</th>
+                          <th className="px-3 py-3 font-semibold text-slate-600">Parent</th>
+                          <th className="px-3 py-3 font-semibold text-slate-600">Admission</th>
+                          <th className="px-3 py-3 font-semibold text-slate-600">DOB</th>
+                          <th className="px-3 py-3 font-semibold text-slate-600">Age</th>
+                          <th className="px-3 py-3 font-semibold text-slate-600">Action</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200">
                         {group.students.map((s) => (
-                          <tr key={s.id} className="hover:bg-slate-50">
-                            <td className="px-2.5 py-2.5">
+                          <tr key={s.id} className="transition-colors hover:bg-sky-50/60">
+                            <td className="px-3 py-3">
                               <div className="flex items-center gap-2.5">
                                 <Avatar
                                   src={s.img ?? undefined}
@@ -262,16 +267,16 @@ const StudentsByClass = ({ groups, allClasses, canManage = false }: { groups: Cl
                                   className="rounded-full"
                                 />
                                 <div>
-                                  <div className="font-medium text-slate-900">{s.name} {s.surname ?? ""}</div>
+                                  <div className="font-semibold text-slate-900">{s.name} {s.surname ?? ""}</div>
                                 </div>
                               </div>
                             </td>
-                            <td className="px-2.5 py-2.5 text-slate-600">{s.username ?? "-"}</td>
-                            <td className="px-2.5 py-2.5 text-slate-600">{s.parent?.name ? `${s.parent.name} ${s.parent.surname ?? ""}` : "-"}</td>
-                            <td className="px-2.5 py-2.5 text-slate-600">{formatDate(s.createdAt)}</td>
-                            <td className="px-2.5 py-2.5 text-slate-600">{formatDate(s.birthday)}</td>
-                            <td className="px-2.5 py-2.5 text-slate-600">{getAge(s.birthday)} yrs</td>
-                            <td className="px-2.5 py-2.5">
+                            <td className="px-3 py-3 text-slate-600">{s.username ?? "-"}</td>
+                            <td className="px-3 py-3 text-slate-600">{s.parent?.name ? `${s.parent.name} ${s.parent.surname ?? ""}` : "-"}</td>
+                            <td className="px-3 py-3 text-slate-600">{formatDate(s.createdAt)}</td>
+                            <td className="px-3 py-3 text-slate-600">{formatDate(s.birthday)}</td>
+                            <td className="px-3 py-3 text-slate-600">{getAge(s.birthday)} yrs</td>
+                            <td className="px-3 py-3">
                               <div className="flex items-center gap-1.5">
                                 <Link href={`/list/students/${s.id}`} className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200">
                                   <Image src="/view.svg" alt="View" width={15} height={15} />

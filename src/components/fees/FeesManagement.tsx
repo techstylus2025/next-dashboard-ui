@@ -1,7 +1,16 @@
 "use client";
 
 import Image from "next/image";
-import { BadgeCheck, PlusCircle } from "lucide-react";
+import {
+  BadgeCheck,
+  CalendarDays,
+  CircleDollarSign,
+  ClipboardList,
+  PlusCircle,
+  ShieldCheck,
+  TrendingUp,
+  WalletCards,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "react-toastify";
@@ -221,6 +230,7 @@ function FeePaymentReceipt({
 
 export default function FeesManagement({
   role,
+  reportingDate,
   schoolDetails,
   classes,
   classFeeCards,
@@ -234,6 +244,7 @@ export default function FeesManagement({
   previousTermArrears,
 }: {
   role: string | undefined;
+  reportingDate: string;
   schoolDetails: ReceiptSchoolDetails;
   classes: ClassOption[];
   classFeeCards: ClassFeeCard[];
@@ -255,6 +266,41 @@ export default function FeesManagement({
     () => groupFeeSchedules(classFeeCards.slice(0, 4)),
     [classFeeCards]
   );
+  const collectionTrend = useMemo(() => {
+    const reportDate = new Date(reportingDate);
+    const months = Array.from({ length: 6 }, (_, index) => {
+      const date = new Date(Date.UTC(reportDate.getUTCFullYear(), reportDate.getUTCMonth() - 5 + index, 1));
+      return {
+        key: `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`,
+        label: new Intl.DateTimeFormat("en", { month: "short", timeZone: "UTC" }).format(date),
+        amount: 0,
+      };
+    });
+    const totalsByMonth = new Map(months.map((month) => [month.key, month]));
+
+    for (const payment of payments) {
+      const paidAt = new Date(payment.paidAt);
+      if (!Number.isFinite(paidAt.getTime())) continue;
+      const key = `${paidAt.getUTCFullYear()}-${String(paidAt.getUTCMonth() + 1).padStart(2, "0")}`;
+      const month = totalsByMonth.get(key);
+      if (month) month.amount += payment.amount;
+    }
+
+    return {
+      months,
+      currentMonthKey: `${reportDate.getUTCFullYear()}-${String(reportDate.getUTCMonth() + 1).padStart(2, "0")}`,
+      maxAmount: Math.max(...months.map((month) => month.amount), 0),
+    };
+  }, [payments, reportingDate]);
+  const collectionRate = summary.totalFeesCollected + summary.totalFeesOutstanding > 0
+    ? Math.min(
+        100,
+        Math.max(
+          0,
+          (summary.totalFeesCollected / (summary.totalFeesCollected + summary.totalFeesOutstanding)) * 100
+        )
+      )
+    : 0;
   const [activeTab, setActiveTab] = useState<"overview" | "feeBills" | "payments">(
     isViewer ? "payments" : "overview"
   );
@@ -471,24 +517,56 @@ export default function FeesManagement({
   );
 
   return (
-    <div className="w-full flex flex-col gap-4 p-2 md:p-3">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Fee management</h1>
-          <p className="mt-1 text-sm font-semibold text-slate-500">
-            {canAdmin
-              ? "Create class fee bills, record collections, and manage payment entries."
-              : role === "parent"
+    <div className="mx-auto flex w-full max-w-screen-2xl flex-col gap-5 p-3 sm:p-5 lg:p-6">
+      {canAdmin ? (
+        <section className="relative isolate overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 px-6 py-8 text-white shadow-xl shadow-slate-900/10 sm:px-8 sm:py-9">
+          <div className="absolute -right-12 -top-16 -z-10 h-64 w-64 rounded-full bg-emerald-400/20 blur-3xl" />
+          <div className="absolute -bottom-24 right-1/3 -z-10 h-48 w-48 rounded-full bg-sky-400/20 blur-3xl" />
+          <div className="flex flex-col justify-between gap-7 lg:flex-row lg:items-end">
+            <div className="max-w-2xl">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-100">
+                <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+                Secure finance workspace
+              </div>
+              <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">School fees management</h1>
+              <p className="mt-3 max-w-xl text-sm leading-6 text-slate-300 sm:text-base">
+                Manage class fee schedules, record payments, and monitor balances across the school.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:min-w-[390px] sm:grid-cols-3">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.08] p-4 backdrop-blur">
+                <CircleDollarSign className="mb-3 h-5 w-5 text-emerald-300" aria-hidden="true" />
+                <p className="text-lg font-bold tabular-nums sm:text-xl">₵{summary.totalFeesCollected.toFixed(2)}</p>
+                <p className="mt-1 text-xs text-slate-300">Collected</p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/[0.08] p-4 backdrop-blur">
+                <WalletCards className="mb-3 h-5 w-5 text-amber-300" aria-hidden="true" />
+                <p className="text-lg font-bold tabular-nums sm:text-xl">₵{summary.totalFeesOutstanding.toFixed(2)}</p>
+                <p className="mt-1 text-xs text-slate-300">Outstanding</p>
+              </div>
+              <div className="col-span-2 rounded-2xl border border-white/10 bg-white/[0.08] p-4 backdrop-blur sm:col-span-1">
+                <ClipboardList className="mb-3 h-5 w-5 text-sky-300" aria-hidden="true" />
+                <p className="text-lg font-bold tabular-nums sm:text-xl">{summary.activeFeeSchedules}</p>
+                <p className="mt-1 text-xs text-slate-300">Fee schedules</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      ) : (
+        <section className="rounded-3xl border border-slate-200 bg-white px-5 py-5 shadow-sm sm:px-6">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Fee management</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            {role === "parent"
               ? "Fee payments recorded for your children."
               : role === "student"
-              ? "Your school fee payment history."
-              : "Class fee overview (read-only)."}
+                ? "Your school fee payment history."
+                : "Class fee overview (read-only)."}
           </p>
-        </div>
-      </div>
+        </section>
+      )}
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex w-full items-center justify-between gap-1 rounded-full bg-slate-100 p-1 sm:w-auto sm:justify-start sm:gap-2">
+      <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-4">
+        <div className="flex w-full items-center justify-between gap-1 rounded-xl bg-slate-100 p-1 sm:w-auto sm:justify-start sm:gap-2">
           {(!isViewer
             ? [
                 { key: "overview", label: "Overview" },
@@ -501,8 +579,8 @@ export default function FeesManagement({
               key={tab.key}
               type="button"
               onClick={() => setActiveTab(tab.key as any)}
-              className={`rounded-full px-2 py-1.5 text-[11px] font-medium transition sm:px-4 sm:py-2 sm:text-sm ${
-                activeTab === tab.key ? "bg-slate-900 text-white" : "text-slate-700 hover:text-slate-900"
+              className={`rounded-lg px-3 py-2 text-xs font-semibold transition sm:px-4 sm:text-sm ${
+                activeTab === tab.key ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200" : "text-slate-600 hover:text-slate-900"
               }`}
             >
               {tab.label}
@@ -514,19 +592,19 @@ export default function FeesManagement({
               type="button"
               aria-label="Create fee bill"
               onClick={() => setCreateModalOpen(true)}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-white transition hover:bg-slate-800"
+              className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-white transition hover:bg-slate-800"
             >
               <PlusCircle size={16} strokeWidth={2.5} />
             </button>
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           {canCollect && activeTab === "payments" && !isViewer && (
             <button
               type="button"
               onClick={() => setRecordModalOpen(true)}
-              className="rounded-full bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+              className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
             >
               Record fee payment
             </button>
@@ -576,6 +654,94 @@ export default function FeesManagement({
                 <p className="mt-4 text-sm text-slate-600">Students still owing from previous term</p>
                 <p className="mt-3 text-xl font-semibold text-slate-900">{(previousTermArrears ?? []).length}</p>
               </button>
+            </div>
+
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+              <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6" aria-labelledby="fee-collection-rate-title">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">School-wide progress</p>
+                    <h2 id="fee-collection-rate-title" className="mt-2 text-lg font-semibold text-slate-900">Fee collection rate</h2>
+                  </div>
+                  <span className="rounded-xl bg-emerald-50 p-2.5 text-emerald-700">
+                    <TrendingUp className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                </div>
+                <div className="mt-6 flex items-end justify-between gap-4">
+                  <p className="text-4xl font-bold tracking-tight text-slate-900 tabular-nums">{collectionRate.toFixed(0)}%</p>
+                  <p className="pb-1 text-right text-xs leading-5 text-slate-500">
+                    Collected against billed fees
+                    <br />
+                    ₵{summary.totalFeesCollected.toFixed(2)} received
+                  </p>
+                </div>
+                <div
+                  className="mt-4 h-3 overflow-hidden rounded-full bg-slate-100"
+                  role="progressbar"
+                  aria-label="Fee collection rate"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={Math.round(collectionRate)}
+                >
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-[width] duration-500"
+                    style={{ width: `${collectionRate}%` }}
+                  />
+                </div>
+                <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
+                  <span>Outstanding: ₵{summary.totalFeesOutstanding.toFixed(2)}</span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("feeBills")}
+                    className="font-semibold text-slate-700 underline-offset-4 hover:text-emerald-700 hover:underline"
+                  >
+                    Review schedules
+                  </button>
+                </div>
+              </section>
+
+              <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6" aria-labelledby="monthly-collections-title">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Cash flow</p>
+                    <h2 id="monthly-collections-title" className="mt-2 text-lg font-semibold text-slate-900">Monthly collections</h2>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                    <CalendarDays className="h-4 w-4" aria-hidden="true" />
+                    Last six months
+                  </div>
+                </div>
+                <div className="mt-5 grid grid-cols-6 gap-2 sm:gap-4" role="img" aria-label="Fee payments collected in each of the last six months">
+                  {collectionTrend.months.map((month) => {
+                    const isCurrentMonth = month.key === collectionTrend.currentMonthKey;
+                    const barHeight = collectionTrend.maxAmount > 0 && month.amount > 0
+                      ? Math.max(8, (month.amount / collectionTrend.maxAmount) * 100)
+                      : 0;
+                    return (
+                      <div
+                        key={month.key}
+                        className="flex min-w-0 flex-col items-center justify-end"
+                        title={`${month.label}: ₵${month.amount.toFixed(2)}`}
+                      >
+                        <span className="mb-2 min-h-4 text-center text-[10px] font-medium leading-4 text-slate-500 sm:text-xs">
+                          {month.amount > 0
+                            ? `₵${new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(month.amount)}`
+                            : "—"}
+                        </span>
+                        <div className="flex h-28 w-full items-end overflow-hidden rounded-lg bg-slate-50">
+                          <div
+                            className={`w-full rounded-t-md transition-[height] duration-500 ${isCurrentMonth ? "bg-emerald-500" : "bg-sky-400"}`}
+                            style={{ height: `${barHeight}%` }}
+                          />
+                        </div>
+                        <span className={`mt-2 text-[10px] font-medium sm:text-xs ${isCurrentMonth ? "text-emerald-700" : "text-slate-500"}`}>
+                          {month.label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
             </div>
 
             <div className="grid gap-3 lg:grid-cols-2">

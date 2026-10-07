@@ -1,6 +1,7 @@
 "use client";
 
 import { Calendar, momentLocalizer, View, Views } from "react-big-calendar";
+import { CalendarDays, Clock3, GraduationCap, UserRound } from "lucide-react";
 import moment from "moment";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import { useMemo, useState } from "react";
@@ -96,11 +97,15 @@ const LessonCalendar = ({
   subjects: Option[];
   classes: Option[];
 }) => {
-  const [calendarView, setCalendarView] = useState<View>(Views.WORK_WEEK);
+  const [calendarView, setCalendarView] = useState<View>(Views.WEEK);
   const [groupMode, setGroupMode] = useState<"all" | "subject" | "class">("all");
   const [selectedSubjectId, setSelectedSubjectId] = useState<number | "all">("all");
   const [selectedClassId, setSelectedClassId] = useState<number | "all">("all");
   const [selectedLesson, setSelectedLesson] = useState<CalendarEvent | null>(null);
+  const [selectedDay, setSelectedDay] = useState(() => {
+    const today = new Date().getDay();
+    return today === 0 ? 1 : today;
+  });
 
   const eventData = useMemo(() => {
     const normalized = lessons
@@ -149,6 +154,23 @@ const LessonCalendar = ({
     return map;
   }, [filteredEvents, groupKey]);
 
+  const availableDays = useMemo(
+    () => {
+      const daysWithLessons = new Set(filteredEvents.map((event) => event.start.getDay()));
+      return [1, 2, 3, 4, 5, ...(daysWithLessons.has(6) ? [6] : []), ...(daysWithLessons.has(0) ? [0] : [])];
+    },
+    [filteredEvents]
+  );
+  const activeDay = availableDays.includes(selectedDay)
+    ? selectedDay
+    : availableDays[0] ?? selectedDay;
+  const dayEvents = useMemo(
+    () => filteredEvents
+      .filter((event) => event.start.getDay() === activeDay)
+      .sort((a, b) => a.start.getTime() - b.start.getTime()),
+    [activeDay, filteredEvents]
+  );
+
   const eventStyleGetter = (event: any) => {
     const color = groupMode === "class" ? groupMap[event.className] : groupMap[event.subjectName];
     return {
@@ -172,7 +194,7 @@ const LessonCalendar = ({
   const closeModal = () => setSelectedLesson(null);
 
   return (
-    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 shadow-sm">
+    <div className="min-w-0 max-w-full overflow-hidden rounded-3xl border border-slate-200 bg-slate-50 p-5 shadow-sm">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="text-sm uppercase tracking-[0.18em] text-slate-500">Lesson schedule</p>
@@ -185,9 +207,9 @@ const LessonCalendar = ({
         <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
           <button
             type="button"
-            onClick={() => setCalendarView(Views.WORK_WEEK)}
-            className={`shrink-0 rounded-full px-3 py-2 text-xs font-semibold transition sm:px-4 sm:py-2 sm:text-sm ${
-              calendarView === Views.WORK_WEEK
+            onClick={() => setCalendarView(Views.WEEK)}
+            className={`hidden shrink-0 rounded-full px-3 py-2 text-xs font-semibold transition sm:px-4 sm:py-2 sm:text-sm md:inline-flex ${
+              calendarView === Views.WEEK
                 ? "bg-slate-900 text-white"
                 : "bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100"
             }`}
@@ -197,7 +219,7 @@ const LessonCalendar = ({
           <button
             type="button"
             onClick={() => setCalendarView(Views.DAY)}
-            className={`shrink-0 rounded-full px-3 py-2 text-xs font-semibold transition sm:px-4 sm:py-2 sm:text-sm ${
+            className={`hidden shrink-0 rounded-full px-3 py-2 text-xs font-semibold transition sm:px-4 sm:py-2 sm:text-sm md:inline-flex ${
               calendarView === Views.DAY
                 ? "bg-slate-900 text-white"
                 : "bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100"
@@ -241,15 +263,15 @@ const LessonCalendar = ({
         </div>
       </div>
 
-      <div className="mt-4 grid gap-4 md:grid-cols-[1fr_260px]">
-        <div className="min-h-[560px] rounded-3xl border border-slate-200 bg-white p-4">
+      <div className="mt-4 grid min-w-0 gap-4 md:grid-cols-[minmax(0,1fr)_260px]">
+        <div className="hidden min-h-[560px] min-w-0 rounded-3xl border border-slate-200 bg-white p-4 md:block">
           <Calendar
             localizer={localizer}
             events={filteredEvents}
             startAccessor="start"
             endAccessor="end"
             view={calendarView}
-            views={[Views.WORK_WEEK, Views.DAY]}
+            views={[Views.WEEK, Views.DAY]}
             onView={handleViewChange}
             onSelectEvent={handleSelectEvent}
             style={{ height: "100%" }}
@@ -259,11 +281,11 @@ const LessonCalendar = ({
           />
         </div>
 
-        <div className="space-y-4 rounded-3xl border border-slate-200 bg-slate-100 p-4">
+        <div className="order-1 min-w-0 space-y-4 rounded-3xl border border-slate-200 bg-slate-100 p-4 md:order-none">
           <div className="space-y-2">
-            <p className="text-sm font-semibold text-slate-700">Filter panel</p>
+            <p className="text-sm font-semibold text-slate-700">Schedule filters</p>
             <p className="text-sm text-slate-500">
-              Use subject or class filters to narrow the calendar events.
+              Narrow the schedule by subject or class.
             </p>
           </div>
 
@@ -312,11 +334,95 @@ const LessonCalendar = ({
           )}
 
           <div className="rounded-3xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
-            <p className="font-semibold text-slate-800">Legend</p>
+            <p className="font-semibold text-slate-800">Schedule summary</p>
             <p className="mt-2">Showing {filteredEvents.length} lesson{filteredEvents.length !== 1 ? "s" : ""}.</p>
             <p className="mt-2">Group mode: {groupMode === "all" ? "All lessons" : groupMode === "subject" ? "Subject" : "Class"}</p>
           </div>
         </div>
+
+        <section className="order-2 min-w-0 space-y-4 md:hidden" aria-label="Mobile lesson schedule">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Weekly schedule</p>
+                <h3 className="mt-1 font-semibold text-slate-900">
+                  {availableDays.length > 0 ? moment().day(activeDay).format("dddd") : "No lessons"}
+                </h3>
+              </div>
+              <span className="rounded-full bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700">
+                {dayEvents.length} lesson{dayEvents.length === 1 ? "" : "s"}
+              </span>
+            </div>
+            {availableDays.length > 0 ? (
+              <div className="mt-4 flex max-w-full gap-2 overflow-x-auto pb-1 [scrollbar-width:none]" aria-label="Choose weekday">
+                {availableDays.map((day) => (
+                  <button
+                    key={day}
+                    type="button"
+                    onClick={() => setSelectedDay(day)}
+                    aria-pressed={day === activeDay}
+                    className={`shrink-0 rounded-xl px-3 py-2 text-xs font-semibold transition ${
+                      day === activeDay
+                        ? "bg-slate-900 text-white shadow-sm"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    {moment().day(day).format("ddd")}
+                    <span className="ml-1.5 opacity-70">{filteredEvents.filter((event) => event.start.getDay() === day).length}</span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+
+          {dayEvents.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-5 py-10 text-center">
+              <CalendarDays className="mx-auto h-8 w-8 text-slate-400" aria-hidden="true" />
+              <p className="mt-3 font-semibold text-slate-800">No lessons scheduled</p>
+              <p className="mt-1 text-sm text-slate-500">
+                {availableDays.length > 0 ? "Choose another day to see its lessons." : "No lessons match the selected filters."}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {dayEvents.map((event) => {
+                const color = groupMode === "class" ? groupMap[event.className] : groupMap[event.subjectName];
+                return (
+                  <button
+                    key={event.id}
+                    type="button"
+                    onClick={() => handleSelectEvent(event)}
+                    className="flex w-full items-stretch overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-sm transition active:scale-[0.99]"
+                  >
+                    <span className="w-1.5 shrink-0" style={{ backgroundColor: color ?? "#2563eb" }} aria-hidden="true" />
+                    <span className="min-w-0 flex-1 p-4">
+                      <span className="flex items-start justify-between gap-3">
+                        <span className="min-w-0">
+                          <span className="block truncate font-semibold text-slate-900">{event.subjectName}</span>
+                          <span className="mt-1 block truncate text-xs text-slate-500">{event.title.split(" · ")[0]}</span>
+                        </span>
+                        <span className="flex shrink-0 items-center gap-1 rounded-lg bg-slate-50 px-2 py-1.5 text-xs font-semibold tabular-nums text-slate-700">
+                          <Clock3 className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
+                        {moment(event.start).format("h:mm A")}–{moment(event.end).format("h:mm A")}
+                        </span>
+                      </span>
+                      <span className="mt-3 flex flex-wrap gap-x-4 gap-y-2 border-t border-slate-100 pt-3 text-xs text-slate-600">
+                        <span className="inline-flex items-center gap-1.5">
+                          <GraduationCap className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
+                          {event.className}
+                        </span>
+                        <span className="inline-flex min-w-0 items-center gap-1.5">
+                          <UserRound className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden="true" />
+                          <span className="truncate">{event.teacherName}</span>
+                        </span>
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </section>
       </div>
 
       {selectedLesson && (
