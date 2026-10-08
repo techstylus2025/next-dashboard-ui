@@ -1624,49 +1624,33 @@ export const createExamTimetable = async (
 export const uploadExamQuestion = async (data: {
   title: string;
   lessonId: number;
-  file: File | Blob;
+  fileName: string;
+  fileUrl: string;
 }) => {
-  console.log("[uploadExamQuestion] Input data:", {
-    title: data.title,
-    lessonId: data.lessonId,
-    lessonIdType: typeof data.lessonId,
-    fileType: data.file?.constructor.name,
-    fileSize: (data.file as any)?.size,
-  });
-
   const title = data.title?.toString().trim();
   const lessonId = Number(data.lessonId);
-  const file = data.file;
-  const hasArrayBuffer = file && typeof (file as any).arrayBuffer === "function";
+  const fileName = data.fileName?.trim();
+  const fileUrl = data.fileUrl?.trim();
 
-  console.log("[uploadExamQuestion] Parsed values:", {
-    title,
-    titleValid: Boolean(title),
-    lessonId,
-    lessonIdValid: lessonId > 0,
-    fileExists: Boolean(file),
-    hasArrayBuffer,
-  });
-
-  if (!title || lessonId <= 0 || !file) {
+  if (!title || !Number.isInteger(lessonId) || lessonId <= 0) {
     return {
       success: false,
       error: true,
-      message: `Missing required fields: title=${Boolean(title)}, lesson=${lessonId > 0}, file=${Boolean(file)}`,
+      message: "Enter an upload title and select a lesson.",
     } as any;
   }
 
-  if (!hasArrayBuffer) {
+  if (!fileName || !fileUrl || !isValidLessonDocumentAsset(fileName, fileUrl)) {
     return {
       success: false,
       error: true,
-      message: "The selected file could not be uploaded. Please choose a valid document.",
+      message: "Choose a valid PDF, DOC, or DOCX document before submitting.",
     } as any;
   }
 
   const { userId, role } = await getCurrentAuthContext();
 
-  if (role !== "teacher") {
+  if (!userId || role !== "teacher") {
     return {
       success: false,
       error: true,
@@ -1700,31 +1684,24 @@ export const uploadExamQuestion = async (data: {
   }
 
   try {
-    const uploadsDir = path.join(process.cwd(), "public", "uploads", "exam-questions");
-    await fs.mkdir(uploadsDir, { recursive: true });
-
-    const safeFileName = `${Date.now()}-${(file as File).name.replace(/[^a-zA-Z0-9_.-]/g, "_")}`;
-    const filePath = path.join(uploadsDir, safeFileName);
-    const buffer = Buffer.from(await (file as any).arrayBuffer());
-    await fs.writeFile(filePath, buffer);
-
     await prisma.examQuestionUpload.create({
       data: {
         documentType: "EXAM_QUESTION",
         title,
-        fileName: (file as File).name,
-        fileUrl: `/uploads/exam-questions/${safeFileName}`,
+        fileName,
+        fileUrl,
         lessonId,
-        uploadedById: userId!,
+        uploadedById: userId,
         status: "PENDING",
         academicYearLabel: activePeriod.yearLabel,
         termNumber: activePeriod.termNumber,
       },
     });
 
+    revalidatePath("/list/exams");
     return { success: true, error: false };
   } catch (err) {
-    console.log("uploadExamQuestion error:", err);
+    console.error("uploadExamQuestion failed to save upload metadata:", err);
     return {
       success: false,
       error: true,
@@ -2111,7 +2088,7 @@ export const updateExamQuestionUpload = async (data: {
   id: number;
   title: string;
   lessonId: number;
-  file?: File | Blob;
+  file?: { fileName: string; fileUrl: string };
 }) => {
   const { userId, role } = await getCurrentAuthContext();
   if (!userId || (role !== "admin" && role !== "teacher")) {
@@ -2120,8 +2097,11 @@ export const updateExamQuestionUpload = async (data: {
 
   const title = data.title.trim();
   const lessonId = Number(data.lessonId);
-  if (!title || lessonId <= 0 || (data.file && typeof data.file.arrayBuffer !== "function")) {
+  if (!title || !Number.isInteger(lessonId) || lessonId <= 0) {
     return { success: false, error: true, message: "Enter a title, select a lesson, and choose a valid document." } as any;
+  }
+  if (data.file && !isValidLessonDocumentAsset(data.file.fileName, data.file.fileUrl)) {
+    return { success: false, error: true, message: "Choose a valid PDF, DOC, or DOCX document before saving." } as any;
   }
 
   const existingUpload = await prisma.examQuestionUpload.findFirst({
@@ -2143,17 +2123,9 @@ export const updateExamQuestionUpload = async (data: {
     return { success: false, error: true, message: "You are not authorized to use the selected lesson." } as any;
   }
 
-  const fileUpdate: { fileName?: string; fileUrl?: string } = {};
-  if (data.file) {
-    const file = data.file as File;
-    const uploadsDir = path.join(process.cwd(), "public", "uploads", "exam-questions");
-    await fs.mkdir(uploadsDir, { recursive: true });
-    const safeFileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9_.-]/g, "_")}`;
-    const filePath = path.join(uploadsDir, safeFileName);
-    await fs.writeFile(filePath, Buffer.from(await data.file.arrayBuffer()));
-    fileUpdate.fileName = file.name;
-    fileUpdate.fileUrl = `/uploads/exam-questions/${safeFileName}`;
-  }
+  const fileUpdate = data.file
+    ? { fileName: data.file.fileName.trim(), fileUrl: data.file.fileUrl.trim() }
+    : {};
 
   try {
     await prisma.examQuestionUpload.update({

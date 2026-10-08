@@ -3,8 +3,9 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
-import { Dispatch, SetStateAction, useEffect, useRef, useState, useTransition } from "react";
+import { Dispatch, SetStateAction, useEffect, useState, useTransition } from "react";
 import { toast } from "react-toastify";
+import { CldUploadWidget, type CloudinaryUploadWidgetInfo, type CloudinaryUploadWidgetResults } from "next-cloudinary";
 import { examQuestionUploadSchema, ExamQuestionUploadSchema } from "@/lib/formValidationSchemas";
 import { updateExamQuestionUpload, uploadExamQuestion } from "@/lib/actions";
 import InputField from "../InputField";
@@ -22,9 +23,9 @@ const ExamQuestionUploadForm = ({
   editingUpload?: ExamQuestionEditItem | null;
 }) => {
   const lessons = relatedData?.lessons ?? [];
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [file, setFile] = useState<{ fileName: string; fileUrl: string } | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -40,7 +41,6 @@ const ExamQuestionUploadForm = ({
   });
 
   const onSubmit = handleSubmit((data) => {
-    const file = fileInputRef.current?.files?.[0];
     if (!editingUpload && !file) {
       setFileError("A document file is required.");
       return;
@@ -50,25 +50,31 @@ const ExamQuestionUploadForm = ({
     setUploadError(null);
 
     startTransition(async () => {
-      const result = editingUpload
-        ? await updateExamQuestionUpload({
-            id: editingUpload.id,
-            title: data.title,
-            lessonId: data.lessonId,
-            file,
-          })
-        : await uploadExamQuestion({
-            title: data.title,
-            lessonId: data.lessonId,
-            file: file!,
-          });
+      try {
+        const result = editingUpload
+          ? await updateExamQuestionUpload({
+              id: editingUpload.id,
+              title: data.title,
+              lessonId: data.lessonId,
+              file: file ?? undefined,
+            })
+          : await uploadExamQuestion({
+              title: data.title,
+              lessonId: data.lessonId,
+              fileName: file!.fileName,
+              fileUrl: file!.fileUrl,
+            });
 
-      if (result.success) {
-        toast(editingUpload ? "Exam question upload updated." : "Exam question document uploaded for admin review.");
-        setOpen(false);
-        router.refresh();
-      } else {
-        setUploadError(result.message || "Unable to upload the document. Check the selected lesson and file.");
+        if (result.success) {
+          toast(editingUpload ? "Exam question upload updated." : "Exam question document uploaded for admin review.");
+          setOpen(false);
+          router.refresh();
+        } else {
+          setUploadError(result.message || "Unable to save the document. Check the selected lesson and file.");
+        }
+      } catch (error) {
+        console.error("Exam question upload submission failed:", error);
+        setUploadError("Unable to save the upload. Please try again.");
       }
     });
   });
@@ -104,14 +110,78 @@ const ExamQuestionUploadForm = ({
         </div>
 
         <div className="flex flex-col gap-2 w-full md:w-1/2">
-            <label className="input-label">{editingUpload ? "Replace document (optional)" : "Document"}</label>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf,.doc,.docx"
-            className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
-            onChange={() => setFileError(null)}
-          />
+          <label className="input-label">{editingUpload ? "Replace document (optional)" : "Document"}</label>
+          <CldUploadWidget
+            uploadPreset="school"
+            options={{
+              resourceType: "raw",
+              clientAllowedFormats: ["pdf", "doc", "docx"],
+              maxRawFileSize: 20_000_000,
+              maxFiles: 1,
+              multiple: false,
+              sources: ["local"],
+              folder: "exam-questions",
+            }}
+            onSuccess={(result: CloudinaryUploadWidgetResults, { widget }) => {
+              if (typeof result.info === "string" || !result.info?.secure_url) {
+                setFileError("Cloud storage did not return a usable document URL.");
+                return;
+              }
+
+              const info = result.info as CloudinaryUploadWidgetInfo;
+              const sourceName = info.original_filename || info.display_name || "exam-question";
+              const urlFileName = info.secure_url
+                ? decodeURIComponent(new URL(info.secure_url).pathname.split("/").pop() || "")
+                : "";
+              const extension = [
+                info.format,
+                sourceName.match(/\.([a-z0-9]+)$/i)?.[1],
+                urlFileName.match(/\.([a-z0-9]+)$/i)?.[1],
+              ].find((value) => value && /^(pdf|doc|docx)$/i.test(value));
+
+              if (!extension) {
+                setFileError("Cloud storage did not identify this as a PDF, DOC, or DOCX document.");
+                return;
+              }
+
+              const fileName = /\.[a-z0-9]+$/i.test(sourceName)
+                ? sourceName
+                : `${sourceName}.${extension}`;
+              setFile({ fileName, fileUrl: info.secure_url });
+              setFileError(null);
+              widget.close();
+            }}
+            onError={(error) => {
+              const message = typeof error === "string" ? error : error?.statusText;
+              setFileError(
+                message
+                  ? `Document upload failed: ${message}`
+                  : "Document upload failed. Check the Cloudinary upload preset and try again."
+              );
+            }}
+          >
+            {({ open }) => (
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFileError(null);
+                    open();
+                  }}
+                  disabled={isPending}
+                  className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  {file ? "Choose a different document" : "Choose document"}
+                </button>
+                {file ? (
+                  <span className="break-all text-sm text-slate-600">Selected: {file.fileName}</span>
+                ) : editingUpload ? (
+                  <span className="text-sm text-slate-500">Current document: {editingUpload.fileName}</span>
+                ) : null}
+                <span className="basis-full text-xs text-slate-500">PDF, DOC, or DOCX · maximum 20 MB</span>
+              </div>
+            )}
+          </CldUploadWidget>
           {fileError && <p className="text-xs text-red-400">{fileError}</p>}
         </div>
       </div>
