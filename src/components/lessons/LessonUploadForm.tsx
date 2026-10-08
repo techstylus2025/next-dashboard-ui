@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { Dispatch, SetStateAction, useEffect, useState, useTransition } from "react";
 import { toast } from "react-toastify";
+import { CldUploadWidget, type CloudinaryUploadWidgetInfo, type CloudinaryUploadWidgetResults } from "next-cloudinary";
 import { uploadLessonDocument, updateLessonDocument } from "@/lib/actions";
 
 type LessonOption = {
@@ -37,7 +38,23 @@ type UploadRow = {
   lessonId: number;
   title: string;
   weekNumber: string;
-  file?: File | null;
+  file?: {
+    fileName: string;
+    fileUrl: string;
+  } | null;
+};
+
+const getLessonDocumentFileName = (info: CloudinaryUploadWidgetInfo) => {
+  const sourceName = info.original_filename || info.display_name || "lesson-document";
+  const urlFileName = info.secure_url
+    ? decodeURIComponent(new URL(info.secure_url).pathname.split("/").pop() || "")
+    : "";
+  const extension =
+    [info.format, sourceName.match(/\.([a-z0-9]+)$/i)?.[1], urlFileName.match(/\.([a-z0-9]+)$/i)?.[1]]
+      .find((value) => value && /^(pdf|doc|docx)$/i.test(value));
+
+  if (!extension) return null;
+  return /\.[a-z0-9]+$/i.test(sourceName) ? sourceName : `${sourceName}.${extension}`;
 };
 
 const LessonUploadForm = ({
@@ -165,7 +182,8 @@ const LessonUploadForm = ({
                 title: row.title.trim(),
                 lessonId: row.lessonId,
                 weekNumber: Number(row.weekNumber),
-                file: row.file!,
+                fileName: row.file!.fileName,
+                fileUrl: row.file!.fileUrl,
               });
 
               if (!result.success) {
@@ -296,25 +314,76 @@ const LessonUploadForm = ({
             )}
           </div>
 
-          <div className="mt-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <div className="flex flex-col gap-2 w-full md:w-1/2">
-              <label className="input-label">Document</label>
-              <input
-                type="file"
-                accept=".pdf,.doc,.docx"
-                onChange={(event) =>
-                  updateRow(row.rowId, {
-                    file: event.target.files?.[0] ?? null,
-                  })
+          <div className="mt-4 flex flex-col gap-2">
+            <label className="input-label">{editingUpload ? "Replace document (optional)" : "Document"}</label>
+            <CldUploadWidget
+              uploadPreset="school"
+              options={{
+                resourceType: "raw",
+                clientAllowedFormats: ["pdf", "doc", "docx"],
+                maxRawFileSize: 20_000_000,
+                maxFiles: 1,
+                multiple: false,
+                sources: ["local"],
+                folder: "lesson-documents",
+              }}
+              onSuccess={(result: CloudinaryUploadWidgetResults, { widget }) => {
+                if (typeof result.info === "string" || !result.info?.secure_url) {
+                  setFormError("Cloud storage did not return a usable document URL.");
+                  return;
                 }
-                className="ring-[1.5px] ring-gray-300 rounded-md p-2 text-sm"
-              />
-            </div>
-            {row.file?.name && (
-              <div className="text-sm text-slate-600">
-                Selected file: <span className="font-medium">{row.file.name}</span>
-              </div>
-            )}
+                const info = result.info as CloudinaryUploadWidgetInfo;
+                let fileName: string | null;
+                try {
+                  fileName = getLessonDocumentFileName(info);
+                } catch {
+                  fileName = null;
+                }
+                if (!fileName) {
+                  setFormError("Cloud storage did not identify this as a PDF, DOC, or DOCX document.");
+                  return;
+                }
+                updateRow(row.rowId, {
+                  file: { fileName, fileUrl: info.secure_url },
+                });
+                setFormError(null);
+                widget.close();
+              }}
+              onError={(error) => {
+                const message = typeof error === "string" ? error : error?.statusText;
+                setFormError(
+                  message
+                    ? `Document upload failed: ${message}`
+                    : "Document upload failed. Check the Cloudinary upload preset and try again."
+                );
+              }}
+            >
+              {({ open: openUpload }) => (
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormError(null);
+                      openUpload();
+                    }}
+                    disabled={isPending}
+                    className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    {row.file ? "Choose a different document" : "Choose document"}
+                  </button>
+                  {row.file ? (
+                    <span className="min-w-0 break-all text-sm text-slate-600">
+                      Selected: <span className="font-medium">{row.file.fileName}</span>
+                    </span>
+                  ) : editingUpload ? (
+                    <span className="text-sm text-slate-500">Current document: {editingUpload.fileName}</span>
+                  ) : null}
+                  <span className="basis-full text-xs text-slate-500">
+                    PDF, DOC, or DOCX · maximum 20 MB
+                  </span>
+                </div>
+              )}
+            </CldUploadWidget>
           </div>
         </div>
       ))}

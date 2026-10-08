@@ -1760,31 +1760,53 @@ const teacherHasLessonAssignment = async (
   );
 };
 
+const isValidLessonDocumentAsset = (fileName: string, fileUrl: string) => {
+  const normalizedName = fileName.trim();
+  if (!normalizedName || normalizedName.length > 255) {
+    return false;
+  }
+
+  try {
+    const url = new URL(fileUrl);
+    const urlFileName = decodeURIComponent(url.pathname.split("/").pop() || "");
+    return (
+      url.protocol === "https:" &&
+      url.hostname === "res.cloudinary.com" &&
+      /\/raw\/upload\//i.test(url.pathname) &&
+      (/\.(pdf|doc|docx)$/i.test(normalizedName) ||
+        /\.(pdf|doc|docx)$/i.test(urlFileName))
+    );
+  } catch {
+    return false;
+  }
+};
+
 export const uploadLessonDocument = async (data: {
   title: string;
   lessonId: number;
   weekNumber: number;
-  file: File | Blob;
+  fileName: string;
+  fileUrl: string;
 }) => {
   const title = data.title?.toString().trim();
   const lessonId = Number(data.lessonId);
   const weekNumber = Number(data.weekNumber);
-  const file = data.file;
-  const hasArrayBuffer = file && typeof (file as any).arrayBuffer === "function";
+  const fileName = data.fileName?.trim();
+  const fileUrl = data.fileUrl?.trim();
 
-  if (!title || lessonId <= 0 || weekNumber <= 0 || !file) {
+  if (!title || !Number.isInteger(lessonId) || lessonId <= 0 || !Number.isInteger(weekNumber) || weekNumber <= 0) {
     return {
       success: false,
       error: true,
-      message: "Missing required fields: title, lesson, week number, or file.",
+      message: "Enter a title, select a lesson, and enter a valid week number.",
     } as any;
   }
 
-  if (!hasArrayBuffer) {
+  if (!fileName || !fileUrl || !isValidLessonDocumentAsset(fileName, fileUrl)) {
     return {
       success: false,
       error: true,
-      message: "The selected file could not be uploaded. Please choose a valid document.",
+      message: "Choose a valid PDF, DOC, or DOCX document before submitting.",
     } as any;
   }
 
@@ -1827,20 +1849,12 @@ export const uploadLessonDocument = async (data: {
   }
 
   try {
-    const uploadsDir = path.join(process.cwd(), "public", "uploads", "exam-questions");
-    await fs.mkdir(uploadsDir, { recursive: true });
-
-    const safeFileName = `${Date.now()}-${(file as File).name.replace(/[^a-zA-Z0-9_.-]/g, "_")}`;
-    const filePath = path.join(uploadsDir, safeFileName);
-    const buffer = Buffer.from(await (file as any).arrayBuffer());
-    await fs.writeFile(filePath, buffer);
-
     await prisma.examQuestionUpload.create({
       data: {
         documentType: "LESSON_DOCUMENT",
         title,
-        fileName: (file as File).name,
-        fileUrl: `/uploads/exam-questions/${safeFileName}`,
+        fileName,
+        fileUrl,
         lessonId,
         weekNumber,
         uploadedById: userId!,
@@ -1852,8 +1866,8 @@ export const uploadLessonDocument = async (data: {
 
     revalidatePath("/list/lessons");
     return { success: true, error: false };
-  } catch (err) {
-    console.log("uploadLessonDocument error:", err);
+  } catch (error) {
+    console.error("uploadLessonDocument failed to save upload metadata:", error);
     return {
       success: false,
       error: true,
@@ -1867,14 +1881,13 @@ export const updateLessonDocument = async (
     id: number;
     title: string;
     weekNumber: number;
-    file?: File | Blob;
+    file?: { fileName: string; fileUrl: string };
   }
 ) => {
   const title = data.title?.toString().trim();
   const weekNumber = Number(data.weekNumber);
   const uploadId = Number(data.id);
   const file = data.file;
-  const hasArrayBuffer = !file || typeof (file as any).arrayBuffer === "function";
 
   if (!title || uploadId <= 0 || weekNumber <= 0) {
     return {
@@ -1884,11 +1897,14 @@ export const updateLessonDocument = async (
     } as any;
   }
 
-  if (!hasArrayBuffer) {
+  if (
+    file &&
+    !isValidLessonDocumentAsset(file.fileName, file.fileUrl)
+  ) {
     return {
       success: false,
       error: true,
-      message: "The selected file could not be processed. Please choose a valid document.",
+      message: "Choose a valid PDF, DOC, or DOCX document before saving.",
     } as any;
   }
 
@@ -1929,30 +1945,18 @@ export const updateLessonDocument = async (
   let fileUpdate: { fileName?: string; fileUrl?: string } = {};
 
   if (file) {
-    const uploadsDir = path.join(process.cwd(), "public", "uploads", "exam-questions");
-    await fs.mkdir(uploadsDir, { recursive: true });
-
-    const safeFileName = `${Date.now()}-${(file as File).name.replace(/[^a-zA-Z0-9_.-]/g, "_")}`;
-    const filePath = path.join(uploadsDir, safeFileName);
-    const buffer = Buffer.from(await (file as any).arrayBuffer());
-    await fs.writeFile(filePath, buffer);
-
-    if (existingUpload.fileUrl) {
-      const existingPath = path.join(
-        process.cwd(),
-        "public",
-        existingUpload.fileUrl.replace(/^\//, "")
-      );
+    if (existingUpload.fileUrl.startsWith("/uploads/")) {
+      const existingPath = path.join(process.cwd(), "public", existingUpload.fileUrl.replace(/^\//, ""));
       try {
         await fs.unlink(existingPath);
-      } catch (err) {
-        console.log("updateLessonDocument file removal failed:", err);
+      } catch (error) {
+        console.warn("Unable to remove replaced local lesson document:", error);
       }
     }
 
     fileUpdate = {
-      fileName: (file as File).name,
-      fileUrl: `/uploads/exam-questions/${safeFileName}`,
+      fileName: file.fileName.trim(),
+      fileUrl: file.fileUrl.trim(),
     };
   }
 
@@ -2036,7 +2040,7 @@ export const deleteLessonDocumentUpload = async (
       return { success: false, error: true };
     }
 
-    if (existingUpload.fileUrl) {
+    if (existingUpload.fileUrl.startsWith("/uploads/")) {
       const filePath = path.join(
         process.cwd(),
         "public",
