@@ -107,31 +107,31 @@ export default function TermReportView({
     >
       <article className="report-card overflow-hidden bg-white">
         {/* Letterhead */}
-        <header className="report-card-header relative border-b border-slate-200 px-3 py-3 sm:px-5 sm:py-4">
+        <header className="report-card-header relative border-b border-slate-200 px-3 py-2.5 sm:px-4 sm:py-3">
           <div className="report-accent-bar absolute inset-x-0 top-0 h-1.25 bg-[#062e61]" />
 
-          <div className="flex flex-col items-center gap-2.5 sm:flex-row sm:items-center sm:justify-center">
+          <div className="flex flex-col items-center gap-2 sm:flex-row sm:items-center sm:justify-center">
             <div className="shrink-0">
               {school?.logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={school.logoUrl}
                   alt="School logo"
-                  className="h-16 w-16 rounded-xl border border-slate-200 bg-white object-contain p-1.5 shadow-sm sm:h-20 sm:w-20"
+                  className="h-12 w-12 rounded-lg border border-slate-200 bg-white object-contain p-1 shadow-sm sm:h-14 sm:w-14"
                 />
               ) : (
-                <div className="flex h-16 w-16 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 text-[10px] font-semibold uppercase tracking-wider text-slate-400 sm:h-20 sm:w-20">
+                <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 text-[9px] font-semibold uppercase tracking-wider text-slate-400 sm:h-14 sm:w-14">
                   Logo
                 </div>
               )}
             </div>
 
             <div className="w-full text-center sm:max-w-[70%]">
-              <p className="text-lg font-bold tracking-tight text-[#062e61] sm:text-2xl">
+              <p className="text-base font-bold tracking-tight text-[#062e61] sm:text-xl">
                 {school?.name ?? "School Name"}
               </p>
               {school?.address ? (
-                <p className="mt-1 text-xs text-slate-600 sm:text-sm">
+                <p className="mt-0.5 text-[11px] text-slate-600 sm:text-xs">
                   {school.address}
                 </p>
               ) : null}
@@ -143,8 +143,8 @@ export default function TermReportView({
             </div>
           </div>
 
-          <div className="mt-3 flex flex-col items-center justify-center text-center">
-            <span className="report-title-badge inline-block rounded-lg bg-[#062e61] px-3.5 py-1.5 text-[9px] font-bold uppercase tracking-[0.16em] text-white sm:text-[10px]">
+          <div className="mt-2 flex flex-col items-center justify-center text-center">
+            <span className="report-title-badge inline-block rounded-md bg-[#062e61] px-3 py-1 text-[9px] font-bold uppercase tracking-[0.14em] text-white">
               Learner&apos;s Terminal Report
             </span>
             <p className="mt-1.5 text-[9px] font-medium uppercase tracking-wider text-slate-500 sm:text-[10px]">
@@ -153,17 +153,17 @@ export default function TermReportView({
           </div>
         </header>
 
-        <div className="px-3 py-3 sm:px-5 sm:py-4">
+        <div className="px-3 py-3 sm:px-4 sm:py-3">
           {/* Student & term metadata */}
-          <section className="report-meta mb-4 rounded-xl border border-slate-200 bg-slate-50/80 p-3 sm:p-4">
-            <div className="grid grid-cols-2 gap-x-3 gap-y-3 sm:grid-cols-4">
+          <section className="report-meta mb-3 rounded-lg border border-slate-200 bg-slate-50/80 p-2.5 sm:p-3">
+            <div className="grid grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-4">
               <MetaField label="Student's Name" value={report.studentName} />
               <MetaField label="Academic Year" value={report.academicYearLabel} />
               <MetaField label="Class" value={report.className} />
               <MetaField label="Term" value={`Term ${report.termNumber}`} />
             </div>
-            <div className="mt-3 border-t border-slate-200 pt-3">
-              <div className="grid grid-cols-2 gap-x-3 gap-y-3 sm:grid-cols-4">
+            <div className="mt-2 border-t border-slate-200 pt-2">
+              <div className="grid grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-4">
                 <MetaField label="No. On Roll" value={report.totalOnRoll} />
                 <MetaField
                   label="Total Attendance"
@@ -182,18 +182,18 @@ export default function TermReportView({
           </section>
 
           {/* Performance summary strip */}
-          <section className="report-summary-strip mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <div className="rounded-xl border border-slate-200 bg-white p-3 text-center shadow-sm">
+          <section className="report-summary-strip mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="rounded-lg border border-slate-200 bg-white p-2 text-center shadow-sm">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
                 Overall %
               </p>
-              <p className="mt-1 text-2xl font-bold tabular-nums text-[#062e61]">
+              <p className="mt-0.5 text-xl font-bold tabular-nums text-[#062e61]">
                 {report.overallPercentage != null
                   ? `${report.overallPercentage.toFixed(1)}%`
                   : "—"}
               </p>
             </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-3 text-center shadow-sm">
+            <div className="rounded-lg border border-slate-200 bg-white p-2 text-center shadow-sm">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
                 Overall Grade
               </p>
@@ -201,17 +201,17 @@ export default function TermReportView({
                 <GradeBadge grade={report.overallGrade} />
               </div>
             </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-3 text-center shadow-sm">
+            <div className="rounded-lg border border-slate-200 bg-white p-2 text-center shadow-sm">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
                 Position
               </p>
-              <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">
+              <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900">
                 {report.positionOnRoll != null
                   ? `${report.positionOnRoll}${ordinalSuffix(report.positionOnRoll)}`
                   : "—"}
               </p>
             </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-3 text-center shadow-sm">
+            <div className="rounded-lg border border-slate-200 bg-white p-2 text-center shadow-sm">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
                 Result
               </p>
@@ -222,65 +222,65 @@ export default function TermReportView({
           </section>
 
           {/* Subject scores */}
-          <section className="mb-4 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+          <section className="mb-3 overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
             <table className="report-table w-full text-left">
               <thead>
                 <tr>
-                  <th className="px-4 py-3">Subject</th>
-                  <th className="px-4 py-3 text-right">Class Score</th>
-                  <th className="px-4 py-3 text-right">Exam Score</th>
-                  <th className="px-4 py-3 text-right">Total</th>
-                  <th className="px-4 py-3 text-center">Grade</th>
-                  <th className="px-4 py-3">Proficiency Level</th>
+                  <th className="px-3 py-2">Subject</th>
+                  <th className="px-3 py-2 text-right">Class Score</th>
+                  <th className="px-3 py-2 text-right">Exam Score</th>
+                  <th className="px-3 py-2 text-right">Total</th>
+                  <th className="px-3 py-2 text-center">Grade</th>
+                  <th className="px-3 py-2">Proficiency Level</th>
                 </tr>
               </thead>
               <tbody>
                 {report.subjectLines.map((line) => (
                   <tr key={line.id}>
-                    <td className="px-4 py-2.5 font-medium text-slate-800">
+                    <td className="px-3 py-2 font-medium text-slate-800">
                       {line.subjectName}
                     </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-slate-700">
+                    <td className="px-3 py-2 text-right tabular-nums text-slate-700">
                       {line.classScore}
                     </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-slate-700">
+                    <td className="px-3 py-2 text-right tabular-nums text-slate-700">
                       {line.examScore}
                     </td>
-                    <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-slate-900">
+                    <td className="px-3 py-2 text-right font-semibold tabular-nums text-slate-900">
                       {line.totalMarks}
                     </td>
-                    <td className="px-4 py-2.5 text-center">
+                    <td className="px-3 py-2 text-center">
                       <GradeBadge grade={line.grade} />
                     </td>
-                    <td className="px-4 py-2.5 text-slate-600">
+                    <td className="px-3 py-2 text-slate-600">
                       {line.remark ?? "—"}
                     </td>
                   </tr>
                 ))}
                 <tr className="totals-row">
-                  <td className="px-4 py-2.5 font-bold text-slate-900">Total</td>
-                  <td className="px-4 py-2.5 text-right font-bold tabular-nums">
+                  <td className="px-3 py-2 font-bold text-slate-900">Total</td>
+                  <td className="px-3 py-2 text-right font-bold tabular-nums">
                     {totals.classScore}
                   </td>
-                  <td className="px-4 py-2.5 text-right font-bold tabular-nums">
+                  <td className="px-3 py-2 text-right font-bold tabular-nums">
                     {totals.examScore}
                   </td>
-                  <td className="px-4 py-2.5 text-right font-bold tabular-nums">
+                  <td className="px-3 py-2 text-right font-bold tabular-nums">
                     {totals.totalMarks}
                   </td>
-                  <td className="px-4 py-2.5" colSpan={2} />
+                  <td className="px-3 py-2" colSpan={2} />
                 </tr>
               </tbody>
             </table>
           </section>
 
           {/* Remarks & conduct */}
-          <section className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
+          <section className="mb-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+            <div className="rounded-lg border border-slate-200 bg-white p-3">
               <h3 className="text-xs font-bold uppercase tracking-wider text-[#062e61]">
                 Performance Summary
               </h3>
-              <dl className="mt-4 grid grid-cols-2 gap-4">
+              <dl className="mt-3 grid grid-cols-2 gap-3">
                 <MetaField
                   label="Conduct"
                   value={report.conduct ?? "—"}
@@ -290,7 +290,7 @@ export default function TermReportView({
                   value={report.interest ?? "—"}
                 />
               </dl>
-              <div className="mt-4 border-t border-slate-100 pt-4">
+              <div className="mt-3 border-t border-slate-100 pt-3">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
                   Overall Remark
                 </p>
@@ -300,11 +300,11 @@ export default function TermReportView({
               </div>
             </div>
 
-            <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
+            <div className="rounded-lg border border-slate-200 bg-white p-3">
               <h3 className="text-xs font-bold uppercase tracking-wider text-[#062e61]">
                 Staff Remarks
               </h3>
-              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
                     Class Facilitator
@@ -322,15 +322,20 @@ export default function TermReportView({
                   </p>
                 </div>
               </div>
-              <div className="mt-6 grid grid-cols-2 gap-6">
+              <div className="mt-4 grid grid-cols-2 gap-4">
                 <div>
                   <div className="border-t border-slate-300 pt-2 text-center text-[10px] font-medium uppercase tracking-wider text-slate-500">
                     Facilitator&apos;s Signature
                   </div>
                   {report.supervisorSignature ? (
-                    <p className="mt-1 text-center text-xs italic text-slate-600">
-                      {report.supervisorSignature}
-                    </p>
+                    report.supervisorSignature.startsWith("https://") ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={report.supervisorSignature} alt="Facilitator signature" className="mx-auto mt-1 h-10 max-w-32 object-contain" />
+                    ) : (
+                      <p className="mt-1 text-center text-xs italic text-slate-600">
+                        {report.supervisorSignature}
+                      </p>
+                    )
                   ) : null}
                 </div>
                 <div>
@@ -338,9 +343,14 @@ export default function TermReportView({
                     Headteacher&apos;s Signature
                   </div>
                   {report.headteacherSignature ? (
-                    <p className="mt-1 text-center text-xs italic text-slate-600">
-                      {report.headteacherSignature}
-                    </p>
+                    report.headteacherSignature.startsWith("https://") ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={report.headteacherSignature} alt="Headteacher signature" className="mx-auto mt-1 h-10 max-w-32 object-contain" />
+                    ) : (
+                      <p className="mt-1 text-center text-xs italic text-slate-600">
+                        {report.headteacherSignature}
+                      </p>
+                    )
                   ) : null}
                 </div>
               </div>
@@ -348,11 +358,11 @@ export default function TermReportView({
           </section>
 
           {/* Grading reference */}
-          <section className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 sm:p-5">
+          <section className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600">
               Grading System Reference
             </h3>
-            <div className="mt-3 overflow-x-auto">
+            <div className="mt-2 overflow-x-auto">
               <table className="report-grading-table w-full text-xs">
                 <thead>
                   <tr>

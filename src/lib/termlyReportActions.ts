@@ -13,6 +13,81 @@ import { getTermVacationAndReopening } from "@/lib/termDates";
 const RESULTS_PATH = "/list/results";
 const db = prisma as unknown as PrismaClient;
 
+export async function saveReportSignature(input: {
+  signatureUrl: string;
+  classId?: number;
+}): Promise<{ success: boolean; error: string | null }> {
+  const ctx = await getAuthCtx();
+  if (!ctx) return { success: false, error: "Not signed in." };
+
+  let signatureUrl: URL;
+  try {
+    signatureUrl = new URL(input.signatureUrl);
+  } catch {
+    return { success: false, error: "Choose a valid uploaded signature image." };
+  }
+
+  if (
+    signatureUrl.protocol !== "https:" ||
+    signatureUrl.hostname !== "res.cloudinary.com" ||
+    !/\/image\/upload\//i.test(signatureUrl.pathname)
+  ) {
+    return { success: false, error: "Signature must be uploaded to the approved image storage." };
+  }
+
+  try {
+    if (ctx.isAdmin) {
+      const settings = await db.schoolSetting.findFirst({ select: { id: true } });
+      if (!settings) {
+        return {
+          success: false,
+          error: "Set up the school details before adding the headteacher signature.",
+        };
+      }
+
+      await db.$transaction([
+        db.schoolSetting.update({
+          where: { id: settings.id },
+          data: { headteacherSignature: input.signatureUrl },
+        }),
+        db.termlyReport.updateMany({
+          data: { headteacherSignature: input.signatureUrl },
+        }),
+      ]);
+    } else if (ctx.role === "teacher") {
+      const classId = Number(input.classId);
+      if (!Number.isInteger(classId) || !ctx.supervisedClassIds.includes(classId)) {
+        return {
+          success: false,
+          error: "You can only set a facilitator signature for a class you supervise.",
+        };
+      }
+
+      await db.$transaction([
+        db.class.update({
+          where: { id: classId },
+          data: { supervisorSignature: input.signatureUrl },
+        }),
+        db.termlyReport.updateMany({
+          where: { classId },
+          data: { supervisorSignature: input.signatureUrl },
+        }),
+      ]);
+    } else {
+      return {
+        success: false,
+        error: "Only administrators and class supervisors can upload report signatures.",
+      };
+    }
+
+    revalidatePath(RESULTS_PATH);
+    return { success: true, error: null };
+  } catch (error) {
+    console.error("Failed to save report signature:", error);
+    return { success: false, error: "Could not apply the signature to the class reports." };
+  }
+}
+
 type AuthCtx = {
   userId: string;
   role: string;

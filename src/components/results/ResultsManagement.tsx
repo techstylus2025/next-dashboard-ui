@@ -15,6 +15,7 @@ import { ClipboardList, GraduationCap, Layers3 } from "lucide-react";
 import ReportEditorCard from "./ReportEditorCard";
 import ReportPreviewModal from "./ReportPreviewModal";
 import ResultsFiltersModal from "./ResultsFiltersModal";
+import ReportSignatureManager from "./ReportSignatureManager";
 import { ITEM_PER_PAGE } from "@/lib/settings";
 
 type SortKey =
@@ -586,6 +587,14 @@ export default function ResultsManagement(ctx: ResultsPageContext) {
         </div>
       )}
 
+      {(ctx.isAdmin || ctx.isSupervisor) && (
+        <ReportSignatureManager
+          isAdmin={ctx.isAdmin}
+          supervisedClasses={ctx.supervisedClasses}
+          headteacherSignature={ctx.schoolSettings?.headteacherSignature ?? null}
+        />
+      )}
+
       {tab === "generate" && ctx.canManageReports && (
         <section className="rounded-2xl border border-white/60 bg-white/95 p-4 sm:p-5 shadow-sm ring-1 ring-slate-200/80 space-y-6">
           <div>
@@ -760,10 +769,10 @@ export default function ResultsManagement(ctx: ResultsPageContext) {
       )}
 
       {(tab === "reports" || !ctx.canManageReports) && (
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
           {/* Filter section */}
           <div className="mb-6">
-            <div className="mb-4 flex items-center justify-between gap-3">
+            <div className="mb-3 flex items-center justify-between gap-3">
               <h3 className="text-sm font-semibold text-slate-900">
                 Filters & search
               </h3>
@@ -1025,31 +1034,31 @@ export default function ResultsManagement(ctx: ResultsPageContext) {
                 </p>
               </div>
             ) : (
-              <div className="space-y-8">
+              <div className="space-y-5">
                 {groupedReports.map((yearGroup) => (
-                  <div key={yearGroup.academicYearLabel} className="space-y-4">
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                      <h3 className="text-lg font-semibold text-slate-900">
+                  <div key={yearGroup.academicYearLabel} className="space-y-3">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+                      <h3 className="text-base font-semibold text-slate-900">
                         {yearGroup.academicYearLabel}
                       </h3>
                     </div>
-                    <div className="space-y-6">
+                    <div className="space-y-4">
                       {yearGroup.classes.map((classGroup) => (
-                        <div key={classGroup.className} className="space-y-4">
-                          <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+                        <div key={classGroup.className} className="space-y-3">
+                          <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
                             <h4 className="text-sm font-semibold text-slate-800 whitespace-nowrap">
                               {classGroup.className}
                             </h4>
                           </div>
-                          <div className="space-y-6">
+                          <div className="space-y-4">
                             {classGroup.terms.map((termGroup) => (
-                              <div key={termGroup.termNumber} className="space-y-4">
-                                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                              <div key={termGroup.termNumber} className="space-y-2.5">
+                                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
                                   <h5 className="text-sm font-semibold text-slate-800">
                                     Term {termGroup.termNumber}
                                   </h5>
                                 </div>
-                                <div className="space-y-4">
+                                <div className="space-y-2">
                                   {termGroup.reports.map((report) => (
                                     <ReportEditorCard
                                       key={report.id}
@@ -1072,7 +1081,7 @@ export default function ResultsManagement(ctx: ResultsPageContext) {
               </div>
             )
           ) : (
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2.5">
               {paginatedReports.map((report) => (
                 <ReportEditorCard
                   key={report.id}

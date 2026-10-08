@@ -13,7 +13,7 @@ export type ResultsPageContext = {
   canManageReports: boolean;
   canRecordScores: boolean;
   supervisedClassIds: number[];
-  supervisedClasses: { id: number; name: string }[];
+  supervisedClasses: { id: number; name: string; signature: string | null }[];
   classes: {
     id: number;
     name: string;
@@ -35,6 +35,7 @@ export type ResultsPageContext = {
     location: string;
     email: string;
     logoUrl: string | null;
+    headteacherSignature: string | null;
   } | null;
 };
 
@@ -83,6 +84,7 @@ export type TermlyReportRow = {
     location: string;
     email: string;
     logoUrl: string | null;
+    headteacherSignature: string | null;
   } | null;
 };
 
@@ -92,7 +94,7 @@ export async function loadResultsPageData(
 ): Promise<ResultsPageContext> {
   const isAdmin = role === "admin";
   let supervisedClassIds: number[] = [];
-  let supervisedClasses: { id: number; name: string }[] = [];
+  let supervisedClasses: ResultsPageContext["supervisedClasses"] = [];
   let assignedClassIds: number[] = [];
   const assignedSubjects: ResultsPageContext["assignedSubjects"] = [];
 
@@ -100,7 +102,7 @@ export async function loadResultsPageData(
     const [supervised, teacher] = await Promise.all([
       db.class.findMany({
         where: { supervisorId: userId },
-        select: { id: true, name: true },
+        select: { id: true, name: true, supervisorSignature: true },
       }),
       db.teacher.findUnique({
         where: { id: userId },
@@ -110,7 +112,11 @@ export async function loadResultsPageData(
         },
       }),
     ]);
-    supervisedClasses = supervised.map((c) => ({ id: c.id, name: c.name }));
+    supervisedClasses = supervised.map((c) => ({
+      id: c.id,
+      name: c.name,
+      signature: c.supervisorSignature,
+    }));
     supervisedClassIds = supervised.map((c) => c.id);
     assignedClassIds = teacher?.assignedClasses.map((cls) => cls.id) ?? [];
 
@@ -235,6 +241,7 @@ export async function loadResultsPageData(
           id: true,
           name: true,
           gradeId: true,
+          supervisorSignature: true,
           grade: {
             select: {
               subjects: { select: { id: true, name: true, gradeId: true } },
@@ -346,9 +353,10 @@ export async function loadResultsPageData(
       conduct: r.conduct,
       resultStatus: r.resultStatus,
       supervisorRemarks: r.supervisorRemarks,
-      supervisorSignature: r.supervisorSignature,
+      supervisorSignature: r.supervisorSignature ?? r.class.supervisorSignature,
       headteacherRemarks: r.headteacherRemarks,
-      headteacherSignature: r.headteacherSignature,
+      headteacherSignature:
+        r.headteacherSignature ?? schoolSettings?.headteacherSignature ?? null,
       subjectLines: [...subjectLinesById.values()]
         .filter(
           (line) =>
@@ -376,6 +384,7 @@ export async function loadResultsPageData(
             location: schoolSettings.location,
             email: schoolSettings.email,
             logoUrl: schoolSettings.logoUrl,
+            headteacherSignature: schoolSettings.headteacherSignature,
           }
         : null,
     };
@@ -407,6 +416,7 @@ export async function loadResultsPageData(
           location: schoolSettings.location,
           email: schoolSettings.email,
           logoUrl: schoolSettings.logoUrl,
+          headteacherSignature: schoolSettings.headteacherSignature,
         }
       : null,
     assignedSubjects,

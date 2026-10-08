@@ -150,8 +150,8 @@ export default function ReportEditorCard({
   const canEditAnything = canManageMeta || hasEditableSubjects;
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+    <div className="rounded-lg border border-slate-200 bg-white p-2.5 shadow-sm sm:p-3">
+      <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
         <button
           type="button"
           className="flex-1 text-left min-w-0"
@@ -172,7 +172,7 @@ export default function ReportEditorCard({
             )}
           </p>
         </button>
-        <div className="flex flex-wrap gap-2 shrink-0">
+        <div className="flex flex-wrap gap-1.5 shrink-0">
           {canPublish && (
             <>
               <span
@@ -224,14 +224,14 @@ export default function ReportEditorCard({
           <button
             type="button"
             onClick={onPreview}
-            className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-medium text-sky-800 hover:bg-sky-100"
+            className="rounded-md border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-800 hover:bg-sky-100"
           >
             Preview
           </button>
           <button
             type="button"
             onClick={() => setExpanded(!expanded)}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-600"
+            className="rounded-md border border-slate-200 px-2.5 py-1 text-xs text-slate-600"
           >
             {expanded ? "Collapse" : canEditAnything ? "Edit" : "Details"}
           </button>
@@ -240,7 +240,7 @@ export default function ReportEditorCard({
 
       <div className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out motion-reduce:transition-none ${expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`} aria-hidden={!expanded} inert={!expanded}>
         <div className="min-h-0 overflow-hidden">
-        <div className="mt-4 space-y-5 border-t border-slate-100 pt-4">
+        <div className="mt-3 space-y-4 border-t border-slate-100 pt-3">
           <div className="grid grid-cols-2 gap-2 sm:gap-3 text-xs sm:text-sm">
             <span>
               <span className="text-slate-500">No. On Roll: </span>

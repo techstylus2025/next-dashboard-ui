@@ -9,9 +9,29 @@ function formatDate(iso: string | null) {
   });
 }
 
+async function loadSignatureImage(signature: string | null) {
+  if (!signature?.startsWith("https://")) return null;
+
+  const image = new Image();
+  image.crossOrigin = "anonymous";
+  const loaded = new Promise<void>((resolve, reject) => {
+    image.onload = () => resolve();
+    image.onerror = () => reject(new Error("Could not load a report signature image."));
+  });
+  image.src = signature;
+  await loaded;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = image.naturalWidth;
+  canvas.height = image.naturalHeight;
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Could not prepare a report signature image.");
+  context.drawImage(image, 0, 0);
+  return canvas.toDataURL("image/png");
+}
+
 export async function exportTermlyReportPdf(report: TermlyReportRow) {
   const { jsPDF } = await import("jspdf");
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const autoTable = ((await import("jspdf-autotable")).default as any) as (
     doc: any,
     options: any
@@ -105,7 +125,6 @@ export async function exportTermlyReportPdf(report: TermlyReportRow) {
     margin: { left: margin, right: margin },
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   y = (doc as any).lastAutoTable.finalY + 8;
 
   const summary = [
@@ -146,11 +165,31 @@ export async function exportTermlyReportPdf(report: TermlyReportRow) {
 
   y = remarksStartY + 5 + remarkLines * 5 + 12;
   const sigY = y;
+  const facilitatorSignature = report.supervisorSignature;
+  const [facilitatorSignatureImage, headteacherSignatureImage] = await Promise.all([
+    loadSignatureImage(facilitatorSignature),
+    loadSignatureImage(report.headteacherSignature),
+  ]);
+  const facilitatorSignatureX = leftX;
+  const headteacherSignatureX = rightX;
+  if (facilitatorSignatureImage) {
+    doc.addImage(facilitatorSignatureImage, "PNG", facilitatorSignatureX + 6, sigY - 14, 48, 12);
+  } else if (facilitatorSignature) {
+    doc.setFontSize(9);
+    doc.text(facilitatorSignature, facilitatorSignatureX, sigY - 3);
+  }
+  if (headteacherSignatureImage) {
+    doc.addImage(headteacherSignatureImage, "PNG", headteacherSignatureX + 6, sigY - 14, 48, 12);
+  } else if (report.headteacherSignature) {
+    doc.setFontSize(9);
+    doc.text(report.headteacherSignature, headteacherSignatureX, sigY - 3);
+  }
+  doc.setFontSize(10);
   doc.setLineWidth(0.3);
-  doc.line(leftX, sigY, leftX + 60, sigY);
-  doc.text("Class Facilitator's Signature", leftX, sigY + 5);
-  doc.line(rightX + 70, sigY, rightX + 130, sigY);
-  doc.text("Headteacher's Signature", rightX + 70, sigY + 5);
+  doc.line(facilitatorSignatureX, sigY, facilitatorSignatureX + 60, sigY);
+  doc.text("Class Facilitator's Signature", facilitatorSignatureX, sigY + 5);
+  doc.line(headteacherSignatureX, sigY, headteacherSignatureX + 60, sigY);
+  doc.text("Headteacher's Signature", headteacherSignatureX, sigY + 5);
 
   y = sigY + 18;
   if (y > 250) {
