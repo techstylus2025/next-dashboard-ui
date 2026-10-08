@@ -1,427 +1,293 @@
 import FormModal from "@/components/FormModal";
-import Pagination from "@/components/Pagination";
-import Table from "@/components/Table";
-import TableSearch from "@/components/TableSearch";
-import prisma from "@/lib/prisma";
-import { ITEM_PER_PAGE } from "@/lib/settings";
-import { Assignment, Class, Prisma, Subject, Teacher } from "@prisma/client";
-import Image from "next/image";
 import AssignmentVisibilityToggle from "@/components/AssignmentVisibilityToggle";
 import AssignmentViewModal from "@/components/assignments/AssignmentViewModal";
-import { auth } from "@clerk/nextjs/server";
+import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
+import { getTeacherAssignmentWhere } from "@/lib/assignmentAccess";
+import { getCurrentAuthContext } from "@/lib/auth";
 
-type AssignmentList = Assignment & {
-  lesson: {
-    subject: Subject;
-    class: Class;
-    teacher: Teacher;
+type AssignmentListItem = Prisma.AssignmentGetPayload<{
+  include: {
+    lesson: {
+      include: {
+        subject: true;
+        class: true;
+        teacher: true;
+      };
+    };
   };
+}>;
+
+type SearchParams = Promise<{ search?: string; status?: string }>;
+
+const startOfToday = () => {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  return date;
 };
 
-const AssignmentListPage = async ({
-  searchParams,
-}: {
-  searchParams: Promise<{ [key: string]: string | undefined }>;
-}) => {
+const dueState = (assignment: AssignmentListItem, today: Date) => {
+  if (assignment.dueDate < today) return "overdue";
+  if (assignment.startDate > today) return "upcoming";
+  const daysRemaining = Math.ceil(
+    (assignment.dueDate.getTime() - today.getTime()) / (24 * 60 * 60 * 1000)
+  );
+  return daysRemaining <= 3 ? "due-soon" : "active";
+};
 
-  const { userId, sessionClaims } = await auth();
-  const role = (sessionClaims?.metadata as { role?: string })?.role;
-  const currentUserId = userId;
-  
-  
-  const columns = [
-    {
-      header: "Subject Name",
-      accessor: "name",
-    },
-    {
-      header: "Class",
-      accessor: "class",
-      className: "hidden md:table-cell",
-    },
-    {
-      header: "Teacher",
-      accessor: "teacher",
-      className: "hidden md:table-cell",
-    },
-    {
-      header: "Due Date",
-      accessor: "dueDate",
-      className: "hidden md:table-cell",
-    },
-    ...(role === "admin" || role === "teacher"
-      ? [
-          {
-            header: "Visible",
-            accessor: "visible",
-            className: "hidden md:table-cell",
-          },
-          {
-            header: "Actions",
-            accessor: "action",
-          },
-        ]
-      : []),
-  ];
-  
-  const renderRow = (item: AssignmentList) => {
-    const subjectName = item.lesson?.subject?.name ?? "Unknown subject";
-    const className = item.lesson?.class?.name ?? "Unknown class";
-    const teacherName = item.lesson?.teacher
-      ? `${item.lesson.teacher.name ?? ""} ${item.lesson.teacher.surname ?? ""}`.trim() || "Unknown teacher"
-      : "Unknown teacher";
+const dueStateLabel: Record<string, string> = {
+  overdue: "Past due",
+  upcoming: "Opens soon",
+  "due-soon": "Due soon",
+  active: "In progress",
+};
 
-    return (
-    <tr
-      key={item.id}
-      className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-lamaPurpleLight"
-    >
-      <td className="flex flex-col gap-2 p-4">
-        <div className="font-medium">{subjectName}</div>
-        <div className="flex flex-wrap gap-2 text-xs text-slate-500 md:hidden">
-          <span>{className}</span>
-          <span>•</span>
-          <span>{new Intl.DateTimeFormat("en-US").format(item.dueDate)}</span>
-          <span>•</span>
-          <span>{teacherName}</span>
-        </div>
-        {item.questions && (
-          <div className="text-xs text-slate-500 truncate max-w-full">{item.questions.slice(0, 120)}</div>
-        )}
-        {(role === "admin" || role === "teacher") && (
-          <div className="flex flex-wrap gap-2 mt-2 md:hidden">
-            <AssignmentVisibilityToggle id={item.id} isArchived={item.isArchived} />
-          </div>
-        )}
-      </td>
-      <td className="hidden md:table-cell">{className}</td>
-      <td className="hidden md:table-cell">{teacherName}</td>
-      <td className="hidden md:table-cell">
-        {new Intl.DateTimeFormat("en-US").format(item.dueDate)}
-      </td>
-      <td className="hidden md:table-cell">
-        {(role === "admin" || role === "teacher") && (
-          <div className="flex items-center gap-2">
-            <AssignmentVisibilityToggle id={item.id} isArchived={item.isArchived} />
-          </div>
-        )}
-      </td>
-      <td>
-        <div className="flex items-center gap-1 whitespace-nowrap">
-          <AssignmentViewModal assignment={item} />
-          {(role === "admin" || role === "teacher") && (
-            <>
-              <FormModal table="assignment" type="update" data={item} />
-              <FormModal table="assignment" type="delete" id={item.id} />
-            </>
-          )}
-        </div>
-      </td>
-    </tr>
-    );
-  };
+const dueStateClass: Record<string, string> = {
+  overdue: "bg-rose-50 text-rose-700 ring-rose-200",
+  upcoming: "bg-violet-50 text-violet-700 ring-violet-200",
+  "due-soon": "bg-amber-50 text-amber-800 ring-amber-200",
+  active: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+};
 
-  const { page, ...queryParams } = await searchParams;
+const AssignmentListPage = async ({ searchParams }: { searchParams: SearchParams }) => {
+  const { userId, role } = await getCurrentAuthContext();
+  const params = await searchParams;
+  const search = params.search?.trim();
+  const statusFilter = params.status ?? "all";
+  const today = startOfToday();
 
-  const p = page ? parseInt(page) : 1;
-
-  // URL PARAMS CONDITION
-
-  const query: Prisma.AssignmentWhereInput = {};
-
-  query.lesson = {};
-
-  if (queryParams) {
-    for (const [key, value] of Object.entries(queryParams)) {
-      if (value !== undefined) {
-        switch (key) {
-          case "classId":
-            query.lesson.classId = parseInt(value);
-            break;
-          case "teacherId":
-            query.lesson.teacherId = value;
-            break;
-          case "search":
-            query.lesson.subject = {
-              name: { contains: value, mode: "insensitive" },
-            };
-            break;
-          default:
-            break;
-        }
-      }
-    }
+  const filters: Prisma.AssignmentWhereInput[] = [];
+  if (role === "teacher" && userId) {
+    filters.push(getTeacherAssignmentWhere(userId));
+  } else if (role === "student" && userId) {
+    filters.push({
+      lesson: { class: { students: { some: { id: userId } } } },
+      isArchived: false,
+    });
+  } else if (role === "parent" && userId) {
+    filters.push({
+      lesson: { class: { students: { some: { parentId: userId } } } },
+      isArchived: false,
+    });
+  } else if (role !== "admin") {
+    filters.push({ id: -1 });
   }
 
-  // ROLE CONDITIONS
-
-  switch (role) {
-    case "admin":
-      break;
-    case "teacher":
-      query.lesson.teacherId = currentUserId!;
-      break;
-    case "student":
-      query.lesson.class = {
-        students: {
-          some: {
-            id: currentUserId!,
-          },
-        },
-      };
-      break;
-    case "parent":
-      query.lesson.class = {
-        students: {
-          some: {
-            parentId: currentUserId!,
-          },
-        },
-      };
-      break;
-    default:
-      break;
+  if (search) {
+    filters.push({
+      OR: [
+        { title: { contains: search, mode: "insensitive" } },
+        { questions: { contains: search, mode: "insensitive" } },
+        { lesson: { subject: { name: { contains: search, mode: "insensitive" } } } },
+        { lesson: { class: { name: { contains: search, mode: "insensitive" } } } },
+      ],
+    });
   }
 
-  // allow grouping via ?groupBy=class|subject|teacher|term|year
-  const groupBy = (queryParams.groupBy as string) || "class";
-
-  let data: AssignmentList[] = [];
-  let totalCount = 0;
-
-  if (groupBy) {
-    // fetch all matching assignments to compute groupings and counts
-    const assignments = await prisma.assignment.findMany({
-      where: query,
-      include: {
-        lesson: {
-          select: {
-            subject: { select: { id: true, name: true } },
-            teacher: { select: { id: true, name: true, surname: true } },
-            class: { select: { id: true, name: true } },
-          },
+  const where: Prisma.AssignmentWhereInput = filters.length ? { AND: filters } : {};
+  const assignments = await prisma.assignment.findMany({
+    where,
+    include: {
+      lesson: {
+        include: {
+          subject: true,
+          class: true,
+          teacher: true,
         },
       },
-      orderBy: { dueDate: "desc" },
-    });
-    // cast to AssignmentList for rendering convenience
-    data = assignments as AssignmentList[];
-    totalCount = data.length;
-  } else {
-    const [pagedData, cnt] = await Promise.all([
-      prisma.assignment.findMany({
-        where: query,
-        include: {
-          lesson: {
-            select: {
-              subject: { select: { name: true } },
-              teacher: { select: { name: true, surname: true } },
-              class: { select: { name: true } },
-            },
-          },
-        },
-        take: ITEM_PER_PAGE,
-        skip: ITEM_PER_PAGE * (p - 1),
-      }),
-      prisma.assignment.count({ where: query }),
-    ]);
-    data = pagedData as AssignmentList[];
-    totalCount = cnt;
-  }
+    },
+    orderBy: [{ dueDate: "asc" }, { startDate: "asc" }],
+  });
 
-  // load academic years when grouping by term/year
-  let academicYears: (any)[] = [];
-  if (groupBy === "term" || groupBy === "year") {
-    academicYears = await prisma.academicYear.findMany({
-      include: { terms: { orderBy: { termNumber: "asc" } } },
-      where: { isArchived: false },
-      orderBy: { createdAt: "desc" },
-    });
-  }
-
-  const getTermForDate = (date: Date, year: any) => {
-    const term = year.terms.find((t: any) => date >= t.startDate && date <= t.endDate);
-    return term?.termNumber ?? null;
+  const stats = {
+    total: assignments.length,
+    active: assignments.filter((assignment) => dueState(assignment, today) === "active").length,
+    dueSoon: assignments.filter((assignment) => dueState(assignment, today) === "due-soon").length,
+    overdue: assignments.filter((assignment) => dueState(assignment, today) === "overdue").length,
   };
-  // helper to render subject counts as badges
-  const renderSubjectCounts = (assigns: AssignmentList[]) => {
-    const map = new Map<string, number>();
-    assigns.forEach((a) => {
-      const name = a.lesson?.subject?.name ?? "Unknown subject";
-      map.set(name, (map.get(name) || 0) + 1);
-    });
-    return (
-      <div className="flex gap-2 flex-wrap">
-        {Array.from(map.entries()).map(([name, cnt]) => (
-          <div key={name} className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700">
-            {name}: {cnt}
-          </div>
-        ))}
-      </div>
-    );
-  };
+  const visibleAssignments =
+    statusFilter === "all"
+      ? assignments
+      : assignments.filter((assignment) => dueState(assignment, today) === statusFilter);
+  const assignmentsByClass = visibleAssignments.reduce((groups, assignment) => {
+    const className = assignment.lesson.class.name;
+    const classAssignments = groups.get(className) ?? [];
+    classAssignments.push(assignment);
+    groups.set(className, classAssignments);
+    return groups;
+  }, new Map<string, AssignmentListItem[]>());
+  const canManage = role === "teacher" || role === "admin";
+  const pageTitle = role === "teacher" ? "My assignments" : "Assignments";
 
   return (
-    <div className="bg-white p-4 rounded-md flex-1 m-4 mt-0">
-      {/* TOP */}
-      <div className="flex items-center justify-between">
-        <h1 className="hidden md:block text-lg font-semibold">
-          All Assignments
-        </h1>
-        <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
-          <TableSearch />
-          <form method="get" className="flex items-center gap-2">
-            <label className="text-sm">Group by</label>
-            <select name="groupBy" defaultValue={groupBy} className="p-2 rounded-md ring-1 ring-slate-200">
-              <option value="class">Class</option>
-              <option value="subject">Subject</option>
-              <option value="teacher">Teacher</option>
-              <option value="term">Term</option>
-              <option value="year">Academic Year</option>
-            </select>
-            <button type="submit" className="btn-primary">Apply</button>
-          </form>
-          <div className="flex items-center gap-4 self-end">
-            {(role === "admin" || role === "teacher") && (
-              <FormModal table="assignment" type="create" />
-            )}
+    <main className="m-3 flex-1 space-y-5 sm:m-5">
+      <section className="overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-950 via-indigo-900 to-violet-800 p-5 text-white shadow-sm sm:p-7">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-200">
+              Learning & assessment
+            </p>
+            <h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">{pageTitle}</h1>
+            <p className="mt-2 max-w-2xl text-sm text-indigo-100">
+              {role === "teacher"
+                ? "Create and manage work for your assigned subjects and classes. Class supervisors can also access every assignment in their supervised classes."
+                : "Keep coursework, instructions, and deadlines organized in one place."}
+            </p>
           </div>
+          {canManage && (
+            <FormModal table="assignment" type="create" triggerLabel="Create assignment" />
+          )}
         </div>
-      </div>
-      {/* LIST */}
-      {groupBy === "class" && (
-        <div className="space-y-6">
-          {Array.from(
-            data.reduce((m, a) => {
-              const key = a.lesson?.class?.name ?? "Unknown class";
-              if (!m.has(key)) m.set(key, [] as AssignmentList[]);
-              m.get(key)!.push(a);
-              return m;
-            }, new Map<string, AssignmentList[]>()).entries()
-          ).map(([className, assigns]) => (
-            <details key={className} className="smooth-disclosure rounded-xl border border-slate-200 bg-white shadow-sm">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-xl p-4 hover:bg-slate-50">
-                <div>
-                  <h2 className="text-lg font-semibold">Class: {className}</h2>
-                  <div className="text-sm text-slate-600">Total: {assigns.length}</div>
-                </div>
-                <div className="text-sm text-slate-500">Click to toggle</div>
-              </summary>
-              <div className="smooth-disclosure-panel">
-                <div className="smooth-disclosure-panel-inner">
-                  <div className="border-t border-slate-200 p-4 pt-3">
-                    {renderSubjectCounts(assigns)}
-                    <div className="mt-3">
-                      <Table columns={columns} renderRow={renderRow} data={assigns} />
-                    </div>
+        <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {[
+            { label: "All assignments", value: stats.total, tone: "text-white" },
+            { label: "In progress", value: stats.active, tone: "text-emerald-200" },
+            { label: "Due within 3 days", value: stats.dueSoon, tone: "text-amber-200" },
+            { label: "Past due", value: stats.overdue, tone: "text-rose-200" },
+          ].map((metric) => (
+            <div key={metric.label} className="rounded-xl bg-white/10 px-4 py-3 ring-1 ring-white/10">
+              <p className="text-xs text-indigo-100">{metric.label}</p>
+              <p className={`mt-1 text-2xl font-bold ${metric.tone}`}>{metric.value}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <form method="get" className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_200px_auto]">
+          <label className="sr-only" htmlFor="assignment-search">Search assignments</label>
+          <input
+            id="assignment-search"
+            type="search"
+            name="search"
+            defaultValue={search}
+            placeholder="Search title, instructions, subject, or class"
+            className="min-w-0 rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+          />
+          <label className="sr-only" htmlFor="assignment-status">Filter assignments</label>
+          <select
+            id="assignment-status"
+            name="status"
+            defaultValue={statusFilter}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+          >
+            <option value="all">All statuses</option>
+            <option value="active">In progress</option>
+            <option value="due-soon">Due within 3 days</option>
+            <option value="upcoming">Opens soon</option>
+            <option value="overdue">Past due</option>
+          </select>
+          <button
+            type="submit"
+            className="rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-700"
+          >
+            Apply filters
+          </button>
+        </form>
+      </section>
+
+      {visibleAssignments.length === 0 ? (
+        <section className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-xl font-bold text-indigo-700">
+            0
+          </div>
+          <h2 className="mt-4 text-lg font-semibold text-slate-900">No assignments found</h2>
+          <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">
+            {search || statusFilter !== "all"
+              ? "Try changing your search or status filter."
+              : canManage
+                ? "Create your first assignment to share work and deadlines with students."
+                : "There are no assignments available for you right now."}
+          </p>
+        </section>
+      ) : (
+        <section className="space-y-3">
+          {Array.from(assignmentsByClass.entries()).map(([className, classAssignments]) => (
+            <details
+              key={className}
+              className="group rounded-xl border border-slate-200 bg-white shadow-sm"
+            >
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-4 py-3 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-xs font-bold text-indigo-700">
+                    {className.slice(0, 2).toUpperCase()}
+                  </span>
+                  <div className="min-w-0">
+                    <h2 className="truncate text-sm font-semibold text-slate-900">{className}</h2>
+                    <p className="text-xs text-slate-500">
+                      {classAssignments.length} {classAssignments.length === 1 ? "assignment" : "assignments"}
+                    </p>
                   </div>
                 </div>
+                <span className="shrink-0 text-xs font-medium text-indigo-700 group-open:hidden">
+                  Show assignments
+                </span>
+                <span className="hidden shrink-0 text-xs font-medium text-slate-500 group-open:inline">
+                  Hide assignments
+                </span>
+              </summary>
+
+              <div className="space-y-2 border-t border-slate-100 p-3">
+                {classAssignments.map((assignment) => {
+                  const state = dueState(assignment, today);
+                  const teacherName = `${assignment.lesson.teacher.name} ${assignment.lesson.teacher.surname}`.trim();
+                  return (
+                    <article
+                      key={assignment.id}
+                      className="rounded-lg border border-slate-100 bg-slate-50/70 px-3 py-3 transition hover:border-indigo-200 hover:bg-white"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex min-w-0 flex-wrap items-center gap-2">
+                          <span className="truncate text-sm font-semibold text-slate-900">
+                            {assignment.title}
+                          </span>
+                          <span className="rounded-md bg-white px-2 py-0.5 text-[11px] font-medium text-indigo-700 ring-1 ring-slate-200">
+                            {assignment.lesson.subject.name}
+                          </span>
+                          <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ${dueStateClass[state]}`}>
+                            {dueStateLabel[state]}
+                          </span>
+                          {assignment.isArchived && canManage && (
+                            <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                              Hidden
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          {canManage && (
+                            <>
+                              <AssignmentVisibilityToggle id={assignment.id} isArchived={assignment.isArchived} />
+                              <FormModal table="assignment" type="update" data={assignment} />
+                              <FormModal table="assignment" type="delete" id={assignment.id} />
+                            </>
+                          )}
+                          <AssignmentViewModal assignment={assignment} />
+                        </div>
+                      </div>
+
+                      <div className="mt-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-slate-500">
+                        <span>{teacherName || "Teacher"}</span>
+                        <span>
+                          Opens {assignment.startDate.toLocaleDateString("en", { month: "short", day: "numeric" })}
+                          <span className="mx-1.5 text-slate-300">·</span>
+                          Due {assignment.dueDate.toLocaleDateString("en", { month: "short", day: "numeric", year: "numeric" })}
+                        </span>
+                      </div>
+                      {assignment.questions && (
+                        <p className="mt-2 line-clamp-1 text-xs text-slate-500">
+                          {assignment.questions}
+                        </p>
+                      )}
+                    </article>
+                  );
+                })}
               </div>
             </details>
           ))}
-        </div>
+        </section>
       )}
-
-      {groupBy === "subject" && (
-        <div className="space-y-6">
-          {Array.from(
-            data.reduce((m, a) => {
-              const key = a.lesson?.subject?.name ?? "Unknown subject";
-              if (!m.has(key)) m.set(key, [] as AssignmentList[]);
-              m.get(key)!.push(a);
-              return m;
-            }, new Map<string, AssignmentList[]>()).entries()
-          ).map(([subjectName, assigns]) => (
-            <div key={subjectName} className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Subject: {subjectName}</h2>
-                <div className="text-sm text-slate-600">Total: {assigns.length}</div>
-              </div>
-              <div className="text-sm text-slate-600">Classes included: {Array.from(new Set(assigns.map((a) => a.lesson?.class?.name ?? "Unknown class"))).join(", ")}</div>
-              <Table columns={columns} renderRow={renderRow} data={assigns} />
-            </div>
-          ))}
-        </div>
-      )}
-
-      {groupBy === "teacher" && (
-        <div className="space-y-6">
-          {Array.from(
-            data.reduce((m, a) => {
-              const teacher = a.lesson?.teacher;
-              const key = `${teacher?.id ?? "unknown"}::${teacher ? `${teacher.name ?? ""} ${teacher.surname ?? ""}`.trim() || "Unknown teacher" : "Unknown teacher"}`;
-              if (!m.has(key)) m.set(key, [] as AssignmentList[]);
-              m.get(key)!.push(a);
-              return m;
-            }, new Map<string, AssignmentList[]>()).entries()
-          ).map(([teacherKey, assigns]) => (
-            <div key={teacherKey} className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Teacher: {teacherKey.split('::')[1]}</h2>
-                <div className="text-sm text-slate-600">Total: {assigns.length}</div>
-              </div>
-              <Table columns={columns} renderRow={renderRow} data={assigns} />
-            </div>
-          ))}
-        </div>
-      )}
-
-      {groupBy === "term" && (
-        <div className="space-y-6">
-          {academicYears.map((year) => {
-            const terms = Array.from({ length: year.numberOfTerms }, (_, i) => ({
-              termNumber: i + 1,
-              assignments: data.filter((a) => getTermForDate(a.dueDate, year) === i + 1),
-            })).filter((t) => t.assignments.length > 0);
-
-            if (terms.length === 0) return null;
-
-            return (
-              <div key={year.label} className="space-y-4">
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <h2 className="text-lg font-semibold text-slate-900">{year.label}</h2>
-                </div>
-                {terms.map((termGroup: any) => (
-                  <div key={termGroup.termNumber} className="space-y-3">
-                    <div className="rounded-lg border border-slate-200 bg-white p-3">
-                      <h3 className="font-semibold text-slate-800">Term {termGroup.termNumber} ({termGroup.assignments.length} assignments)</h3>
-                    </div>
-                    <Table columns={columns} renderRow={renderRow} data={termGroup.assignments} />
-                  </div>
-                ))}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {groupBy === "year" && (
-        <div className="space-y-6">
-          {academicYears.map((year) => {
-            const assignmentsForYear = data.filter((a) => getTermForDate(a.dueDate, year) !== null);
-            if (assignmentsForYear.length === 0) return null;
-            return (
-              <div key={year.label} className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold">{year.label}</h2>
-                  <div className="text-sm text-slate-600">Total: {assignmentsForYear.length}</div>
-                </div>
-                <Table columns={columns} renderRow={renderRow} data={assignmentsForYear} />
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Fallback flat table when no grouping selected */}
-      {!groupBy && (
-        <>
-          <Table columns={columns} renderRow={renderRow} data={data} />
-          {/* PAGINATION */}
-          <Pagination page={p} count={totalCount} />
-        </>
-      )}
-    </div>
+    </main>
   );
 };
 

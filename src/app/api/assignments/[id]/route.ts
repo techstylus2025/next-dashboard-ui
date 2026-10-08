@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { auth } from "@clerk/nextjs/server";
+import { getCurrentAuthContext } from "@/lib/auth";
+import { teacherCanAccessAssignment } from "@/lib/assignmentAccess";
 
 export async function PUT(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, sessionClaims } = await auth();
-    const role = (sessionClaims?.metadata as { role?: string })?.role;
+    const { userId, role } = await getCurrentAuthContext();
 
     if (!userId || !(role === "admin" || role === "teacher")) {
       return NextResponse.json(
@@ -55,6 +55,27 @@ export async function PUT(
       );
     }
 
+    const existing = await prisma.assignment.findUnique({
+      where: { id: assignmentId },
+      select: { id: true, lessonId: true },
+    });
+    if (!existing) {
+      return NextResponse.json(
+        { success: false, error: "Assignment not found" },
+        { status: 404 }
+      );
+    }
+
+    if (
+      role === "teacher" &&
+      !(await teacherCanAccessAssignment(userId, existing.lessonId))
+    ) {
+      return NextResponse.json(
+        { success: false, error: "You do not have access to this assignment." },
+        { status: 403 }
+      );
+    }
+
     if (isArchived !== undefined && typeof isArchived !== "boolean") {
       return NextResponse.json(
         { success: false, error: "Invalid isArchived value" },
@@ -62,17 +83,48 @@ export async function PUT(
       );
     }
 
+    if (title !== undefined && (typeof title !== "string" || !title.trim())) {
+      return NextResponse.json(
+        { success: false, error: "Assignment title cannot be empty." },
+        { status: 400 }
+      );
+    }
+    if (
+      questions !== undefined &&
+      questions !== null &&
+      typeof questions !== "string"
+    ) {
+      return NextResponse.json(
+        { success: false, error: "Assignment instructions must be text." },
+        { status: 400 }
+      );
+    }
+
+    const parsedStartDate =
+      startDate !== undefined ? new Date(startDate) : undefined;
+    const parsedDueDate = dueDate !== undefined ? new Date(dueDate) : undefined;
+    if (
+      (parsedStartDate && !Number.isFinite(parsedStartDate.getTime())) ||
+      (parsedDueDate && !Number.isFinite(parsedDueDate.getTime())) ||
+      (parsedStartDate &&
+        parsedDueDate &&
+        parsedStartDate.getTime() > parsedDueDate.getTime())
+    ) {
+      return NextResponse.json(
+        { success: false, error: "Enter valid assignment dates." },
+        { status: 400 }
+      );
+    }
+
     const updated = await prisma.assignment.update({
       where: { id: assignmentId },
       data: {
-        ...(title !== undefined && { title }),
-        ...(questions !== undefined && { questions }),
-        ...(startDate !== undefined && {
-          startDate: new Date(startDate),
+        ...(title !== undefined && { title: title.trim() }),
+        ...(questions !== undefined && {
+          questions: typeof questions === "string" && questions.trim() ? questions.trim() : null,
         }),
-        ...(dueDate !== undefined && {
-          dueDate: new Date(dueDate),
-        }),
+        ...(parsedStartDate && { startDate: parsedStartDate }),
+        ...(parsedDueDate && { dueDate: parsedDueDate }),
         ...(isArchived !== undefined && {
           isArchived,
         }),
@@ -103,10 +155,9 @@ export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { userId, sessionClaims } = await auth();
-  const role = (sessionClaims?.metadata as { role?: string })?.role;
+  const { userId, role } = await getCurrentAuthContext();
 
-  if (!userId || role !== "admin") {
+  if (!userId || !(role === "admin" || role === "teacher")) {
     return NextResponse.json(
       { success: false, error: "Unauthorized" },
       { status: 403 }
@@ -115,9 +166,36 @@ export async function DELETE(
 
   try {
     const { id } = await params;
+    const assignmentId = Number(id);
+    if (!Number.isInteger(assignmentId) || assignmentId <= 0) {
+      return NextResponse.json(
+        { success: false, error: "Invalid assignment id" },
+        { status: 400 }
+      );
+    }
+
+    const assignment = await prisma.assignment.findUnique({
+      where: { id: assignmentId },
+      select: { lessonId: true },
+    });
+    if (!assignment) {
+      return NextResponse.json(
+        { success: false, error: "Assignment not found" },
+        { status: 404 }
+      );
+    }
+    if (
+      role === "teacher" &&
+      !(await teacherCanAccessAssignment(userId, assignment.lessonId))
+    ) {
+      return NextResponse.json(
+        { success: false, error: "You do not have access to this assignment." },
+        { status: 403 }
+      );
+    }
 
     await prisma.assignment.delete({
-      where: { id: parseInt(id) },
+      where: { id: assignmentId },
     });
 
     return NextResponse.json({ success: true });

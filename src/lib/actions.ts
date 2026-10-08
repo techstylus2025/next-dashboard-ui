@@ -21,6 +21,7 @@ import {
 import prisma from "./prisma";
 import { clerkClient } from "@clerk/nextjs/server";
 import { getCurrentAuthContext, getServerSession, hashPassword } from "./auth";
+import { teacherCanAccessAssignment } from "./assignmentAccess";
 
 async function syncCanonicalUser(data: {
   id: string;
@@ -1396,20 +1397,27 @@ export const deleteAssignment = async (
   const role = (sessionClaims?.metadata as { role?: string })?.role;
 
   try {
-    const existing = await prisma.assignment.findUnique({ where: { id: Number(id) }, include: { lesson: true } });
-    if (!existing) return { success: false, error: true };
-
-    if (role === "admin") {
-      // admin can delete
-    } else if (role === "teacher") {
-      if (existing.lesson.teacherId !== userId) {
-        return { success: false, error: true };
-      }
-    } else {
+    const assignmentId = Number(id);
+    if (!Number.isInteger(assignmentId) || assignmentId <= 0) {
       return { success: false, error: true };
     }
 
-    await prisma.assignment.delete({ where: { id: Number(id) } });
+    const existing = await prisma.assignment.findUnique({
+      where: { id: assignmentId },
+      select: { lessonId: true },
+    });
+    if (!existing) return { success: false, error: true };
+
+    if (
+      role !== "admin" &&
+      (role !== "teacher" ||
+        !userId ||
+        !(await teacherCanAccessAssignment(userId, existing.lessonId)))
+    ) {
+      return { success: false, error: true };
+    }
+
+    await prisma.assignment.delete({ where: { id: assignmentId } });
     revalidatePath("/list/assignments");
     return { success: true, error: false };
   } catch (err) {

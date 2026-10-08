@@ -174,7 +174,8 @@ const FormModal = ({
   data,
   id,
   relatedData,
-}: FormContainerProps & { relatedData?: any }) => {
+  triggerLabel,
+}: FormContainerProps & { relatedData?: any; triggerLabel?: string }) => {
   const size = type === "create" ? "w-8 h-8" : "w-7 h-7";
   const bgColor =
     type === "create"
@@ -226,12 +227,21 @@ const FormModal = ({
     <>
       <button
         type="button"
-        className={`${size} flex items-center justify-center rounded-full ${bgColor}`}
+        className={triggerLabel
+          ? "inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-indigo-900 shadow-sm hover:bg-indigo-50"
+          : `${size} flex items-center justify-center rounded-full ${bgColor}`}
         onClick={() => setOpen(true)}
         aria-label={`${type === "update" ? "Edit" : type === "delete" ? "Delete" : "Create"} ${table}`}
         title={`${type === "update" ? "Edit" : type === "delete" ? "Delete" : "Create"} ${table}`}
       >
-        <Image src={iconSrc} alt="" width={16} height={16} />
+        {triggerLabel ? (
+          <>
+            <span aria-hidden="true" className="text-lg leading-none">+</span>
+            {triggerLabel}
+          </>
+        ) : (
+          <Image src={iconSrc} alt="" width={16} height={16} />
+        )}
       </button>
       {open && typeof document !== "undefined" && createPortal(
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-4">

@@ -11,55 +11,84 @@ export default function AssignmentViewModal({ assignment }: { assignment: any })
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="w-7 h-7 flex items-center justify-center rounded-full bg-sky-100 text-sky-700 hover:bg-sky-200"
-        aria-label="View assignment"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+        aria-label={`View ${assignment.title}`}
       >
-        <Image src="/view.svg" alt="View" width={14} height={14} />
+        <Image src="/view.svg" alt="" width={14} height={14} />
+        View details
       </button>
 
       {open && (
-        <div className="w-screen h-screen absolute left-0 top-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white p-6 rounded-md relative w-full max-w-2xl">
-            <h2 className="text-lg font-semibold mb-2">Assignment Details</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div>
-                <p className="text-sm text-slate-500">Subject</p>
-                <p className="font-medium">{assignment.lesson.subject.name}</p>
-              </div>
-
-              <div>
-                <p className="text-sm text-slate-500">Class</p>
-                <p className="font-medium">{assignment.lesson.class.name}</p>
-              </div>
-
-              <div>
-                <p className="text-sm text-slate-500">Teacher</p>
-                <p className="font-medium">{assignment.lesson.teacher.name} {assignment.lesson.teacher.surname}</p>
-              </div>
-
-              <div>
-                <p className="text-sm text-slate-500">Due Date</p>
-                <p className="font-medium">{new Date(assignment.dueDate).toLocaleString()}</p>
-              </div>
-            </div>
-
-            <div className="mb-4">
-              <p className="text-sm text-slate-500">Questions / Instructions</p>
-              <div className="mt-2 whitespace-pre-wrap text-sm text-slate-700">{assignment.questions ?? assignment.title}</div>
-            </div>
-
-            <div className="flex justify-end">
-              <button onClick={() => setOpen(false)} className="btn-primary">Close</button>
-            </div>
-
+        <div
+          className="fixed inset-0 z-[250] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setOpen(false);
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={`assignment-title-${assignment.id}`}
+            className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl sm:p-7"
+          >
             <button
               type="button"
-              className="absolute top-4 right-4 cursor-pointer"
+              className="absolute right-4 top-4 rounded-full p-2 hover:bg-slate-100"
               onClick={() => setOpen(false)}
+              aria-label="Close assignment details"
             >
-              <Image src="/close.png" alt="Close" width={14} height={14} />
+              <Image src="/close.png" alt="" width={14} height={14} />
             </button>
-          </div>
+
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-600">
+              {assignment.lesson.subject.name} · {assignment.lesson.class.name}
+            </p>
+            <h2
+              id={`assignment-title-${assignment.id}`}
+              className="mt-2 pr-10 text-2xl font-bold tracking-tight text-slate-900"
+            >
+              {assignment.title}
+            </h2>
+
+            <div className="mt-5 grid gap-3 rounded-xl bg-slate-50 p-4 sm:grid-cols-3">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Teacher</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900">
+                  {assignment.lesson.teacher.name} {assignment.lesson.teacher.surname}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Available from</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900">
+                  {new Date(assignment.startDate).toLocaleDateString()}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Due date</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900">
+                  {new Date(assignment.dueDate).toLocaleDateString()}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <h3 className="text-sm font-semibold text-slate-900">Instructions</h3>
+              <div className="mt-2 min-h-24 whitespace-pre-wrap rounded-xl border border-slate-200 p-4 text-sm leading-6 text-slate-700">
+                {assignment.questions?.trim() || "No additional instructions were provided."}
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-700"
+              >
+                Done
+              </button>
+            </div>
+          </section>
         </div>
       )}
     </>
