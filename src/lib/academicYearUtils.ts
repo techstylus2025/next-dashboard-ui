@@ -21,3 +21,33 @@ export function calculateTermDays(startDate: string, endDate: string, holidays: 
 
   return Math.max(0, workingDays - holidays);
 }
+
+export function calculateTermWeek(startDate: string, endDate: string, currentDate: Date): number | null {
+  const parseIsoDay = (value: string) => {
+    const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+    if (!match) return Number.NaN;
+
+    const [, year, month, day] = match.map(Number);
+    const timestamp = Date.UTC(year, month - 1, day);
+    const parsed = new Date(timestamp);
+    return parsed.getUTCFullYear() === year &&
+      parsed.getUTCMonth() === month - 1 &&
+      parsed.getUTCDate() === day
+      ? timestamp
+      : Number.NaN;
+  };
+  const toUtcDay = (date: Date) =>
+    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+  const mondayOf = (timestamp: number) =>
+    timestamp - ((new Date(timestamp).getUTCDay() + 6) % 7) * 86_400_000;
+
+  const start = parseIsoDay(startDate);
+  const end = parseIsoDay(endDate);
+  const today = toUtcDay(currentDate);
+  if (![start, end, today].every(Number.isFinite) || end < start) return null;
+
+  const firstWeek = mondayOf(start);
+  const totalWeeks = Math.floor((mondayOf(end) - firstWeek) / (7 * 86_400_000)) + 1;
+  const currentWeek = Math.floor((mondayOf(today) - firstWeek) / (7 * 86_400_000)) + 1;
+  return Math.min(totalWeeks, Math.max(1, currentWeek));
+}

@@ -8,6 +8,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { usePathname } from "next/navigation";
 import { buildSuggestionGroups, flattenSuggestionGroups } from "@/lib/searchSuggestions";
+import { calculateTermWeek } from "@/lib/academicYearUtils";
 import type { DashboardUser } from "@/types/auth";
 
 const Navbar = ({
@@ -207,26 +208,13 @@ const Navbar = ({
     ? `${academicPeriod.yearLabel} · Term ${academicPeriod.termNumber}`
     : academicPeriod.badge;
 
-  const termWeek = useMemo(() => {
-    if (!academicPeriod.termStart || !academicPeriod.termEnd) return null;
-
-    const toUtcDay = (year: number, month: number, day: number) =>
-      Date.UTC(year, month - 1, day);
-    const parseIsoDay = (value: string) => {
-      const [year, month, day] = value.slice(0, 10).split("-").map(Number);
-      return toUtcDay(year, month, day);
-    };
-
-    const start = parseIsoDay(academicPeriod.termStart);
-    const end = parseIsoDay(academicPeriod.termEnd);
-    const today = toUtcDay(now.getFullYear(), now.getMonth() + 1, now.getDate());
-    if (![start, end, today].every(Number.isFinite) || end < start) return null;
-
-    const daysInTerm = Math.floor((end - start) / 86_400_000) + 1;
-    const totalWeeks = Math.ceil(daysInTerm / 7);
-    const currentWeek = Math.floor((today - start) / (7 * 86_400_000)) + 1;
-    return Math.min(totalWeeks, Math.max(1, currentWeek));
-  }, [academicPeriod.termStart, academicPeriod.termEnd, now]);
+  const termWeek = useMemo(
+    () =>
+      academicPeriod.termStart && academicPeriod.termEnd
+        ? calculateTermWeek(academicPeriod.termStart, academicPeriod.termEnd, now)
+        : null,
+    [academicPeriod.termStart, academicPeriod.termEnd, now]
+  );
 
   const adminDesktopItems = [
     { href: "/admin", label: "Overview" },
