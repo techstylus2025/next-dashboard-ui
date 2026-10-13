@@ -1,6 +1,5 @@
 import prisma from "@/lib/prisma";
 import { PrismaClient } from "@prisma/client";
-import { cache } from "react";
 
 const db = prisma as unknown as PrismaClient;
 
@@ -39,52 +38,50 @@ function resolveCurrentTerm(
   return sorted[0] ?? null;
 }
 
-export const getActiveAcademicPeriod = cache(
-  async (): Promise<AcademicPeriodBadge> => {
-    const year = await db.academicYear.findFirst({
-      where: { isActive: true, isArchived: false },
-      include: {
-        terms: {
-          select: {
-            id: true,
-            termNumber: true,
-            startDate: true,
-            endDate: true,
-          },
+export async function getActiveAcademicPeriod(): Promise<AcademicPeriodBadge> {
+  const year = await db.academicYear.findFirst({
+    where: { isActive: true, isArchived: false },
+    include: {
+      terms: {
+        select: {
+          id: true,
+          termNumber: true,
+          startDate: true,
+          endDate: true,
         },
       },
-    });
+    },
+  });
 
-    if (!year || year.terms.length === 0) {
-      return {
-        badge: "Set active year",
-        yearLabel: null,
-        termNumber: null,
-        termStart: null,
-        termEnd: null,
-      };
-    }
-
-    const now = new Date();
-    const term = resolveCurrentTerm(year.terms, now);
-
-    if (!term) {
-      return {
-        badge: formatYearShort(year.label),
-        yearLabel: year.label,
-        termNumber: null,
-        termStart: null,
-        termEnd: null,
-      };
-    }
-
-    const shortYear = formatYearShort(year.label);
+  if (!year || year.terms.length === 0) {
     return {
-      badge: `${shortYear} · Term ${term.termNumber}`,
-      yearLabel: year.label,
-      termNumber: term.termNumber,
-      termStart: term.startDate,
-      termEnd: term.endDate,
+      badge: "Set active year",
+      yearLabel: null,
+      termNumber: null,
+      termStart: null,
+      termEnd: null,
     };
   }
-);
+
+  const now = new Date();
+  const term = resolveCurrentTerm(year.terms, now);
+
+  if (!term) {
+    return {
+      badge: formatYearShort(year.label),
+      yearLabel: year.label,
+      termNumber: null,
+      termStart: null,
+      termEnd: null,
+    };
+  }
+
+  const shortYear = formatYearShort(year.label);
+  return {
+    badge: `${shortYear} · Term ${term.termNumber}`,
+    yearLabel: year.label,
+    termNumber: term.termNumber,
+    termStart: term.startDate,
+    termEnd: term.endDate,
+  };
+}

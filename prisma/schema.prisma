@@ -197,6 +197,7 @@ model Class {
   events            Event[]
   feeSchedules      FeeSchedule[]
   lessons           Lesson[]
+  learningResources LessonLearningResource[]
   students          Student[]
   termlyReports     TermlyReport[]
   transportRequests TransportRequest[]
@@ -393,6 +394,7 @@ model Lesson {
   assignments         Assignment[]
   exams               Exam[]
   examQuestionUploads ExamQuestionUpload[]
+  learningResources   LessonLearningResource[]
   class               Class                @relation(fields: [classId], references: [id])
   subject             Subject              @relation(fields: [subjectId], references: [id])
   teacher             Teacher              @relation(fields: [teacherId], references: [id])
@@ -428,6 +430,23 @@ model ExamQuestionUpload {
   weekNumber        Int                      @default(1)
   lesson            Lesson                   @relation(fields: [lessonId], references: [id])
   uploadedBy        Teacher                  @relation(fields: [uploadedById], references: [id])
+}
+
+model LessonLearningResource {
+  id          Int                  @id @default(autoincrement())
+  title       String
+  type        LearningResourceType
+  fileName    String?
+  assetUrl    String
+  lessonId    Int?
+  classId     Int?
+  uploadedBy  String
+  createdAt   DateTime             @default(now())
+  lesson      Lesson?              @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  class       Class?               @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@index([lessonId])
+  @@index([classId])
 }
 
 model Assignment {
@@ -555,6 +574,12 @@ enum UserRole {
 enum MessageType {
   MESSAGE
   COMPLAINT
+}
+
+enum LearningResourceType {
+  DOCUMENT
+  IMAGE
+  YOUTUBE
 }
 
 enum PasswordChangeStatus {

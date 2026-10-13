@@ -1710,41 +1710,6 @@ export const uploadExamQuestion = async (data: {
   }
 };
 
-const teacherHasLessonAssignment = async (
-  teacherId: string,
-  lessonId: number
-): Promise<boolean> => {
-  const lesson = await prisma.lesson.findUnique({
-    where: { id: lessonId },
-    include: {
-      class: {
-        select: {
-          assignedTeachers: {
-            where: { id: teacherId, isArchived: false },
-            select: { id: true },
-          },
-        },
-      },
-      subject: {
-        select: {
-          id: true,
-          teachers: {
-            where: { id: teacherId, isArchived: false },
-            select: { id: true },
-          },
-        },
-      },
-    },
-  });
-
-  return Boolean(
-    lesson &&
-      (lesson.teacherId === teacherId ||
-        (lesson.class.assignedTeachers.length > 0 &&
-          lesson.subject.teachers.length > 0))
-  );
-};
-
 const isValidLessonDocumentAsset = (fileName: string, fileUrl: string) => {
   const normalizedName = fileName.trim();
   if (!normalizedName || normalizedName.length > 255) {
@@ -1766,99 +1731,21 @@ const isValidLessonDocumentAsset = (fileName: string, fileUrl: string) => {
   }
 };
 
-export const uploadLessonDocument = async (data: {
+export const uploadLessonDocument = async (_data: {
   title: string;
   lessonId: number;
   weekNumber: number;
   fileName: string;
   fileUrl: string;
 }) => {
-  const title = data.title?.toString().trim();
-  const lessonId = Number(data.lessonId);
-  const weekNumber = Number(data.weekNumber);
-  const fileName = data.fileName?.trim();
-  const fileUrl = data.fileUrl?.trim();
-
-  if (!title || !Number.isInteger(lessonId) || lessonId <= 0 || !Number.isInteger(weekNumber) || weekNumber <= 0) {
-    return {
-      success: false,
-      error: true,
-      message: "Enter a title, select a lesson, and enter a valid week number.",
-    } as any;
-  }
-
-  if (!fileName || !fileUrl || !isValidLessonDocumentAsset(fileName, fileUrl)) {
-    return {
-      success: false,
-      error: true,
-      message: "Choose a valid PDF, DOC, or DOCX document before submitting.",
-    } as any;
-  }
-
-  const { userId } = await getCurrentAuthContext();
-  if (!userId) {
-    return {
-      success: false,
-      error: true,
-      message: "Sign in with a teacher account to upload lesson documents.",
-    } as any;
-  }
-
-  const teacherProfile = await prisma.teacher.findFirst({
-    where: { id: userId, isArchived: false },
-    select: { id: true },
-  });
-  if (!teacherProfile) {
-    return {
-      success: false,
-      error: true,
-      message: "Only teacher accounts may upload lesson documents.",
-    } as any;
-  }
-
-  const activePeriod = await getActiveAcademicPeriod();
-  if (!activePeriod.yearLabel || activePeriod.termNumber === null) {
-    return {
-      success: false,
-      error: true,
-      message: "Lesson uploads are only allowed during an active academic term.",
-    } as any;
-  }
-
-  if (!(await teacherHasLessonAssignment(teacherProfile.id, lessonId))) {
-    return {
-      success: false,
-      error: true,
-      message: "You may only upload documents for a subject and class assigned to you.",
-    } as any;
-  }
-
-  try {
-    await prisma.examQuestionUpload.create({
-      data: {
-        documentType: "LESSON_DOCUMENT",
-        title,
-        fileName,
-        fileUrl,
-        lessonId,
-        weekNumber,
-        uploadedById: userId!,
-        status: "PENDING",
-        academicYearLabel: activePeriod.yearLabel,
-        termNumber: activePeriod.termNumber,
-      },
-    });
-
-    revalidatePath("/list/lessons");
-    return { success: true, error: false };
-  } catch (error) {
-    console.error("uploadLessonDocument failed to save upload metadata:", error);
-    return {
-      success: false,
-      error: true,
-      message: "An internal error occurred while uploading the file.",
-    } as any;
-  }
+  const { role } = await getCurrentAuthContext();
+  return {
+    success: false,
+    error: true,
+    message: role === "admin"
+      ? "Add lesson materials from the Learning Resources page."
+      : "Only administrators can upload lesson materials.",
+  };
 };
 
 export const updateLessonDocument = async (
@@ -1897,6 +1784,9 @@ export const updateLessonDocument = async (
   const userId = serverSession?.userId ?? null;
   const sessionClaims = { metadata: { role: serverSession?.user?.role } };
   const role = await getUserRole(userId, sessionClaims as any);
+  if (role !== "admin") {
+    return { success: false, error: true, message: "Only administrators can edit lesson materials." } as any;
+  }
 
   const existingUpload = await prisma.examQuestionUpload.findUnique({
     where: { id: uploadId },
@@ -1904,27 +1794,6 @@ export const updateLessonDocument = async (
 
   if (!existingUpload || existingUpload.documentType !== "LESSON_DOCUMENT") {
     return { success: false, error: true, message: "Upload not found." } as any;
-  }
-
-  if (role !== "admin" && existingUpload.uploadedById !== userId) {
-    return { success: false, error: true, message: "Unauthorized." } as any;
-  }
-
-  if (role === "teacher") {
-    const teacherProfile = await prisma.teacher.findFirst({
-      where: { id: userId ?? undefined, isArchived: false },
-      select: { id: true },
-    });
-    if (
-      !teacherProfile ||
-      !(await teacherHasLessonAssignment(teacherProfile.id, existingUpload.lessonId))
-    ) {
-      return {
-        success: false,
-        error: true,
-        message: "You may only manage uploads for a subject and class assigned to you.",
-      } as any;
-    }
   }
 
   let fileUpdate: { fileName?: string; fileUrl?: string } = {};
@@ -1952,9 +1821,9 @@ export const updateLessonDocument = async (
         title,
         weekNumber,
         ...fileUpdate,
-        status: role !== "admin" ? "PENDING" : existingUpload.status,
-        approvedBy: role !== "admin" ? null : existingUpload.approvedBy,
-        approvedAt: role !== "admin" ? null : existingUpload.approvedAt,
+        status: existingUpload.status,
+        approvedBy: existingUpload.approvedBy,
+        approvedAt: existingUpload.approvedAt,
       },
     });
 

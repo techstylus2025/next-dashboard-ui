@@ -4,8 +4,7 @@ import { Fragment, useEffect, useState } from "react";
 import { useActionState, startTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "react-toastify";
-import { BadgeCheck, Eye, Pencil, Trash2 } from "lucide-react";
-import LessonUploadForm, { LessonUploadEditItem } from "@/components/lessons/LessonUploadForm";
+import { BadgeCheck, Eye, Trash2 } from "lucide-react";
 import ExamQuestionPreviewModal from "@/components/exams/ExamQuestionPreviewModal";
 import {
   approveLessonDocument,
@@ -52,11 +51,8 @@ type FilterOption = {
 type Props = {
   role?: string | null;
   currentUserId?: string | null;
-  lessons?: LessonOption[];
   pendingUploads?: UploadRecord[];
   approvedUploads?: UploadRecord[];
-  activeAcademicYear?: string | null;
-  activeTermBadge?: string | null;
   classFilters?: FilterOption[];
   subjectFilters?: FilterOption[];
 };
@@ -64,16 +60,11 @@ type Props = {
 const LessonUploadsPanel = ({
   role,
   currentUserId,
-  lessons = [],
   pendingUploads = [],
   approvedUploads = [],
-  activeAcademicYear,
-  activeTermBadge,
   classFilters = [],
   subjectFilters = [],
 }: Props) => {
-  const [open, setOpen] = useState(false);
-  const [editingUpload, setEditingUpload] = useState<LessonUploadEditItem | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewTitle, setPreviewTitle] = useState("");
   const [previewUrl, setPreviewUrl] = useState("");
@@ -131,23 +122,6 @@ const LessonUploadsPanel = ({
     );
   };
 
-  const handleEdit = (upload: UploadRecord) => {
-    setEditingUpload({
-      id: upload.id,
-      title: upload.title,
-      weekNumber: upload.weekNumber,
-      lessonId: upload.lessonId,
-      fileName: upload.fileName,
-      fileUrl: upload.fileUrl,
-    });
-    setOpen(true);
-  };
-
-  const closeModal = () => {
-    setOpen(false);
-    setEditingUpload(null);
-  };
-
   const updateQuery = (key: string, value: string) => {
     const params = new URLSearchParams(window.location.search);
     if (value && value !== "all") {
@@ -163,7 +137,6 @@ const LessonUploadsPanel = ({
   const classValue = searchParams.get("classId") ?? "all";
   const subjectValue = searchParams.get("subjectId") ?? "all";
 
-  const showTeacherUploadButton = role === "teacher" && Boolean(activeTermBadge);
   const showPendingSection = pendingUploads.length > 0;
   const showApprovedSection = approvedUploads.length > 0;
   const pendingUploadGroups = groupUploadsByAcademicPeriod(pendingUploads);
@@ -231,44 +204,8 @@ const LessonUploadsPanel = ({
               ))}
             </select>
           )}
-          {showTeacherUploadButton && (
-            <button
-              type="button"
-              className="shrink-0 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700"
-              onClick={() => setOpen(true)}
-            >
-              + Add lesson uploads
-            </button>
-          )}
         </div>
       </div>
-
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="relative w-full max-w-4xl rounded-3xl bg-white p-6 shadow-2xl">
-            <button
-              type="button"
-              className="absolute right-4 top-4 text-slate-500 hover:text-slate-900"
-              onClick={closeModal}
-            >
-              ✕
-            </button>
-            <LessonUploadForm
-              setOpen={setOpen}
-              relatedData={{
-                lessons,
-                activeAcademicYear: activeAcademicYear ?? null,
-                activeTermBadge: activeTermBadge ?? null,
-              }}
-              editingUpload={editingUpload}
-              onCompleted={() => {
-                closeModal();
-                router.refresh();
-              }}
-            />
-          </div>
-        </div>
-      )}
 
       {showPendingSection ? (
         <div className="overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-sm">
@@ -316,10 +253,7 @@ const LessonUploadsPanel = ({
                             <button type="button" className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-slate-100 text-slate-700 hover:bg-slate-200" onClick={() => handlePreview(upload)} aria-label="Preview lesson document" title="Preview"><Eye size={16} /></button>
                             {role === "admin" && <button type="button" className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-emerald-600 text-white hover:bg-emerald-700" onClick={() => handleApprove(upload.id)} aria-label="Approve lesson document" title="Approve"><BadgeCheck size={16} /></button>}
                             {role === "teacher" && upload.uploadedBy.id === currentUserId && (
-                              <>
-                                <button type="button" className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-amber-100 text-amber-800 hover:bg-amber-200" onClick={() => { setEditingUpload({ id: upload.id, title: upload.title, weekNumber: upload.weekNumber, lessonId: upload.lessonId, fileName: upload.fileName, fileUrl: upload.fileUrl }); setOpen(true); }} aria-label="Edit lesson document" title="Edit"><Pencil size={15} /></button>
-                                <button type="button" className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-rose-600 text-white hover:bg-rose-700" onClick={() => handleDelete(upload.id)} aria-label="Delete lesson document" title="Delete"><Trash2 size={15} /></button>
-                              </>
+                              <button type="button" className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-rose-600 text-white hover:bg-rose-700" onClick={() => handleDelete(upload.id)} aria-label="Delete lesson document" title="Delete"><Trash2 size={15} /></button>
                             )}
                           </td>
                         </tr>
@@ -382,7 +316,6 @@ const LessonUploadsPanel = ({
                             <button type="button" className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-slate-100 text-slate-700 hover:bg-slate-200" onClick={() => handlePreview(upload)} aria-label="Preview lesson document" title="Preview"><Eye size={16} /></button>
                             {(role === "admin" || (role === "teacher" && upload.uploadedBy.id === currentUserId)) && (
                               <>
-                                {role === "teacher" && <button type="button" className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-amber-100 text-amber-800 hover:bg-amber-200" onClick={() => { setEditingUpload({ id: upload.id, title: upload.title, weekNumber: upload.weekNumber, lessonId: upload.lessonId, fileName: upload.fileName, fileUrl: upload.fileUrl }); setOpen(true); }} aria-label="Edit lesson document" title="Edit"><Pencil size={15} /></button>}
                                 <button type="button" className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-rose-600 text-white hover:bg-rose-700" onClick={() => handleDelete(upload.id)} aria-label="Delete lesson document" title="Delete"><Trash2 size={15} /></button>
                               </>
                             )}

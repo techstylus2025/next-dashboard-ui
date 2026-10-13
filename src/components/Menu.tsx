@@ -29,6 +29,8 @@ const navIconAccent: Record<string, string> = {
     "bg-gradient-to-br from-orange-400 to-amber-600 shadow-md shadow-orange-500/30",
   Lessons:
     "bg-gradient-to-br from-blue-400 to-violet-500 shadow-md shadow-blue-500/25",
+  "Learning Resources":
+    "bg-gradient-to-br from-cyan-400 to-sky-600 shadow-md shadow-cyan-500/30",
   Exams:
     "bg-gradient-to-br from-red-400 to-rose-600 shadow-md shadow-red-500/25",
   Assignments:
@@ -129,6 +131,12 @@ const menuSections: { items: RawItem[] }[] = [
         icon: "/lesson.svg",
         label: "Lessons",
         href: "/list/lessons",
+        visible: ["admin", "teacher"],
+      },
+      {
+        icon: "/lesson.svg",
+        label: "Learning Resources",
+        href: "/list/learning-resources",
         visible: ["admin", "teacher"],
       },
       {

@@ -448,11 +448,8 @@ const LessonListPage = async ({
         <LessonUploadsPanel
           role={role}
           currentUserId={currentUserId}
-          lessons={lessonOptions}
           pendingUploads={serializedPendingUploads}
           approvedUploads={serializedApprovedUploads}
-          activeAcademicYear={activeAcademicYear}
-          activeTermBadge={activeTermBadge}
           classFilters={classFilters}
           subjectFilters={subjectFilters}
         />
