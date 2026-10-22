@@ -63,6 +63,33 @@ describe("teacherSchema", () => {
 });
 
 describe("subjectSchema", () => {
+  it("defaults new subjects to core", () => {
+    const result = subjectSchema.safeParse({
+      name: "Mathematics",
+      gradeId: 1,
+      teachers: [],
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.isCore).toBe(true);
+    }
+  });
+
+  it("accepts elective subjects", () => {
+    const result = subjectSchema.safeParse({
+      name: "French",
+      gradeId: 1,
+      isCore: false,
+      teachers: [],
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.isCore).toBe(false);
+    }
+  });
+
   it("requires a grading level for each subject", () => {
     const result = subjectSchema.safeParse({
       name: "Mathematics",

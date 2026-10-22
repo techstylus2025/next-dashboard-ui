@@ -6,6 +6,7 @@ import prisma from "@/lib/prisma";
 import { PrismaClient } from "@prisma/client";
 import {
   computeSubjectPercentage,
+  computeJhsOverallGrade,
   lookupGradeFromScale,
 } from "@/lib/gradingUtils";
 import { getTermVacationAndReopening } from "@/lib/termDates";
@@ -212,7 +213,7 @@ async function recomputeReportTotals(reportId: number) {
   const report = await db.termlyReport.findUnique({
     where: { id: reportId },
     include: {
-      subjectLines: true,
+      subjectLines: { include: { subject: { select: { isCore: true } } } },
       class: { select: { gradingLevel: true } },
     },
   });
@@ -239,6 +240,15 @@ async function recomputeReportTotals(reportId: number) {
 
   const overallPercentage =
     count > 0 ? Math.round((sumPct / count) * 100) / 100 : null;
+  const jhsOverallGrade =
+    report.class.gradingLevel === "JHS"
+      ? computeJhsOverallGrade(
+          report.subjectLines.map((line) => ({
+            grade: line.grade,
+            isCore: line.subject.isCore,
+          }))
+        )
+      : null;
   const lookup =
     overallPercentage != null
       ? lookupGradeFromScale(report.class.gradingLevel, overallPercentage, entries)
@@ -248,7 +258,12 @@ async function recomputeReportTotals(reportId: number) {
     where: { id: reportId },
     data: {
       overallPercentage,
-      overallGrade: lookup.grade === "—" ? null : lookup.grade,
+      overallGrade:
+        report.class.gradingLevel === "JHS"
+          ? jhsOverallGrade
+          : lookup.grade === "—"
+            ? null
+            : lookup.grade,
       overallRemark: lookup.remark || null,
       isPublished: false,
       publishedAt: null,

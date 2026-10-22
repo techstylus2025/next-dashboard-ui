@@ -2,6 +2,11 @@ import prisma from "@/lib/prisma";
 import { Prisma, PrismaClient } from "@prisma/client";
 import { getCachedResultsData, cacheResultsData } from "@/lib/offlineSync";
 import { shouldUseOfflineCache } from "@/lib/offlineStatus";
+import {
+  computeJhsOverallGrade,
+  computeSubjectPercentage,
+  lookupGradeFromScale,
+} from "@/lib/gradingUtils";
 
 const db = prisma as unknown as PrismaClient;
 
@@ -48,6 +53,13 @@ export type TermlyReportRow = {
   academicYearLabel: string;
   academicYearId: number;
   termNumber: number;
+  gradingLevel: string;
+  gradingScaleEntries: {
+    minScore: number;
+    maxScore: number;
+    grade: string;
+    remark: string;
+  }[];
   positionOnRoll: number | null;
   totalOnRoll: number;
   totalAttendance: number;
@@ -70,6 +82,7 @@ export type TermlyReportRow = {
     id: number;
     subjectId: number;
     subjectName: string;
+    isCore: boolean;
     classScore: number;
     examScore: number;
     totalMarks: number;
@@ -241,23 +254,34 @@ export async function loadResultsPageData(
           id: true,
           name: true,
           gradeId: true,
+          gradingLevel: true,
           supervisorSignature: true,
           grade: {
             select: {
-              subjects: { select: { id: true, name: true, gradeId: true } },
+              subjects: {
+                select: { id: true, name: true, gradeId: true, isCore: true },
+              },
             },
           },
-          subjects: { select: { id: true, name: true, gradeId: true } },
+          subjects: {
+            select: { id: true, name: true, gradeId: true, isCore: true },
+          },
           lessons: {
             select: {
-              subject: { select: { id: true, name: true, gradeId: true } },
+              subject: {
+                select: { id: true, name: true, gradeId: true, isCore: true },
+              },
             },
           },
         },
       },
       academicYear: { select: { id: true, label: true } },
       subjectLines: {
-        include: { subject: { select: { id: true, name: true, gradeId: true } } },
+        include: {
+          subject: {
+            select: { id: true, name: true, gradeId: true, isCore: true },
+          },
+        },
         orderBy: { subject: { name: "asc" } },
       },
     },
@@ -267,6 +291,22 @@ export async function loadResultsPageData(
       { class: { name: "asc" } },
       { student: { surname: "asc" } },
     ],
+  });
+
+  const gradingScaleEntries = await db.gradingScaleEntry.findMany({
+    where: {
+      level: {
+        in: [...new Set(rawReports.map((report) => report.class.gradingLevel))],
+      },
+    },
+    orderBy: [{ level: "asc" }, { minScore: "asc" }],
+    select: {
+      level: true,
+      minScore: true,
+      maxScore: true,
+      grade: true,
+      remark: true,
+    },
   });
 
   const schoolSettings = await db.schoolSetting.findFirst();
@@ -280,21 +320,44 @@ export async function loadResultsPageData(
   };
 
   const reports: TermlyReportRow[] = rawReports.map((r) => {
+    const scaleForClass = gradingScaleEntries.filter(
+      (entry) => entry.level === r.class.gradingLevel
+    );
     const subjectLinesById = new Map(
       r.subjectLines
         .filter((line) => line.subject.gradeId === r.class.gradeId)
         .map((line) => [
           line.subjectId,
-          {
-            id: line.id,
-            subjectId: line.subjectId,
-            subjectName: line.subject.name,
-            classScore: line.classScore,
-            examScore: line.examScore,
-            totalMarks: line.totalMarks,
-            grade: line.grade,
-            remark: line.remark,
-          },
+          (() => {
+            const hasScore =
+              line.lastEditedById !== null ||
+              line.totalMarks > 0 ||
+              line.classScore > 0 ||
+              line.examScore > 0;
+            const useTotalMarks =
+              line.classScore + line.examScore === 0 && line.totalMarks > 0;
+            const calculated = hasScore
+              ? lookupGradeFromScale(
+                  r.class.gradingLevel,
+                  computeSubjectPercentage(
+                    useTotalMarks ? line.totalMarks : line.classScore,
+                    useTotalMarks ? 0 : line.examScore
+                  ),
+                  scaleForClass
+                )
+              : null;
+            return {
+              id: line.id,
+              subjectId: line.subjectId,
+              subjectName: line.subject.name,
+              isCore: line.subject.isCore,
+              classScore: line.classScore,
+              examScore: line.examScore,
+              totalMarks: line.totalMarks,
+              grade: line.grade?.trim() || calculated?.grade || null,
+              remark: line.remark?.trim() || calculated?.remark || null,
+            };
+          })(),
         ])
     );
     const classSubjects = [
@@ -311,6 +374,7 @@ export async function loadResultsPageData(
           id: -(r.id * 100000 + subject.id),
           subjectId: subject.id,
           subjectName: subject.name,
+          isCore: subject.isCore,
           classScore: 0,
           examScore: 0,
           totalMarks: 0,
@@ -329,6 +393,14 @@ export async function loadResultsPageData(
       academicYearLabel: r.academicYear.label,
       academicYearId: r.academicYearId,
       termNumber: r.termNumber,
+      gradingLevel: r.class.gradingLevel,
+      gradingScaleEntries: scaleForClass
+        .map(({ minScore, maxScore, grade, remark }) => ({
+          minScore,
+          maxScore,
+          grade,
+          remark,
+        })),
       positionOnRoll: r.positionOnRoll,
       totalOnRoll: r.totalOnRoll,
       totalAttendance: r.totalAttendance,
@@ -341,7 +413,9 @@ export async function loadResultsPageData(
       overallGrade:
         role === "teacher"
           ? null
-          : r.overallGrade,
+          : r.class.gradingLevel === "JHS"
+            ? computeJhsOverallGrade([...subjectLinesById.values()])
+            : r.overallGrade,
       overallRemark:
         role === "teacher"
           ? null
@@ -367,6 +441,7 @@ export async function loadResultsPageData(
           id: line.id,
           subjectId: line.subjectId,
           subjectName: line.subjectName,
+          isCore: line.isCore,
           classScore: line.classScore,
           examScore: line.examScore,
           totalMarks: line.totalMarks,

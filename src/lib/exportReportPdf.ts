@@ -95,7 +95,14 @@ export async function exportTermlyReportPdf(report: TermlyReportRow) {
 
   autoTable(doc, {
     startY: y,
-    head: [["Subjects", "Class Score", "Exams Score", "Total Marks", "Grade", "Proficiency Level (Grade)"]],
+    head: [[
+      "Subjects",
+      "Class Score",
+      "Exams Score",
+      "Total Marks",
+      "Grade",
+      report.gradingLevel === "JHS" ? "REMARKS" : "Proficiency Level (Grade)",
+    ]],
     body: [
       ...report.subjectLines.map((l) => [
         l.subjectName,

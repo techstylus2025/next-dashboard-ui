@@ -151,6 +151,7 @@ export const createSubject = async (
       data: {
         name: data.name,
         gradeId: data.gradeId,
+        isCore: data.isCore,
         teachers: {
           connect: data.teachers.map((teacherId) => ({ id: teacherId })),
         },
@@ -192,6 +193,7 @@ export const updateSubject = async (
       data: {
         name: data.name,
         gradeId: data.gradeId,
+        isCore: data.isCore,
         teachers: {
           set: data.teachers.map((teacherId) => ({ id: teacherId })),
         },

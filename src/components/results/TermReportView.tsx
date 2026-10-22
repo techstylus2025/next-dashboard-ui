@@ -71,13 +71,6 @@ function ResultBadge({ status }: { status: string | null }) {
   );
 }
 
-const DEFAULT_GRADING_ROWS = [
-  { range: "80 – 100", grade: "A", remark: "Advance" },
-  { range: "75 – 79", grade: "P", remark: "Proficient" },
-  { range: "70 – 74", grade: "AP", remark: "Approaching Proficiency" },
-  { range: "65 – 69", grade: "D", remark: "Developing" },
-];
-
 export default function TermReportView({
   report,
   compact = false,
@@ -203,16 +196,6 @@ export default function TermReportView({
             </div>
             <div className="rounded-lg border border-slate-200 bg-white p-2 text-center shadow-sm">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                Position
-              </p>
-              <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900">
-                {report.positionOnRoll != null
-                  ? `${report.positionOnRoll}${ordinalSuffix(report.positionOnRoll)}`
-                  : "—"}
-              </p>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-white p-2 text-center shadow-sm">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
                 Result
               </p>
               <div className="mt-2 flex justify-center">
@@ -231,7 +214,9 @@ export default function TermReportView({
                   <th className="px-3 py-2 text-right">Exam Score</th>
                   <th className="px-3 py-2 text-right">Total</th>
                   <th className="px-3 py-2 text-center">Grade</th>
-                  <th className="px-3 py-2">Proficiency Level</th>
+                  <th className="px-3 py-2">
+                    {report.gradingLevel === "JHS" ? "REMARKS" : "Proficiency Level"}
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -372,10 +357,10 @@ export default function TermReportView({
                   </tr>
                 </thead>
                 <tbody>
-                  {DEFAULT_GRADING_ROWS.map((row) => (
-                    <tr key={row.grade}>
+                  {report.gradingScaleEntries.map((row) => (
+                    <tr key={`${row.minScore}-${row.maxScore}-${row.grade}`}>
                       <td className="px-3 py-1.5 tabular-nums text-slate-700">
-                        {row.range}
+                        {row.minScore} – {row.maxScore}
                       </td>
                       <td className="px-3 py-1.5 text-center">
                         <GradeBadge grade={row.grade} />
@@ -383,6 +368,16 @@ export default function TermReportView({
                       <td className="px-3 py-1.5 text-slate-600">{row.remark}</td>
                     </tr>
                   ))}
+                  {report.gradingScaleEntries.length === 0 && (
+                    <tr>
+                      <td
+                        className="px-3 py-2 text-center text-slate-500"
+                        colSpan={3}
+                      >
+                        No grading scale has been configured for {report.gradingLevel}.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -396,19 +391,4 @@ export default function TermReportView({
       </article>
     </div>
   );
-}
-
-function ordinalSuffix(n: number): string {
-  const mod100 = n % 100;
-  if (mod100 >= 11 && mod100 <= 13) return "th";
-  switch (n % 10) {
-    case 1:
-      return "st";
-    case 2:
-      return "nd";
-    case 3:
-      return "rd";
-    default:
-      return "th";
-  }
 }

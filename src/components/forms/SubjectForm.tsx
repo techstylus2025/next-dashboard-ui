@@ -34,6 +34,7 @@ const SubjectForm = ({
     resolver: zodResolver(subjectSchema) as any,
     defaultValues: {
       gradeId: data?.gradeId ?? undefined,
+      isCore: data?.isCore ?? true,
       teachers: data?.teachers?.map((teacher: any) => teacher.id ?? teacher) ?? [],
     },
   });
@@ -110,6 +111,19 @@ const SubjectForm = ({
               {errors.gradeId.message.toString()}
             </p>
           )}
+        </div>
+        <div className="flex flex-col gap-2 w-full md:w-1/4">
+          <label className="input-label">Subject Type</label>
+          <select
+            className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
+            {...register("isCore", {
+              setValueAs: (value) => value === "true",
+            })}
+            defaultValue={data?.isCore === false ? "false" : "true"}
+          >
+            <option value="true">Core</option>
+            <option value="false">Elective</option>
+          </select>
         </div>
         <div className="flex flex-col gap-2 w-full md:w-1/4">
           <label className="input-label">Teachers</label>

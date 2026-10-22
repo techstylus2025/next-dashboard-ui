@@ -311,6 +311,7 @@ model Subject {
   id                Int                       @id @default(autoincrement())
   name              String
   gradeId           Int
+  isCore            Boolean                   @default(true)
   lessons           Lesson[]
   grade             Grade                     @relation(fields: [gradeId], references: [id])
   termlyReportLines TermlyReportSubjectLine[]

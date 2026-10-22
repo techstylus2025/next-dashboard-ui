@@ -5,7 +5,10 @@ export type GradeLookup = { grade: string; remark: string };
 export function lookupGradeFromScale(
   level: GradingLevel,
   percentage: number,
-  entries: GradingScaleEntry[]
+  entries: Pick<
+    GradingScaleEntry,
+    "level" | "minScore" | "maxScore" | "grade" | "remark"
+  >[]
 ): GradeLookup {
   const match = entries.find(
     (e) =>
@@ -28,6 +31,27 @@ export function computeSubjectPercentage(
   const maxTotal = maxPerComponent * 2;
   if (maxTotal <= 0) return 0;
   return Math.round((total / maxTotal) * 10000) / 100;
+}
+
+export function computeJhsOverallGrade(
+  subjectGrades: { grade: string | null; isCore: boolean }[]
+): string | null {
+  const coreGrades: number[] = [];
+  const electiveGrades: number[] = [];
+
+  for (const subject of subjectGrades) {
+    const grade = subject.grade?.trim();
+    if (!grade || !/^[1-9]$/.test(grade)) continue;
+    (subject.isCore ? coreGrades : electiveGrades).push(Number(grade));
+  }
+
+  const bestElectiveGrades = electiveGrades
+    .sort((a, b) => a - b)
+    .slice(0, 2);
+  const countedGrades = [...coreGrades, ...bestElectiveGrades];
+  return countedGrades.length > 0
+    ? String(countedGrades.reduce((sum, grade) => sum + grade, 0))
+    : null;
 }
 
 export const GRADING_LEVEL_LABELS: Record<GradingLevel, string> = {

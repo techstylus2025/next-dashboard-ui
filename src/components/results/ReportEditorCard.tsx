@@ -29,7 +29,6 @@ export default function ReportEditorCard({
   const [pending, startTransition] = useTransition();
   const [expanded, setExpanded] = useState(false);
   const [meta, setMeta] = useState({
-    positionOnRoll: report.positionOnRoll?.toString() ?? "",
     totalOnRoll: String(report.totalOnRoll),
     totalAttendance: String(report.totalAttendance),
     vacationDate: report.vacationDate?.slice(0, 10) ?? "",
@@ -62,9 +61,6 @@ export default function ReportEditorCard({
     startTransition(async () => {
       const res = await updateTermlyReportMeta({
         reportId: report.id,
-        positionOnRoll: meta.positionOnRoll
-          ? parseInt(meta.positionOnRoll, 10)
-          : null,
         totalOnRoll: parseInt(meta.totalOnRoll, 10) || report.totalOnRoll,
         totalAttendance:
           parseInt(meta.totalAttendance, 10) || report.totalAttendance,
@@ -447,17 +443,6 @@ export default function ReportEditorCard({
                 year when reports are generated. You can override it here.
               </p>
               <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 text-sm">
-                <label className="flex flex-col gap-1">
-                  Position on roll
-                  <input
-                    type="number"
-                    className="rounded-lg border border-slate-200 px-2 py-2 w-full"
-                    value={meta.positionOnRoll}
-                    onChange={(e) =>
-                      setMeta((m) => ({ ...m, positionOnRoll: e.target.value }))
-                    }
-                  />
-                </label>
                 <label className="flex flex-col gap-1">
                   Total on roll
                   <input
