@@ -293,6 +293,157 @@ export async function loadResultsPageData(
     ],
   });
 
+  let assessmentWhere: Prisma.AssessmentReportWhereInput = {};
+  if (role === "teacher") {
+    assessmentWhere = {
+      classId: { in: [...new Set([...supervisedClassIds, ...assignedClassIds])] },
+    };
+  } else if (role === "student" && userId) {
+    assessmentWhere = {
+      studentId: userId,
+      isPublished: true,
+      isWithheld: false,
+    };
+  } else if (role === "parent" && userId) {
+    assessmentWhere = {
+      student: { parentId: userId },
+      isPublished: true,
+      isWithheld: false,
+    };
+  } else if (!isAdmin) {
+    assessmentWhere = { id: { in: [] } };
+  }
+
+  const rawAssessments = await db.assessmentReport.findMany({
+    where: assessmentWhere,
+    include: {
+      student: { select: { id: true, name: true, surname: true } },
+      class: {
+        select: {
+          id: true,
+          name: true,
+          gradeId: true,
+          gradingLevel: true,
+          grade: { select: { subjects: { select: { id: true, name: true, gradeId: true } } } },
+          subjects: { select: { id: true, name: true, gradeId: true } },
+          lessons: {
+            select: {
+              subject: { select: { id: true, name: true, gradeId: true } },
+            },
+          },
+        },
+      },
+      academicYear: { select: { id: true, label: true } },
+      subjectLines: {
+        include: { subject: { select: { id: true, name: true, gradeId: true } } },
+        orderBy: { subject: { name: "asc" } },
+      },
+    },
+    orderBy: [
+      { academicYear: { label: "desc" } },
+      { termNumber: "desc" },
+      { type: "asc" },
+      { assessmentNumber: "desc" },
+      { class: { name: "asc" } },
+      { student: { surname: "asc" } },
+    ],
+  });
+
+  const assessmentScales = await db.gradingScaleEntry.findMany({
+    where: {
+      level: {
+        in: [...new Set(rawAssessments.map((report) => report.class.gradingLevel))],
+      },
+    },
+    orderBy: [{ level: "asc" }, { minScore: "asc" }],
+    select: { level: true, minScore: true, maxScore: true, grade: true, remark: true },
+  });
+
+  const ctxForEdit = {
+    isAdmin,
+    supervisedClassIds,
+    taughtKeys: new Set(
+      assignedSubjects.map((a) => `${a.classId}:${a.subjectId}`)
+    ),
+  };
+
+  const assessments: AssessmentReportRow[] = rawAssessments.map((report) => {
+    const subjects = [
+      ...report.class.grade.subjects,
+      ...report.class.subjects,
+      ...report.class.lessons.map((lesson) => lesson.subject),
+    ].filter((subject) => subject.gradeId === report.class.gradeId);
+    const subjectLinesById = new Map(
+      report.subjectLines
+        .filter((line) => line.subject.gradeId === report.class.gradeId)
+        .map((line) => [line.subjectId, line])
+    );
+    const scale = assessmentScales.filter(
+      (entry) => entry.level === report.class.gradingLevel
+    );
+    const allSubjectLines = [...new Map(
+      subjects.map((subject) => [
+        subject.id,
+        subjectLinesById.get(subject.id) ?? {
+          subjectId: subject.id,
+          score: 0,
+          grade: null,
+          remark: null,
+          lastEditedById: null,
+          subject: { id: subject.id, name: subject.name, gradeId: subject.gradeId },
+        },
+      ])
+    ).values()];
+
+    return {
+      id: report.id,
+      type: report.type,
+      assessmentNumber: report.assessmentNumber,
+      studentId: report.studentId,
+      studentName: `${report.student.name} ${report.student.surname}`,
+      classId: report.classId,
+      className: report.class.name,
+      academicYearId: report.academicYearId,
+      academicYearLabel: report.academicYear.label,
+      termNumber: report.termNumber,
+      totalScore: report.totalScore,
+      overallPercentage: report.overallPercentage,
+      overallGrade: report.overallGrade,
+      overallRemark: report.overallRemark,
+      isPublished: report.isPublished,
+      isWithheld: report.isWithheld,
+      gradingLevel: report.class.gradingLevel,
+      gradingScaleEntries: scale.map(({ minScore, maxScore, grade, remark }) => ({
+        minScore,
+        maxScore,
+        grade,
+        remark,
+      })),
+      subjectLines: allSubjectLines
+        .filter((line) => role !== "teacher" || ctxForEdit.taughtKeys.has(`${report.classId}:${line.subjectId}`))
+        .map((line) => {
+          const hasScore = line.lastEditedById !== null;
+          const gradeLookup = lookupGradeFromScale(
+            report.class.gradingLevel,
+            line.score,
+            scale
+          );
+          return {
+            subjectId: line.subjectId,
+            subjectName: line.subject.name,
+            score: line.score,
+            grade: line.grade ?? (hasScore && gradeLookup.grade !== "—" ? gradeLookup.grade : null),
+            remark: line.remark ?? (hasScore ? gradeLookup.remark : null),
+            canEdit:
+              !report.isPublished &&
+              (isAdmin ||
+                (role === "teacher" &&
+                  ctxForEdit.taughtKeys.has(`${report.classId}:${line.subjectId}`))),
+          };
+        }),
+    };
+  });
+
   const gradingScaleEntries = await db.gradingScaleEntry.findMany({
     where: {
       level: {
@@ -310,14 +461,6 @@ export async function loadResultsPageData(
   });
 
   const schoolSettings = await db.schoolSetting.findFirst();
-
-  const ctxForEdit = {
-    isAdmin,
-    supervisedClassIds,
-    taughtKeys: new Set(
-      assignedSubjects.map((a) => `${a.classId}:${a.subjectId}`)
-    ),
-  };
 
   const reports: TermlyReportRow[] = rawReports.map((r) => {
     const scaleForClass = gradingScaleEntries.filter(

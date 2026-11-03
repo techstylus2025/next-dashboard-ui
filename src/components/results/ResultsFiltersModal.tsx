@@ -43,37 +43,22 @@ export default function ResultsFiltersModal({
   const [open, setOpen] = useState(false);
 
   return (
-    <>
+    <div className="w-full xl:w-auto">
       <button
         type="button"
-        className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white p-2.5 text-slate-600 shadow-sm md:hidden"
-        onClick={() => setOpen(true)}
-        aria-label="Open filters"
+        className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 shadow-sm xl:hidden"
+        onClick={() => setOpen((isOpen) => !isOpen)}
+        aria-expanded={open}
+        aria-controls="results-mobile-filters"
       >
         <Image src="/filter.svg" alt="" width={16} height={16} />
+        Filters
       </button>
 
-      {open && (
-        <div
-          className="fixed inset-0 z-50 flex items-end bg-slate-950/60 p-2 sm:items-center sm:justify-center"
-          onClick={() => setOpen(false)}
-        >
-          <div
-            className="w-full max-w-md rounded-2xl bg-white p-4 shadow-xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-base font-semibold text-slate-900">Filters</h3>
-              <button
-                type="button"
-                className="rounded-full p-2 text-slate-500 hover:bg-slate-100"
-                onClick={() => setOpen(false)}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="space-y-4">
+      <div
+        id="results-mobile-filters"
+        className={`${open ? "grid" : "hidden"} mt-3 gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2`}
+      >
               <div className="flex flex-col gap-2">
                 <label className="text-xs font-medium text-slate-700">Search</label>
                 <input
@@ -179,10 +164,7 @@ export default function ResultsFiltersModal({
                   Clear
                 </button>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+      </div>
+    </div>
   );
 }
