@@ -74,6 +74,7 @@ export default function ResultsManagement(ctx: ResultsPageContext) {
   const [tab, setTab] = useState<"reports" | "generate">(
     ctx.canManageReports ? "generate" : "reports"
   );
+  const [resultsTab, setResultsTab] = useState<ResultsTab>("termly");
 
   const [genClassId, setGenClassId] = useState(
     ctx.classes[0]?.id ? String(ctx.classes[0].id) : ""
