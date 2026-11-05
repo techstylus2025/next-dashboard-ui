@@ -8,6 +8,9 @@ import "react-toastify/dist/ReactToastify.css";
 import OfflineIndicator from "@/components/OfflineIndicator";
 import SyncStatusDashboard from "@/components/SyncStatusDashboard";
 import OfflineSyncInitializer from "@/components/OfflineSyncInitializer";
+import { getSchoolBranding } from "@/lib/schoolBranding";
+
+export const dynamic = "force-dynamic";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -15,10 +18,13 @@ const inter = Inter({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: "KING'S HEART MONTESSORI SCHOOL",
-  description: "School Management System",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const school = await getSchoolBranding();
+  return {
+    title: school.name,
+    description: `${school.name} | School Management System`,
+  };
+}
 
 export default function RootLayout({
   children,

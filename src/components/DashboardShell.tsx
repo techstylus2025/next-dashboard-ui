@@ -17,11 +17,15 @@ export default function DashboardShell({
   homeHref,
   supervisorClassName,
   customUser,
+  schoolName,
+  schoolLogoUrl,
 }: {
   children: ReactNode;
   homeHref: string;
   supervisorClassName?: string | null;
   customUser?: DashboardUser | null;
+  schoolName: string;
+  schoolLogoUrl: string;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -52,6 +56,23 @@ export default function DashboardShell({
       active = false;
     };
   }, [role, customUser, router]);
+
+  useEffect(() => {
+    if (!role || !pathname) return;
+
+    void fetch("/api/activity-log", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: pathname }),
+      keepalive: true,
+    }).then((response) => {
+      if (!response.ok) {
+        console.error("Failed to record page activity:", response.status);
+      }
+    }).catch((error: unknown) => {
+      console.error("Failed to record page activity:", error);
+    });
+  }, [pathname, role]);
 
   useEffect(() => {
     setMenuOpen(false);
@@ -127,15 +148,14 @@ export default function DashboardShell({
               }`}
             >
               <Image
-                src="/logo.png"
-                alt="logo"
+                src={schoolLogoUrl}
+                alt={`${schoolName} logo`}
                 width={52}
                 height={52}
                 className={desktopMenuCollapsed ? "md:h-10 md:w-10" : ""}
               />
               <div className={`flex flex-col gap-1 ${desktopMenuCollapsed ? "md:hidden" : ""}`}>
-                <span className="text-xl font-bold uppercase tracking-wide text-white">KING&apos;S HEART</span>
-                <span className="text-sm font-bold uppercase tracking-wide text-white">MONTESSORI SCHOOL</span>
+                <span className="max-w-52 text-sm font-bold uppercase tracking-wide text-white">{schoolName}</span>
               </div>
             </Link>
             <button
@@ -158,8 +178,8 @@ export default function DashboardShell({
       <div className="flex min-h-0 flex-1 min-w-0 flex-col md:pl-0 lg:pl-0">
         <div className="sticky top-0 z-40 flex items-center justify-center border-b border-slate-200 bg-white/90 px-2 py-2.5 backdrop-blur-md shadow-sm md:hidden">
           <Link href={homeHref} className="flex items-center gap-2">
-            <Image src="/logo.png" alt="logo" width={28} height={28} />
-            <span className="text-xxl font-bold text-slate-900">KING&apos;S HEART MONTESSORI SCHOOL</span>
+            <Image src={schoolLogoUrl} alt={`${schoolName} logo`} width={28} height={28} />
+            <span className="text-xxl font-bold text-slate-900">{schoolName}</span>
           </Link>
         </div>
 

@@ -89,19 +89,31 @@ export async function getSessionFromRequest(req: Request) {
   return await getSessionByToken(token);
 }
 
-export async function getServerSession() {
+export async function getServerSession(options?: { skipAccessControl?: boolean }) {
+  let tokenCookie: string | undefined;
   try {
     const headersModule = await import("next/headers");
     const cookies = (headersModule as any).cookies as (() => Promise<{ get: (name: string) => { value?: string } | undefined }>) | undefined;
     if (!cookies) return null;
 
     const store = await cookies();
-    const tokenCookie = store.get(SESSION_COOKIE_NAME)?.value;
-    if (!tokenCookie) return null;
-    return await getSessionByToken(tokenCookie);
+    tokenCookie = store.get(SESSION_COOKIE_NAME)?.value;
   } catch (err) {
     return null;
   }
+
+  if (!tokenCookie) return null;
+  const session = await getSessionByToken(tokenCookie);
+  if (!session?.user || options?.skipAccessControl) return session;
+
+  const { getAccessRestriction } = await import("@/lib/accessControl");
+  const restriction = await getAccessRestriction({
+    userId: session.user.id,
+    username: session.user.username,
+    email: session.user.email,
+    role: String(session.user.role),
+  });
+  return restriction ? null : session;
 }
 
 export async function getCurrentAuthContext(): Promise<{ userId: string | null; role: string | null }> {
@@ -113,17 +125,22 @@ export async function getCurrentAuthContext(): Promise<{ userId: string | null; 
     };
   }
 
+  let userId: string | null;
+  let normalizedRole: string | null;
   try {
     const { auth } = await import("@clerk/nextjs/server");
     const clerkSession = await auth();
     const role = (clerkSession.sessionClaims?.metadata as { role?: string } | undefined)?.role;
-    return {
-      userId: clerkSession.userId ?? null,
-      role: role ? role.toLowerCase() : null,
-    };
+    userId = clerkSession.userId ?? null;
+    normalizedRole = role ? role.toLowerCase() : null;
   } catch {
     return { userId: null, role: null };
   }
+
+  const { getAccessRestriction } = await import("@/lib/accessControl");
+  const restriction = await getAccessRestriction({ userId, role: normalizedRole });
+  if (restriction) return { userId: null, role: null };
+  return { userId, role: normalizedRole };
 }
 
 export async function createUserWithPassword(data: { id?: string; username?: string; email?: string; password: string; role: any }) {

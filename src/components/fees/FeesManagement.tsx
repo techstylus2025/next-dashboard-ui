@@ -6,8 +6,10 @@ import {
   CalendarDays,
   CircleDollarSign,
   ClipboardList,
+  Pencil,
   PlusCircle,
   ShieldCheck,
+  Trash2,
   TrendingUp,
   WalletCards,
 } from "lucide-react";
@@ -158,7 +160,7 @@ function FeePaymentReceipt({
           <div className="flex min-w-0 items-start gap-4">
             <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white p-1">
               <Image
-                src={school.logoUrl || "/logo.png"}
+                src={school.logoUrl || "/education.png"}
                 alt={`${school.name} logo`}
                 width={56}
                 height={56}
@@ -305,6 +307,8 @@ export default function FeesManagement({
     isViewer ? "payments" : "overview"
   );
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [editingFeeSchedule, setEditingFeeSchedule] = useState<ClassFeeCard | null>(null);
+  const [feeScheduleToDelete, setFeeScheduleToDelete] = useState<ClassFeeCard | null>(null);
   const [recordModalOpen, setRecordModalOpen] = useState(false);
   const [paymentSearch, setPaymentSearch] = useState("");
 
@@ -313,6 +317,39 @@ export default function FeesManagement({
   const [feeYear, setFeeYear] = useState<string>("");
   const [feeTerm, setFeeTerm] = useState<"TERM_1" | "TERM_2" | "TERM_3">("TERM_1");
   const [feeTotal, setFeeTotal] = useState<string>("");
+
+  const openFeeScheduleEditor = (schedule: ClassFeeCard) => {
+    setEditingFeeSchedule(schedule);
+    setFeeYear(schedule.academicYear);
+    setFeeTerm(schedule.term as "TERM_1" | "TERM_2" | "TERM_3");
+    setFeeTotal(schedule.totalBill.toFixed(2));
+    setCreateModalOpen(true);
+  };
+
+  const closeFeeScheduleModal = () => {
+    setCreateModalOpen(false);
+    setEditingFeeSchedule(null);
+    setFeeClassId("");
+    setFeeYear("");
+    setFeeTerm("TERM_1");
+    setFeeTotal("");
+  };
+
+  const confirmDeleteFeeSchedule = () => {
+    if (!feeScheduleToDelete) return;
+    startTransition(() => {
+      void (async () => {
+        const result = await deleteFeeSchedule(feeScheduleToDelete.id);
+        if (result.success) {
+          toast.success("Fee schedule deleted.");
+          setFeeScheduleToDelete(null);
+          router.refresh();
+          return;
+        }
+        toast.error(result.error || "Could not delete fee schedule.");
+      })();
+    });
+  };
 
   // Record payment state
   const [selectedAssignment, setSelectedAssignment] = useState<AssignmentOption | null>(null);
@@ -591,7 +628,10 @@ export default function FeesManagement({
             <button
               type="button"
               aria-label="Create fee bill"
-              onClick={() => setCreateModalOpen(true)}
+              onClick={() => {
+                closeFeeScheduleModal();
+                setCreateModalOpen(true);
+              }}
               className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-white transition hover:bg-slate-800"
             >
               <PlusCircle size={16} strokeWidth={2.5} />
@@ -923,6 +963,30 @@ export default function FeesManagement({
                                   <p className="text-sm font-semibold text-slate-900">{card.className}</p>
                                   <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold uppercase tracking-[0.1em] text-white">{card.studentCount} students</span>
                                 </div>
+                                {canAdmin && (
+                                  <div className="mt-3 flex items-center justify-end gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => openFeeScheduleEditor(card)}
+                                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-sky-300 hover:bg-sky-50 hover:text-sky-800"
+                                      aria-label={`Edit ${card.className} fee schedule`}
+                                    >
+                                      <Pencil size={14} />
+                                      Edit
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setFeeScheduleToDelete(card)}
+                                      disabled={card.totalCollected > 0}
+                                      title={card.totalCollected > 0 ? "Schedules with recorded payments cannot be deleted." : undefined}
+                                      className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                      aria-label={`Delete ${card.className} fee schedule`}
+                                    >
+                                      <Trash2 size={14} />
+                                      Delete
+                                    </button>
+                                  </div>
+                                )}
                                 <div className="mt-4 space-y-3 text-sm text-slate-600">
                                   <div className="grid grid-cols-2 gap-3">
                                     <div className="rounded-2xl bg-slate-50 p-4 shadow-inner shadow-slate-100">
@@ -1254,14 +1318,18 @@ export default function FeesManagement({
       {createModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-semibold">Create fee bill</h3>
-            <p className="text-sm text-slate-500 mt-1">Create a new fee schedule for a class.</p>
+            <h3 className="text-lg font-semibold">{editingFeeSchedule ? "Edit fee bill" : "Create fee bill"}</h3>
+            <p className="text-sm text-slate-500 mt-1">
+              {editingFeeSchedule
+                ? `Update the academic period or total bill for ${editingFeeSchedule.className}.`
+                : "Create a new fee schedule for a class."}
+            </p>
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 const classId = parseInt(feeClassId, 10);
                 const total = parseFloat(feeTotal);
-                if (!classId || Number.isNaN(classId)) {
+                if (!editingFeeSchedule && (!classId || Number.isNaN(classId))) {
                   toast.error('Select a class.');
                   return;
                 }
@@ -1275,36 +1343,47 @@ export default function FeesManagement({
                 }
                 startTransition(() => {
                   void (async () => {
-                    const res = await createFeeSchedule({
-                      classId,
-                      academicYear: feeYear.trim(),
-                      term: feeTerm,
-                      totalBillCedis: total,
-                    });
+                    const res = editingFeeSchedule
+                      ? await updateFeeSchedule({
+                          id: editingFeeSchedule.id,
+                          academicYear: feeYear.trim(),
+                          term: feeTerm,
+                          totalBillCedis: total,
+                        })
+                      : await createFeeSchedule({
+                          classId,
+                          academicYear: feeYear.trim(),
+                          term: feeTerm,
+                          totalBillCedis: total,
+                        });
                     if (res.success) {
-                      toast.success('Fee schedule created.');
-                      setCreateModalOpen(false);
-                      setFeeClassId('');
-                      setFeeYear('');
-                      setFeeTotal('');
+                      toast.success(editingFeeSchedule ? "Fee schedule updated." : "Fee schedule created.");
+                      closeFeeScheduleModal();
                       router.refresh();
                     } else {
-                      toast.error(res.error || 'Create failed.');
+                      toast.error(res.error || (editingFeeSchedule ? "Update failed." : "Create failed."));
                     }
                   })();
                 });
               }}
             >
               <div className="space-y-3 mt-4">
-                <label className="flex flex-col text-sm">
-                  <span className="text-slate-600">Class</span>
-                  <select value={feeClassId} onChange={(e) => setFeeClassId(e.target.value)} className="rounded-lg border px-3 py-2">
-                    <option value="">Select class</option>
-                    {classes.map((c) => (
-                      <option key={c.id} value={String(c.id)}>{c.name}</option>
-                    ))}
-                  </select>
-                </label>
+                {editingFeeSchedule ? (
+                  <label className="flex flex-col text-sm">
+                    <span className="text-slate-600">Class</span>
+                    <input value={editingFeeSchedule.className} readOnly className="rounded-lg border bg-slate-50 px-3 py-2 text-slate-600" />
+                  </label>
+                ) : (
+                  <label className="flex flex-col text-sm">
+                    <span className="text-slate-600">Class</span>
+                    <select value={feeClassId} onChange={(e) => setFeeClassId(e.target.value)} className="rounded-lg border px-3 py-2">
+                      <option value="">Select class</option>
+                      {classes.map((c) => (
+                        <option key={c.id} value={String(c.id)}>{c.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                )}
                 <label className="flex flex-col text-sm">
                   <span className="text-slate-600">Academic year</span>
                   <input value={feeYear} onChange={(e) => setFeeYear(e.target.value)} className="rounded-lg border px-3 py-2" />
@@ -1323,11 +1402,48 @@ export default function FeesManagement({
                 </label>
               </div>
               <div className="mt-6 flex justify-end gap-2">
-                <button type="button" onClick={() => setCreateModalOpen(false)} className="rounded px-4 py-2">Cancel</button>
-                <button type="submit" className="rounded bg-slate-900 px-4 py-2 text-white">Create</button>
+                <button type="button" onClick={closeFeeScheduleModal} disabled={pending} className="rounded px-4 py-2 disabled:opacity-50">Cancel</button>
+                <button type="submit" disabled={pending} className="rounded bg-slate-900 px-4 py-2 text-white disabled:opacity-50">
+                  {pending ? "Saving..." : editingFeeSchedule ? "Save changes" : "Create"}
+                </button>
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {feeScheduleToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-fee-schedule-title"
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
+          >
+            <h3 id="delete-fee-schedule-title" className="text-lg font-semibold text-slate-900">Delete fee schedule?</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              This will remove the {feeScheduleToDelete.academicYear} {termLabel(feeScheduleToDelete.term)} bill for {feeScheduleToDelete.className} and its unpaid assignments. This cannot be undone.
+            </p>
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setFeeScheduleToDelete(null)}
+                disabled={pending}
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteFeeSchedule}
+                disabled={pending}
+                className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
+              >
+                <Trash2 size={15} />
+                {pending ? "Deleting..." : "Delete schedule"}
+              </button>
+            </div>
+          </section>
         </div>
       )}
 

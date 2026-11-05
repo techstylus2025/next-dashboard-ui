@@ -25,10 +25,12 @@ export function lookupGradeFromScale(
 export function computeSubjectPercentage(
   classScore: number,
   examScore: number,
-  maxPerComponent = 50
+  maxPerComponent = 50,
+  maxClassScore = maxPerComponent,
+  maxExamScore = maxPerComponent
 ): number {
   const total = classScore + examScore;
-  const maxTotal = maxPerComponent * 2;
+  const maxTotal = maxClassScore + maxExamScore;
   if (maxTotal <= 0) return 0;
   return Math.round((total / maxTotal) * 10000) / 100;
 }

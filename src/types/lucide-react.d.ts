@@ -36,6 +36,10 @@ declare module "lucide-react" {
   export const ClipboardList: LucideIcon;
   export const Clock3: LucideIcon;
   export const ContactRound: LucideIcon;
+  export const Activity: LucideIcon;
+  export const CalendarClock: LucideIcon;
+  export const LogIn: LucideIcon;
+  export const LogOut: LucideIcon;
   export const Layers3: LucideIcon;
   export const Mail: LucideIcon;
   export const MapPin: LucideIcon;
@@ -43,8 +47,10 @@ declare module "lucide-react" {
   export const Search: LucideIcon;
   export const Settings2: LucideIcon;
   export const ShieldCheck: LucideIcon;
+  export const SlidersHorizontal: LucideIcon;
   export const ShoppingBag: LucideIcon;
   export const TrendingUp: LucideIcon;
   export const UserRound: LucideIcon;
   export const WalletCards: LucideIcon;
+  export const X: LucideIcon;
 }

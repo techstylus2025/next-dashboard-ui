@@ -1,0 +1,2 @@
+export const DEFAULT_SCHOOL_NAME = "TECHSTYLUS SCHOOL MANAGEMENT SYSTEM";
+export const DEFAULT_SCHOOL_LOGO = "/education.png";

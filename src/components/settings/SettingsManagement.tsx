@@ -631,6 +631,16 @@ export default function SettingsManagement({
                 >
                   Upload logo
                 </label>
+                {schoolLogoUrl ? (
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => setSchoolLogoUrl("")}
+                    className="inline-flex items-center justify-center rounded-lg border border-rose-200 px-4 py-2 text-sm font-medium text-rose-700 transition hover:bg-rose-50 disabled:opacity-50"
+                  >
+                    Remove logo
+                  </button>
+                ) : null}
                 <input
                   id="school-logo-upload"
                   type="file"
@@ -639,7 +649,11 @@ export default function SettingsManagement({
                   onChange={handleLogoUpload}
                 />
                 <span className="text-xs text-slate-500">
-                  {schoolLogoUrl ? "New logo selected and ready to save." : "No logo selected yet."}
+                  {schoolLogoUrl
+                    ? "Logo changes are applied when you save school details."
+                    : schoolSettings?.logoUrl
+                      ? "Logo removal is applied when you save school details."
+                      : "No logo selected. The default education logo will be used."}
                 </span>
               </div>
             </div>

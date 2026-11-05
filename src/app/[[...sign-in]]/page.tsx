@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { ClerkProvider, useAuth, useSignIn, useUser } from "@clerk/nextjs";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import {
   Bell as EyeOff,
   FileText as LockKeyhole,
@@ -10,6 +10,14 @@ import {
   Users as UserRound,
 } from "lucide-react";
 import { getRoleRedirectPath } from "@/lib/signInRedirect";
+import {
+  DEFAULT_SCHOOL_LOGO,
+  DEFAULT_SCHOOL_NAME,
+} from "@/lib/schoolBrandingDefaults";
+
+function getRestrictionPath(code: string | undefined) {
+  return code === "MAINTENANCE_MODE" ? "/maintenance" : "/access-denied";
+}
 
 async function readAuthResponse(response: Response) {
   const body = await response.text();
@@ -25,6 +33,8 @@ async function readAuthResponse(response: Response) {
 }
 
 const LoginForm = () => {
+  const [schoolName, setSchoolName] = useState(DEFAULT_SCHOOL_NAME);
+  const [schoolLogoUrl, setSchoolLogoUrl] = useState(DEFAULT_SCHOOL_LOGO);
   const [showPassword, setShowPassword] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -34,6 +44,28 @@ const LoginForm = () => {
   const { getToken } = useAuth();
   const { signIn } = useSignIn();
   const { isSignedIn, user } = useUser();
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/school-branding", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`Could not load school branding (HTTP ${response.status}).`);
+        }
+        return response.json();
+      })
+      .then((branding: { name: string; logoUrl: string }) => {
+        if (!active) return;
+        setSchoolName(branding.name || DEFAULT_SCHOOL_NAME);
+        setSchoolLogoUrl(branding.logoUrl || DEFAULT_SCHOOL_LOGO);
+      })
+      .catch((brandingError: unknown) => {
+        console.error("Failed to load school branding:", brandingError);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const syncClerkSession = async () => {
     const clerkToken = await getToken({ skipCache: true });
@@ -46,6 +78,11 @@ const LoginForm = () => {
       headers: { Authorization: `Bearer ${clerkToken}` },
     });
     const syncData = await readAuthResponse(syncResponse);
+    if (syncResponse.status === 403) {
+      setIsRedirecting(true);
+      window.location.replace(getRestrictionPath(syncData?.code));
+      return null;
+    }
     if (!syncResponse.ok) {
       throw new Error(syncData?.error || "Unable to sync your account.");
     }
@@ -67,6 +104,12 @@ const LoginForm = () => {
         body: JSON.stringify({ identifier: username, password }),
       });
       const data = await readAuthResponse(response);
+
+      if (response.status === 403) {
+        setIsRedirecting(true);
+        window.location.replace(getRestrictionPath(data?.code));
+        return;
+      }
 
       if (response.ok) {
         setIsRedirecting(true);
@@ -90,6 +133,7 @@ const LoginForm = () => {
         }
 
         const syncData = await syncClerkSession();
+        if (!syncData) return;
         setIsRedirecting(true);
         const role = String(syncData?.user?.role || "").toLowerCase();
         window.location.replace(getRoleRedirectPath(role, role));
@@ -109,6 +153,7 @@ const LoginForm = () => {
         throw new Error(finalizeResult.error.message || "Unable to activate your Clerk session.");
       }
       const syncData = await syncClerkSession();
+      if (!syncData) return;
       setIsRedirecting(true);
       const role = String(syncData?.user?.role || "").toLowerCase();
       window.location.replace(getRoleRedirectPath(role, role));
@@ -133,8 +178,8 @@ const LoginForm = () => {
             <div className="school-brand">
               <div className="logo-wrapper">
                 <Image
-                  src="/logo.png"
-                  alt="King's Heart Montessori School"
+                  src={schoolLogoUrl}
+                  alt={`${schoolName} logo`}
                   width={72}
                   height={94}
                   priority
@@ -143,10 +188,7 @@ const LoginForm = () => {
               </div>
               <div className="brand-name">
                 <span className="welcome-text">WELCOME TO</span>
-                <h1>
-                  KING&apos;S HEART
-                  <span>MONTESSORI SCHOOL</span>
-                </h1>
+                <h1>{schoolName}</h1>
               </div>
             </div>
 
@@ -215,15 +257,12 @@ const LoginForm = () => {
           <div className="branding-overlay" />
           <div className="branding-content">
             <div className="large-logo">
-              <Image src="/logo.png" alt="" width={115} height={150} priority className="large-school-logo" />
+              <Image src={schoolLogoUrl} alt={`${schoolName} logo`} width={115} height={150} priority className="large-school-logo" />
             </div>
-            <h2>
-              KING&apos;S HEART
-              <span>MONTESSORI SCHOOL</span>
-            </h2>
+            <h2>{schoolName}</h2>
             <div className="branding-divider" />
             <p>
-              Welcome to the King&apos;s Heart Montessori School Management System. Manage academic records, students, teachers and school activities from one convenient platform.
+              Welcome to {schoolName}. Manage academic records, students, teachers and school activities from one convenient platform.
             </p>
             <div className="motto">
               <span>EXCELLENT UPBRINGING.</span>

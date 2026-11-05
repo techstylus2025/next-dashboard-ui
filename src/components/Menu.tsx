@@ -49,6 +49,8 @@ const navIconAccent: Record<string, string> = {
     "bg-gradient-to-br from-slate-500 to-slate-700 shadow-md shadow-slate-500/25",
   Settings:
     "bg-gradient-to-br from-gray-500 to-zinc-700 shadow-md shadow-gray-500/25",
+  "Activity Log":
+    "bg-gradient-to-br from-sky-400 to-cyan-600 shadow-md shadow-sky-500/30",
   Help: "bg-gradient-to-br from-cyan-500 to-sky-600 shadow-md shadow-cyan-500/25",
   Logout:
     "bg-gradient-to-br from-red-500 to-rose-700 shadow-md shadow-red-500/35",
@@ -195,6 +197,18 @@ const menuSections: { items: RawItem[] }[] = [
         icon: "/setting.svg",
         label: "Settings",
         href: "/list/settings",
+        visible: ["admin"],
+      },
+      {
+        icon: "/analytics.svg",
+        label: "Activity Log",
+        href: "/admin/activity",
+        visible: ["admin"],
+      },
+      {
+        icon: "/setting.svg",
+        label: "Access Control",
+        href: "/admin/access-control",
         visible: ["admin"],
       },
       {

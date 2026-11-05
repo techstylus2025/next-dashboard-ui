@@ -16,6 +16,8 @@ import ReportEditorCard from "./ReportEditorCard";
 import ReportPreviewModal from "./ReportPreviewModal";
 import ResultsFiltersModal from "./ResultsFiltersModal";
 import ReportSignatureManager from "./ReportSignatureManager";
+import AssessmentResultsPanel from "./AssessmentResultsPanel";
+import ClassScoreLimits from "./ClassScoreLimits";
 import { ITEM_PER_PAGE } from "@/lib/settings";
 
 type SortKey =
@@ -638,7 +640,7 @@ export default function ResultsManagement(ctx: ResultsPageContext) {
         </div>
       )}
 
-      {(ctx.isAdmin || ctx.isSupervisor) && (
+      {resultsTab === "termly" && (ctx.isAdmin || ctx.isSupervisor) && (
         <ReportSignatureManager
           isAdmin={ctx.isAdmin}
           supervisedClasses={ctx.supervisedClasses}
@@ -646,7 +648,11 @@ export default function ResultsManagement(ctx: ResultsPageContext) {
         />
       )}
 
-      {tab === "generate" && ctx.canManageReports && (
+      {resultsTab === "termly" && ctx.isAdmin && (
+        <ClassScoreLimits classes={ctx.classes} />
+      )}
+
+      {resultsTab === "termly" && tab === "generate" && ctx.canManageReports && (
         <section className="rounded-2xl border border-white/60 bg-white/95 p-4 sm:p-5 shadow-sm ring-1 ring-slate-200/80 space-y-6">
           <div>
             <h2 className="text-base sm:text-lg font-semibold text-slate-900">
@@ -819,7 +825,7 @@ export default function ResultsManagement(ctx: ResultsPageContext) {
         </section>
       )}
 
-      {(tab === "reports" || !ctx.canManageReports) && (
+      {resultsTab === "termly" && (tab === "reports" || !ctx.canManageReports) && (
         <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
           {/* Filter section */}
           <div className="mb-6">
@@ -1174,7 +1180,15 @@ export default function ResultsManagement(ctx: ResultsPageContext) {
         </section>
       )}
 
-      {previewReport && (
+      {resultsTab === "mid-term" && (
+        <AssessmentResultsPanel kind="MID_TERM" ctx={ctx} />
+      )}
+
+      {resultsTab === "mock" && (
+        <AssessmentResultsPanel kind="MOCK" ctx={ctx} />
+      )}
+
+      {resultsTab === "termly" && previewReport && (
         <ReportPreviewModal
           report={previewReport}
           onClose={() => setPreviewReport(null)}

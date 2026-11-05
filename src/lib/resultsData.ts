@@ -24,6 +24,8 @@ export type ResultsPageContext = {
     name: string;
     gradingLevel: string;
     studentCount: number;
+    classScoreMaximum: number;
+    examScoreMaximum: number;
   }[];
   academicYears: {
     id: number;
@@ -32,6 +34,7 @@ export type ResultsPageContext = {
   }[];
   activeYearId: number | null;
   reports: TermlyReportRow[];
+  assessments: AssessmentReportRow[];
   assignedSubjects: { classId: number; subjectId: number; subjectName: string }[];
   schoolSettings: {
     name: string;
@@ -44,6 +47,40 @@ export type ResultsPageContext = {
   } | null;
 };
 
+export type AssessmentReportRow = {
+  id: number;
+  type: "MID_TERM" | "MOCK";
+  assessmentNumber: number;
+  studentId: string;
+  studentName: string;
+  classId: number;
+  className: string;
+  academicYearId: number;
+  academicYearLabel: string;
+  termNumber: number;
+  totalScore: number;
+  overallPercentage: number | null;
+  overallGrade: string | null;
+  overallRemark: string | null;
+  isPublished: boolean;
+  isWithheld: boolean;
+  gradingLevel: string;
+  gradingScaleEntries: {
+    minScore: number;
+    maxScore: number;
+    grade: string;
+    remark: string;
+  }[];
+  subjectLines: {
+    subjectId: number;
+    subjectName: string;
+    score: number;
+    grade: string | null;
+    remark: string | null;
+    canEdit: boolean;
+  }[];
+};
+
 export type TermlyReportRow = {
   id: number;
   studentId: string;
@@ -54,6 +91,8 @@ export type TermlyReportRow = {
   academicYearId: number;
   termNumber: number;
   gradingLevel: string;
+  classScoreMaximum: number;
+  examScoreMaximum: number;
   gradingScaleEntries: {
     minScore: number;
     maxScore: number;
@@ -120,7 +159,16 @@ export async function loadResultsPageData(
       db.teacher.findUnique({
         where: { id: userId },
         select: {
-          assignedClasses: { select: { id: true, name: true } },
+          assignedClasses: {
+            select: {
+              id: true,
+              name: true,
+              gradeId: true,
+              grade: { select: { subjects: { select: { id: true, gradeId: true } } } },
+              subjects: { select: { id: true, gradeId: true } },
+              lessons: { select: { subject: { select: { id: true, gradeId: true } } } },
+            },
+          },
           subjects: { select: { id: true, name: true } },
         },
       }),
@@ -141,14 +189,23 @@ export async function loadResultsPageData(
         where: { id: { in: accessibleClassIds } },
         select: {
           id: true,
-          subjects: { select: { id: true } },
+          gradeId: true,
+          grade: { select: { subjects: { select: { id: true, gradeId: true } } } },
+          subjects: { select: { id: true, gradeId: true } },
+          lessons: { select: { subject: { select: { id: true, gradeId: true } } } },
         },
       });
       const teacherSubjects = new Map(
         teacher.subjects.map((subject) => [subject.id, subject.name])
       );
       for (const cls of classesWithSubjects) {
-        for (const subject of cls.subjects) {
+        const subjects = [
+          ...cls.grade.subjects,
+          ...cls.subjects,
+          ...cls.lessons.map((lesson) => lesson.subject),
+        ];
+        for (const subject of subjects) {
+          if (subject.gradeId !== cls.gradeId) continue;
           const subjectName = teacherSubjects.get(subject.id);
           if (subjectName) {
             assignedSubjects.push({
@@ -167,7 +224,7 @@ export async function loadResultsPageData(
   const canRecordScores =
     isAdmin || isSupervisor || (role === "teacher" && assignedSubjects.length > 0);
 
-  let classFilter: { id?: { in: number[] } } | Record<string, never> = {};
+  let classFilter: Prisma.ClassWhereInput = {};
   if (role === "teacher" && !isAdmin) {
     const classIds = new Set<number>(supervisedClassIds);
     for (const id of assignedClassIds) classIds.add(id);
@@ -177,6 +234,10 @@ export async function loadResultsPageData(
     } else {
       classFilter = { id: { in: [] } };
     }
+  } else if (role === "student" && userId) {
+    classFilter = { students: { some: { id: userId } } };
+  } else if (role === "parent" && userId) {
+    classFilter = { students: { some: { parentId: userId } } };
   }
 
   const classes = await db.class.findMany({
@@ -186,6 +247,8 @@ export async function loadResultsPageData(
       id: true,
       name: true,
       gradingLevel: true,
+      classScoreMaximum: true,
+      examScoreMaximum: true,
       _count: { select: { students: true } },
     },
   });
@@ -255,6 +318,8 @@ export async function loadResultsPageData(
           name: true,
           gradeId: true,
           gradingLevel: true,
+          classScoreMaximum: true,
+          examScoreMaximum: true,
           supervisorSignature: true,
           grade: {
             select: {
@@ -484,7 +549,10 @@ export async function loadResultsPageData(
                   r.class.gradingLevel,
                   computeSubjectPercentage(
                     useTotalMarks ? line.totalMarks : line.classScore,
-                    useTotalMarks ? 0 : line.examScore
+                    useTotalMarks ? 0 : line.examScore,
+                    50,
+                    r.class.classScoreMaximum,
+                    r.class.examScoreMaximum
                   ),
                   scaleForClass
                 )
@@ -537,6 +605,8 @@ export async function loadResultsPageData(
       academicYearId: r.academicYearId,
       termNumber: r.termNumber,
       gradingLevel: r.class.gradingLevel,
+      classScoreMaximum: r.class.classScoreMaximum,
+      examScoreMaximum: r.class.examScoreMaximum,
       gradingScaleEntries: scaleForClass
         .map(({ minScore, maxScore, grade, remark }) => ({
           minScore,
@@ -592,7 +662,8 @@ export async function loadResultsPageData(
           remark: line.remark,
           canEdit:
             ctxForEdit.isAdmin ||
-            ctxForEdit.taughtKeys.has(`${r.classId}:${line.subjectId}`),
+            (!r.isPublished &&
+              ctxForEdit.taughtKeys.has(`${r.classId}:${line.subjectId}`)),
         })),
       schoolSettings: schoolSettings
         ? {
@@ -622,10 +693,13 @@ export async function loadResultsPageData(
       name: cls.name,
       gradingLevel: cls.gradingLevel,
       studentCount: cls._count.students,
+      classScoreMaximum: cls.classScoreMaximum,
+      examScoreMaximum: cls.examScoreMaximum,
     })),
     academicYears,
     activeYearId: active?.id ?? years[0]?.id ?? null,
     reports,
+    assessments,
     schoolSettings: schoolSettings
       ? {
           name: schoolSettings.name,

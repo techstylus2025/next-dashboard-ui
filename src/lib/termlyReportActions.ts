@@ -974,3 +974,58 @@ export async function getAllStudentsInClass(
     return [];
   }
 }
+
+export async function saveClassTermScoreLimits(input: {
+  classId: number;
+  classScoreMaximum: number;
+  examScoreMaximum: number;
+}): Promise<{ success: boolean; error: string | null }> {
+  const ctx = await getAuthCtx();
+  if (!ctx) return { success: false, error: "Not signed in." };
+  if (!ctx.isAdmin) {
+    return { success: false, error: "Only administrators can change score limits." };
+  }
+  if (
+    !Number.isInteger(input.classId) ||
+    input.classId <= 0 ||
+    !Number.isInteger(input.classScoreMaximum) ||
+    !Number.isInteger(input.examScoreMaximum) ||
+    input.classScoreMaximum <= 0 ||
+    input.examScoreMaximum <= 0 ||
+    input.classScoreMaximum + input.examScoreMaximum !== 100
+  ) {
+    return {
+      success: false,
+      error: "Class and exam score limits must be positive whole numbers that add up to 100.",
+    };
+  }
+
+  try {
+    const savedScoreMaximums = await db.termlyReportSubjectLine.aggregate({
+      where: { termlyReport: { classId: input.classId } },
+      _max: { classScore: true, examScore: true },
+    });
+    if (
+      (savedScoreMaximums._max.classScore ?? 0) > input.classScoreMaximum ||
+      (savedScoreMaximums._max.examScore ?? 0) > input.examScoreMaximum
+    ) {
+      return {
+        success: false,
+        error: "The new limits cannot be lower than scores already entered for this class.",
+      };
+    }
+
+    await db.class.update({
+      where: { id: input.classId },
+      data: {
+        classScoreMaximum: input.classScoreMaximum,
+        examScoreMaximum: input.examScoreMaximum,
+      },
+    });
+    revalidatePath(RESULTS_PATH);
+    return { success: true, error: null };
+  } catch (error) {
+    console.error("Failed to save class score limits:", error);
+    return { success: false, error: "Could not save score limits." };
+  }
+}

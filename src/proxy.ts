@@ -9,6 +9,8 @@ const SESSION_ROLE_COOKIE_NAME = "session_role";
 
 const PUBLIC_PATHS = [
   "/sign-in",
+  "/access-denied",
+  "/maintenance",
   "/",
   "/api/auth/login",
   "/api/auth/logout",

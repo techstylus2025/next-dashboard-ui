@@ -3,6 +3,7 @@ import FeesPasswordGate from "@/components/fees/FeesPasswordGate";
 import { getCurrentAuthContext } from "@/lib/auth";
 import { hasFeePageAccess } from "@/lib/feePageAccess";
 import prisma from "@/lib/prisma";
+import { DEFAULT_SCHOOL_LOGO, DEFAULT_SCHOOL_NAME } from "@/lib/schoolBranding";
 
 export default async function FeesPage() {
   const { userId, role } = await getCurrentAuthContext();
@@ -14,12 +15,12 @@ export default async function FeesPage() {
     select: { name: true, address: true, telephone: true, location: true, email: true, logoUrl: true },
   });
   const schoolDetails = {
-    name: schoolSettings?.name?.trim() || "School",
+    name: schoolSettings?.name?.trim() || DEFAULT_SCHOOL_NAME,
     address: schoolSettings?.address ?? null,
     telephone: schoolSettings?.telephone ?? null,
     location: schoolSettings?.location ?? null,
     email: schoolSettings?.email ?? null,
-    logoUrl: schoolSettings?.logoUrl ?? null,
+    logoUrl: schoolSettings?.logoUrl?.trim() || DEFAULT_SCHOOL_LOGO,
   };
 
   const studentScope = role === "parent" && userId

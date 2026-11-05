@@ -64,6 +64,7 @@ model Student {
   parent                            Parent                   @relation(fields: [parentId], references: [id])
   feeAssignments                    StudentFeeAssignment[]
   termlyReports                     TermlyReport[]
+  assessmentReports                 AssessmentReport[]
   transportRequests                 TransportRequest[]
 }
 
@@ -147,6 +148,37 @@ model User {
   sessions  Session[]
 }
 
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String
+  username  String?
+  role      String
+  action    String
+  path      String?
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([createdAt])
+  @@index([userId, createdAt])
+  @@index([role, createdAt])
+}
+
+model AppAccessSettings {
+  id              Int      @id @default(1)
+  maintenanceMode Boolean  @default(false)
+  updatedAt       DateTime @updatedAt
+}
+
+model AccessDeniedRole {
+  role      String   @id
+  createdAt DateTime @default(now())
+}
+
+model AccessDeniedUser {
+  id         String   @id @default(cuid())
+  identifier String   @unique
+  createdAt  DateTime @default(now())
+}
+
 model Session {
   id        String    @id @default(cuid())
   token     String?   @unique
@@ -188,6 +220,8 @@ model Class {
   supervisorSignature String?
   gradeId           Int
   gradingLevel      GradingLevel       @default(PRIMARY)
+  classScoreMaximum Int                @default(50)
+  examScoreMaximum  Int                @default(50)
   announcements     Announcement[]
   books             Book[]
   busRegistrations  BusRegistration[]
@@ -200,6 +234,7 @@ model Class {
   learningResources LessonLearningResource[]
   students          Student[]
   termlyReports     TermlyReport[]
+  assessmentReports AssessmentReport[]
   transportRequests TransportRequest[]
   subjects          Subject[]          @relation("ClassToSubject")
 }
@@ -251,6 +286,7 @@ model AcademicYear {
   updatedAt     DateTime       @updatedAt
   terms         AcademicTerm[]
   termlyReports TermlyReport[]
+  assessmentReports AssessmentReport[]
 }
 
 model AcademicTerm {
@@ -315,6 +351,7 @@ model Subject {
   lessons           Lesson[]
   grade             Grade                     @relation(fields: [gradeId], references: [id])
   termlyReportLines TermlyReportSubjectLine[]
+  assessmentReportLines AssessmentReportSubjectLine[]
   classes           Class[]                   @relation("ClassToSubject")
   teachers          Teacher[]                 @relation("SubjectToTeacher")
 
@@ -381,6 +418,51 @@ model TermlyReportSubjectLine {
   termlyReport   TermlyReport @relation(fields: [termlyReportId], references: [id], onDelete: Cascade)
 
   @@unique([termlyReportId, subjectId])
+}
+
+model AssessmentReport {
+  id                Int                       @id @default(autoincrement())
+  studentId         String
+  classId           Int
+  academicYearId    Int
+  termNumber        Int
+  type              AssessmentType
+  assessmentNumber  Int                       @default(0)
+  totalScore        Int                       @default(0)
+  overallPercentage Float?
+  overallGrade      String?
+  overallRemark     String?
+  isPublished       Boolean                   @default(false)
+  publishedAt       DateTime?
+  isWithheld        Boolean                   @default(false)
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+  student           Student                   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  class             Class                     @relation(fields: [classId], references: [id], onDelete: Cascade)
+  academicYear      AcademicYear              @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  subjectLines      AssessmentReportSubjectLine[]
+
+  @@unique([studentId, academicYearId, termNumber, type, assessmentNumber])
+  @@index([classId, academicYearId, termNumber, type, assessmentNumber])
+}
+
+model AssessmentReportSubjectLine {
+  id                 Int              @id @default(autoincrement())
+  assessmentReportId Int
+  subjectId          Int
+  score              Int              @default(0)
+  grade              String?
+  remark             String?
+  lastEditedById     String?
+  subject            Subject          @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  assessmentReport   AssessmentReport @relation(fields: [assessmentReportId], references: [id], onDelete: Cascade)
+
+  @@unique([assessmentReportId, subjectId])
+}
+
+enum AssessmentType {
+  MID_TERM
+  MOCK
 }
 
 model Lesson {

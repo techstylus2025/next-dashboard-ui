@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { verifyPassword, createSession, hashPassword } from "@/lib/auth";
+import { createActivityLog } from "@/lib/activityLog";
+import { getAccessRestriction } from "@/lib/accessControl";
 
 const DEFAULT_AUTH_USERS = [
   { id: "admin", username: "admin", email: "admin@school.local", password: "admin123", role: "ADMIN" },
@@ -93,12 +95,39 @@ export async function POST(req: Request) {
   const valid = await verifyPassword(user.password, password);
   if (!valid) return NextResponse.json({ ok: false, error: "Invalid credentials" }, { status: 401 });
 
+  const restriction = await getAccessRestriction({
+    userId: user.id,
+    username: user.username,
+    email: user.email,
+    role: user.role,
+  });
+  if (restriction === "ACCESS_DENIED") {
+    return NextResponse.json({
+      ok: false,
+      code: restriction,
+      error: "This account is not permitted to access the application.",
+    }, { status: 403 });
+  }
+  if (restriction === "MAINTENANCE_MODE") {
+    return NextResponse.json({
+      ok: false,
+      code: restriction,
+      error: "The application is temporarily unavailable while maintenance is in progress.",
+    }, { status: 403 });
+  }
+
   if (user.password === password) {
     const nextHash = await hashPassword(password);
     await prisma.user.update({ where: { id: user.id }, data: { password: nextHash } });
   }
 
   const token = await createSession(user.id);
+  await createActivityLog({
+    userId: user.id,
+    username: user.username,
+    role: user.role,
+    action: "LOGIN",
+  });
   const res = NextResponse.json({ ok: true, user: { id: user.id, username: user.username, role: user.role } });
 
   res.cookies.set("session_token", token, {

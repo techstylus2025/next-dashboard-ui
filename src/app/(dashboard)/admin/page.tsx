@@ -1,4 +1,3 @@
-import Announcements from "@/components/Announcements";
 import EventCalendarContainer from "@/components/EventCalendarContainer";
 import PasswordChangeApprovalPanel from "@/components/PasswordChangeApprovalPanel";
 import SectionCard from "@/components/dashboard/SectionCard";
@@ -11,11 +10,15 @@ import AdminDashboardAutoRefresh from "@/components/dashboard/AdminDashboardAuto
 import { getPendingPasswordChangeRequests } from "@/lib/profileActions";
 import { loadAdminDashboardSummary } from "@/lib/dashboardStats";
 import prisma from "@/lib/prisma";
-import { CalendarDays, ChartColumn, GraduationCap, Megaphone, School, Sparkles, Users, ClipboardCheck, BookOpen, FileText, Bell, PlusCircle } from "lucide-react";
+import { Activity, CalendarDays, ChartColumn, Eye, GraduationCap, LogIn, Megaphone, School, Sparkles, Users, ClipboardCheck, BookOpen, FileText, Bell, PlusCircle, UserRound } from "lucide-react";
 import Link from "next/link";
 
 const AdminPage = async ({ searchParams }: { searchParams: Promise<{ [key: string]: string | undefined }> }) => {
-  const [pendingRequests, summary, pendingReviews] = await Promise.all([
+  const now = new Date();
+  const todayStart = new Date(now);
+  todayStart.setHours(0, 0, 0, 0);
+  const last24Hours = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const [pendingRequests, summary, pendingReviews, activitySummary] = await Promise.all([
     getPendingPasswordChangeRequests(),
     loadAdminDashboardSummary(),
     Promise.all([
@@ -31,7 +34,24 @@ const AdminPage = async ({ searchParams }: { searchParams: Promise<{ [key: strin
       prisma.bookOrder.count({ where: { status: "PENDING" } }),
       prisma.transportRequest.count({ where: { status: "PENDING" } }),
     ]),
+    Promise.all([
+      prisma.activityLog.count({
+        where: { createdAt: { gte: todayStart } },
+      }),
+      prisma.activityLog.findMany({
+        where: { createdAt: { gte: last24Hours } },
+        distinct: ["userId"],
+        select: { userId: true },
+      }),
+      prisma.activityLog.count({
+        where: { action: "PAGE_VIEW", createdAt: { gte: todayStart } },
+      }),
+      prisma.activityLog.count({
+        where: { action: "LOGIN", createdAt: { gte: todayStart } },
+      }),
+    ]),
   ]);
+  const [activityEventsToday, activeUsers, pageVisitsToday, signInsToday] = activitySummary;
   const reviewItems = [
     { label: "Exam questions", detail: "Awaiting review", count: pendingReviews[0], href: "/list/exams", icon: <FileText size={18} /> },
     { label: "Lesson uploads", detail: "Awaiting approval", count: pendingReviews[1], href: "/list/lessons", icon: <BookOpen size={18} /> },
@@ -115,6 +135,49 @@ const AdminPage = async ({ searchParams }: { searchParams: Promise<{ [key: strin
         <StatCard title="Classes" value={summary.totalClasses.toLocaleString()} detail="Currently available classes" accent="from-emerald-500 to-teal-600" icon={<School size={18} />} />
         <StatCard title="Attendance Today" value={`${summary.attendanceTodayRate}%`} detail={`${summary.attendanceTodayPresent}/${summary.attendanceTodayTotal} marked`} accent="from-amber-500 to-orange-500" icon={<ChartColumn size={18} />} />
       </section>
+      <SectionCard
+        title="Activity log summary"
+        subtitle="Recorded sign-ins and page activity across the school."
+        action={
+          <Link
+            href="/admin/activity"
+            className="inline-flex items-center rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          >
+            View activity log
+          </Link>
+        }
+      >
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard
+            title="Events today"
+            value={activityEventsToday.toLocaleString()}
+            detail="All recorded events"
+            accent="from-sky-500 to-blue-600"
+            icon={<Activity size={18} />}
+          />
+          <StatCard
+            title="Active users"
+            value={activeUsers.length.toLocaleString()}
+            detail="Unique users in the last 24 hours"
+            accent="from-violet-500 to-indigo-600"
+            icon={<UserRound size={18} />}
+          />
+          <StatCard
+            title="Page visits today"
+            value={pageVisitsToday.toLocaleString()}
+            detail="Dashboard pages opened"
+            accent="from-emerald-500 to-teal-600"
+            icon={<Eye size={18} />}
+          />
+          <StatCard
+            title="Sign-ins today"
+            value={signInsToday.toLocaleString()}
+            detail="Successful sign-ins recorded"
+            accent="from-amber-500 to-orange-500"
+            icon={<LogIn size={18} />}
+          />
+        </div>
+      </SectionCard>
       <SectionCard
         title="Administrator review queue"
         subtitle={
@@ -262,7 +325,7 @@ const AdminPage = async ({ searchParams }: { searchParams: Promise<{ [key: strin
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">School operations</p>
           <h2 className="mt-1 text-xl font-semibold tracking-tight text-slate-950">Stay on top of the day</h2>
         </div>
-      <div className="grid gap-4 grid-cols-1 xl:grid-cols-3">
+      <div className="grid gap-4 grid-cols-1 xl:grid-cols-2">
         <SectionCard title="Recent Activities" subtitle="Live school activity feed">
           <div className="space-y-3">
             {summary.recentActivities.map((activity) => (
@@ -282,10 +345,6 @@ const AdminPage = async ({ searchParams }: { searchParams: Promise<{ [key: strin
           <div className="rounded-2xl bg-white p-3">
               <FeePaymentChart data={summary.feePaymentByClass ?? []} />
           </div>
-        </SectionCard>
-
-        <SectionCard title="Announcements" subtitle="Latest school notices">
-          <Announcements omitWrapper omitHeader />
         </SectionCard>
       </div>
 

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { clerkClient } from "@clerk/nextjs/server";
 import prisma from "@/lib/prisma";
 import { createSession } from "@/lib/auth";
+import { createActivityLog } from "@/lib/activityLog";
+import { getAccessRestriction } from "@/lib/accessControl";
 
 export async function POST(request: Request) {
   try {
@@ -62,7 +64,29 @@ export async function POST(request: Request) {
       create: { id: userId, username, email, password: null, role },
     });
 
+    const restriction = await getAccessRestriction({
+      userId: user.id,
+      username: user.username,
+      email: user.email,
+      role: user.role,
+    });
+    if (restriction) {
+      return NextResponse.json({
+        ok: false,
+        code: restriction,
+        error: restriction === "ACCESS_DENIED"
+          ? "This account is not permitted to access the application."
+          : "The application is temporarily unavailable while maintenance is in progress.",
+      }, { status: 403 });
+    }
+
     const token = await createSession(user.id, { userAgent: "clerk-login" });
+    await createActivityLog({
+      userId: user.id,
+      username: user.username,
+      role: user.role,
+      action: "LOGIN",
+    });
     const response = NextResponse.json({
       ok: true,
       user: { id: user.id, username: user.username, role: user.role },

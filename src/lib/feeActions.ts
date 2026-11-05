@@ -372,6 +372,12 @@ export async function deleteFeeSchedule(id: number): Promise<{
   if (!schedule) {
     return { success: false, error: "Fee schedule not found." };
   }
+  if (schedule.assignments.some((assignment) => assignment.payments.length > 0)) {
+    return {
+      success: false,
+      error: "This fee schedule has recorded payments and cannot be deleted. Edit it instead to preserve payment history.",
+    };
+  }
 
   try {
     await prisma.feeSchedule.delete({ where: { id } });
