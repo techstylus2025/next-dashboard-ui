@@ -1,5 +1,6 @@
 import { loadAnalyticsData } from '@/lib/analytics';
 import ChartsSummary from '@/components/analytics/ChartsSummary';
+import MockPerformanceCharts from '@/components/analytics/MockPerformanceCharts';
 import AnalyticsTabs from '@/components/analytics/AnalyticsTabs';
 import { ChartColumn, BookOpen, School, Users } from 'lucide-react';
 
@@ -171,6 +172,18 @@ export default async function AnalyticsPage() {
           activePerformanceTermKey={data.activePerformanceTermKey}
           classes={data.studentsByClass.map((c) => ({ id: c.classId, name: c.className }))}
         />
+      </section>
+
+      <section>
+        <div className="mb-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
+            Mock examination insights
+          </p>
+          <h2 className="mt-1 text-xl font-semibold text-slate-900">
+            Performance trends across mocks
+          </h2>
+        </div>
+        <MockPerformanceCharts rows={data.mockPerformance} />
       </section>
 
       <section>

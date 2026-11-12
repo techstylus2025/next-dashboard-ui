@@ -4,6 +4,7 @@ import Image from "next/image";
 import {
   createMidTermReports,
   createMockReports,
+  deleteMockReports,
   publishAssessmentReports,
   upsertAssessmentSubjectScore,
 } from "@/lib/assessmentReportActions";
@@ -252,6 +253,7 @@ export default function AssessmentResultsPanel({
   const [filterTerm, setFilterTerm] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [exportingMock, setExportingMock] = useState<string | null>(null);
+  const [deletingMock, setDeletingMock] = useState<string | null>(null);
 
   const filtered = useMemo(
     () =>
@@ -338,6 +340,36 @@ export default function AssessmentResultsPanel({
       } else {
         toast.error(result.error || "Could not publish reports.");
       }
+    });
+  };
+
+  const deleteMockGroup = (reports: AssessmentReportRow[]) => {
+    const report = reports[0];
+    if (!report || kind !== "MOCK" || !isAdmin) return;
+    if (
+      !window.confirm(
+        `Delete Mock ${report.assessmentNumber} for ${report.className}, ${report.academicYearLabel} Term ${report.termNumber}? This will permanently delete all ${reports.length} student report(s) in this group, including published reports.`
+      )
+    ) {
+      return;
+    }
+
+    const groupKey = `${report.classId}-${report.academicYearId}-${report.termNumber}-${report.assessmentNumber}`;
+    setDeletingMock(groupKey);
+    startTransition(async () => {
+      const result = await deleteMockReports({
+        classId: report.classId,
+        academicYearId: report.academicYearId,
+        termNumber: report.termNumber,
+        assessmentNumber: report.assessmentNumber,
+      });
+      if (result.success) {
+        toast.success(`Deleted ${result.deleted ?? 0} mock report(s).`);
+        router.refresh();
+      } else {
+        toast.error(result.error || "Could not delete mock reports.");
+      }
+      setDeletingMock(null);
     });
   };
 
@@ -523,48 +555,86 @@ export default function AssessmentResultsPanel({
                 const first = group[0];
                 if (!first) return null;
                 const allPublished = group.every((report) => report.isPublished);
+                const groupActions = (
+                  <div className="flex flex-wrap gap-2">
+                    {kind === "MOCK" && isAdmin ? (
+                      <>
+                        <button
+                          type="button"
+                          disabled={exportingMock !== null || deletingMock !== null}
+                          onClick={() => void exportMockGroup(group)}
+                          className="inline-flex items-center justify-center gap-2 rounded-lg border border-sky-200 bg-white px-4 py-2 text-sm font-medium text-sky-800 hover:bg-sky-50 disabled:opacity-50"
+                        >
+                          {exportingMock === `${first.classId}-${first.academicYearId}-${first.termNumber}-${first.assessmentNumber}`
+                            ? "Exporting…"
+                            : "Export spreadsheet"}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={pending || deletingMock !== null || exportingMock !== null}
+                          onClick={() => deleteMockGroup(group)}
+                          className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+                        >
+                          {deletingMock === `${first.classId}-${first.academicYearId}-${first.termNumber}-${first.assessmentNumber}`
+                            ? "Deleting…"
+                            : "Delete mock"}
+                        </button>
+                      </>
+                    ) : null}
+                    {canPublish && !allPublished ? (
+                      <button type="button" disabled={pending} onClick={() => publishGroup(group)} className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+                        Publish all for this class
+                      </button>
+                    ) : null}
+                  </div>
+                );
+                const reportCards = (
+                  <div className="space-y-2">
+                    {group.map((report) => (
+                      <AssessmentReportCard
+                        key={report.id}
+                        report={report}
+                        kind={kind}
+                        school={ctx.schoolSettings}
+                        canPublish={canPublish}
+                      />
+                    ))}
+                  </div>
+                );
                 return (
-                  <section key={`${first.academicYearId}-${first.termNumber}-${first.assessmentNumber}`} className="space-y-3">
-                    <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <h3 className="font-semibold text-slate-900">
-                          {first.academicYearLabel} · Term {first.termNumber}
-                          {kind === "MOCK" ? ` · Mock ${first.assessmentNumber}` : ""}
-                        </h3>
-                        <p className="mt-1 text-xs text-slate-500">{group.length} student report(s)</p>
+                  kind === "MOCK" ? (
+                    <details
+                      key={`${first.academicYearId}-${first.termNumber}-${first.assessmentNumber}`}
+                      className="group space-y-3"
+                    >
+                      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 [&::-webkit-details-marker]:hidden">
+                        <span>
+                          <span className="block font-semibold text-slate-900">
+                            {first.academicYearLabel} · Term {first.termNumber} · Mock {first.assessmentNumber}
+                          </span>
+                          <span className="mt-1 block text-xs text-slate-500">{group.length} student report(s)</span>
+                        </span>
+                        <span aria-hidden="true" className="shrink-0 text-slate-500 transition-transform group-open:rotate-180">⌄</span>
+                      </summary>
+                      <div className="space-y-3">
+                        <div className="flex justify-end">{groupActions}</div>
+                        {reportCards}
                       </div>
-                      <div className="flex flex-wrap gap-2">
-                        {kind === "MOCK" && isAdmin ? (
-                          <button
-                            type="button"
-                            disabled={exportingMock !== null}
-                            onClick={() => void exportMockGroup(group)}
-                            className="inline-flex items-center justify-center gap-2 rounded-lg border border-sky-200 bg-white px-4 py-2 text-sm font-medium text-sky-800 hover:bg-sky-50 disabled:opacity-50"
-                          >
-                            {exportingMock === `${first.classId}-${first.academicYearId}-${first.termNumber}-${first.assessmentNumber}`
-                              ? "Exporting…"
-                              : "Export spreadsheet"}
-                          </button>
-                        ) : null}
-                        {canPublish && !allPublished ? (
-                          <button type="button" disabled={pending} onClick={() => publishGroup(group)} className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
-                            Publish all for this class
-                          </button>
-                        ) : null}
+                    </details>
+                  ) : (
+                    <section key={`${first.academicYearId}-${first.termNumber}-${first.assessmentNumber}`} className="space-y-3">
+                      <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <h3 className="font-semibold text-slate-900">
+                            {first.academicYearLabel} · Term {first.termNumber}
+                          </h3>
+                          <p className="mt-1 text-xs text-slate-500">{group.length} student report(s)</p>
+                        </div>
+                        {groupActions}
                       </div>
-                    </div>
-                    <div className="space-y-2">
-                      {group.map((report) => (
-                        <AssessmentReportCard
-                          key={report.id}
-                          report={report}
-                          kind={kind}
-                          school={ctx.schoolSettings}
-                          canPublish={canPublish}
-                        />
-                      ))}
-                    </div>
-                  </section>
+                      {reportCards}
+                    </section>
+                  )
                 );
               })}
             </div>

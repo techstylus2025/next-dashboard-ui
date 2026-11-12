@@ -1,5 +1,9 @@
 import prisma from "@/lib/prisma";
-import { computeSubjectPercentage } from "@/lib/gradingUtils";
+import {
+  computeJhsOverallGrade,
+  computeSubjectPercentage,
+  lookupGradeFromScale,
+} from "@/lib/gradingUtils";
 
 export async function loadAnalyticsData() {
   const db = prisma;
@@ -74,6 +78,89 @@ export async function loadAnalyticsData() {
       },
     },
     orderBy: [{ classId: "asc" }, { student: { surname: "asc" } }],
+  });
+
+  const mockReports = await db.assessmentReport.findMany({
+    where: {
+      type: "MOCK",
+      academicYearId: { in: academicYears.map((year) => year.id) },
+    },
+    include: {
+      student: { select: { id: true, name: true, surname: true } },
+      class: { select: { id: true, name: true, gradingLevel: true } },
+      academicYear: { select: { label: true } },
+      subjectLines: {
+        where: { lastEditedById: { not: null } },
+        include: {
+          subject: { select: { id: true, name: true, isCore: true } },
+        },
+      },
+    },
+    orderBy: [
+      { academicYear: { label: "desc" } },
+      { termNumber: "desc" },
+      { assessmentNumber: "asc" },
+      { class: { name: "asc" } },
+      { student: { surname: "asc" } },
+    ],
+  });
+
+  const mockGradingScales = await db.gradingScaleEntry.findMany({
+    where: {
+      level: {
+        in: [...new Set(mockReports.map((report) => report.class.gradingLevel))],
+      },
+    },
+    orderBy: [{ level: "asc" }, { minScore: "asc" }],
+    select: { level: true, minScore: true, maxScore: true, grade: true, remark: true },
+  });
+
+  const mockPerformance = mockReports.map((report) => {
+    const scale = mockGradingScales.filter(
+      (entry) => entry.level === report.class.gradingLevel
+    );
+    const subjectLines = report.subjectLines.map((line) => {
+      const gradeLookup = lookupGradeFromScale(
+        report.class.gradingLevel,
+        line.score,
+        scale
+      );
+      return {
+        subjectId: line.subject.id,
+        subjectName: line.subject.name,
+        score: line.score,
+        grade:
+          line.grade ??
+          (line.lastEditedById !== null && gradeLookup.grade !== "—"
+            ? gradeLookup.grade
+            : null),
+        isCore: line.subject.isCore,
+      };
+    });
+    const overallPercentage =
+      report.overallPercentage ??
+      (subjectLines.length
+        ? subjectLines.reduce((sum, line) => sum + line.score, 0) /
+          subjectLines.length
+        : null);
+    const overallGrade =
+      report.class.gradingLevel === "JHS"
+        ? computeJhsOverallGrade(subjectLines)
+        : report.overallGrade;
+
+    return {
+      classId: report.class.id,
+      className: report.class.name,
+      academicYearId: report.academicYearId,
+      academicYearLabel: report.academicYear.label,
+      termNumber: report.termNumber,
+      assessmentNumber: report.assessmentNumber,
+      studentId: report.student.id,
+      studentName: `${report.student.name} ${report.student.surname}`,
+      overallPercentage,
+      overallGrade,
+      subjectLines,
+    };
   });
 
   type SubjectPerformance = {
@@ -257,6 +344,7 @@ export async function loadAnalyticsData() {
     activePerformanceTermKey,
     topStudentsByClass,
     subjectPerformanceSummary,
+    mockPerformance,
     topAttendants,
     studentsAttendanceSummary,
     teachersAttendanceSummary,

@@ -389,18 +389,18 @@ export async function loadResultsPageData(
           name: true,
           gradeId: true,
           gradingLevel: true,
-          grade: { select: { subjects: { select: { id: true, name: true, gradeId: true } } } },
-          subjects: { select: { id: true, name: true, gradeId: true } },
+          grade: { select: { subjects: { select: { id: true, name: true, gradeId: true, isCore: true } } } },
+          subjects: { select: { id: true, name: true, gradeId: true, isCore: true } },
           lessons: {
             select: {
-              subject: { select: { id: true, name: true, gradeId: true } },
+              subject: { select: { id: true, name: true, gradeId: true, isCore: true } },
             },
           },
         },
       },
       academicYear: { select: { id: true, label: true } },
       subjectLines: {
-        include: { subject: { select: { id: true, name: true, gradeId: true } } },
+        include: { subject: { select: { id: true, name: true, gradeId: true, isCore: true } } },
         orderBy: { subject: { name: "asc" } },
       },
     },
@@ -455,10 +455,43 @@ export async function loadResultsPageData(
           grade: null,
           remark: null,
           lastEditedById: null,
-          subject: { id: subject.id, name: subject.name, gradeId: subject.gradeId },
+          subject: {
+            id: subject.id,
+            name: subject.name,
+            gradeId: subject.gradeId,
+            isCore: subject.isCore,
+          },
         },
       ])
     ).values()];
+
+    const subjectLines = allSubjectLines.map((line) => {
+      const hasScore = line.lastEditedById !== null;
+      const gradeLookup = lookupGradeFromScale(
+        report.class.gradingLevel,
+        line.score,
+        scale
+      );
+      return {
+        subjectId: line.subjectId,
+        subjectName: line.subject.name,
+        score: line.score,
+        grade:
+          line.grade ??
+          (hasScore && gradeLookup.grade !== "—" ? gradeLookup.grade : null),
+        remark: line.remark ?? (hasScore ? gradeLookup.remark : null),
+        isCore: line.subject.isCore,
+        canEdit:
+          !report.isPublished &&
+          (isAdmin ||
+            (role === "teacher" &&
+              ctxForEdit.taughtKeys.has(`${report.classId}:${line.subjectId}`))),
+      };
+    });
+    const overallGrade =
+      report.type === "MOCK" && report.class.gradingLevel === "JHS"
+        ? computeJhsOverallGrade(subjectLines)
+        : report.overallGrade;
 
     return {
       id: report.id,
@@ -473,7 +506,7 @@ export async function loadResultsPageData(
       termNumber: report.termNumber,
       totalScore: report.totalScore,
       overallPercentage: report.overallPercentage,
-      overallGrade: report.overallGrade,
+      overallGrade,
       overallRemark: report.overallRemark,
       isPublished: report.isPublished,
       isWithheld: report.isWithheld,
@@ -484,28 +517,9 @@ export async function loadResultsPageData(
         grade,
         remark,
       })),
-      subjectLines: allSubjectLines
+      subjectLines: subjectLines
         .filter((line) => role !== "teacher" || ctxForEdit.taughtKeys.has(`${report.classId}:${line.subjectId}`))
-        .map((line) => {
-          const hasScore = line.lastEditedById !== null;
-          const gradeLookup = lookupGradeFromScale(
-            report.class.gradingLevel,
-            line.score,
-            scale
-          );
-          return {
-            subjectId: line.subjectId,
-            subjectName: line.subject.name,
-            score: line.score,
-            grade: line.grade ?? (hasScore && gradeLookup.grade !== "—" ? gradeLookup.grade : null),
-            remark: line.remark ?? (hasScore ? gradeLookup.remark : null),
-            canEdit:
-              !report.isPublished &&
-              (isAdmin ||
-                (role === "teacher" &&
-                  ctxForEdit.taughtKeys.has(`${report.classId}:${line.subjectId}`))),
-          };
-        }),
+        .map(({ isCore: _isCore, ...line }) => line),
     };
   });
 

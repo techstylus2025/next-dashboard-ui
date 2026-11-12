@@ -1,7 +1,10 @@
 "use server";
 
 import { getCurrentAuthContext } from "@/lib/auth";
-import { lookupGradeFromScale } from "@/lib/gradingUtils";
+import {
+  computeJhsOverallGrade,
+  lookupGradeFromScale,
+} from "@/lib/gradingUtils";
 import prisma from "@/lib/prisma";
 import { PrismaClient, type AssessmentType } from "@prisma/client";
 import { revalidatePath } from "next/cache";
@@ -246,6 +249,7 @@ export async function upsertAssessmentSubjectScore(input: {
         id: true,
         classId: true,
         isPublished: true,
+        type: true,
         class: { select: { gradingLevel: true, supervisorId: true } },
       },
     });
@@ -285,7 +289,11 @@ export async function upsertAssessmentSubjectScore(input: {
     const [lines, scale] = await Promise.all([
       db.assessmentReportSubjectLine.findMany({
         where: { assessmentReportId: report.id },
-        select: { score: true, lastEditedById: true },
+        select: {
+          score: true,
+          lastEditedById: true,
+          subject: { select: { isCore: true } },
+        },
       }),
       db.gradingScaleEntry.findMany({
         where: { level: report.class.gradingLevel },
@@ -309,13 +317,28 @@ export async function upsertAssessmentSubjectScore(input: {
           overallPercentage,
           scale
         );
+    const overallGrade =
+      report.type === "MOCK" && report.class.gradingLevel === "JHS"
+        ? computeJhsOverallGrade(
+            completed.map((line) => ({
+              grade: lookupGradeFromScale(
+                report.class.gradingLevel,
+                line.score,
+                scale
+              ).grade,
+              isCore: line.subject.isCore,
+            }))
+          )
+        : grade?.grade === "—"
+          ? null
+          : grade?.grade ?? null;
 
     await db.assessmentReport.update({
       where: { id: report.id },
       data: {
         totalScore,
         overallPercentage,
-        overallGrade: grade?.grade === "—" ? null : grade?.grade ?? null,
+        overallGrade,
         overallRemark: grade?.remark || null,
       },
     });
@@ -366,5 +389,46 @@ export async function publishAssessmentReports(input: {
   } catch (error) {
     console.error("Failed to publish assessment reports:", error);
     return { success: false, error: "Could not publish assessment reports." };
+  }
+}
+
+export async function deleteMockReports(input: {
+  classId: number;
+  academicYearId: number;
+  termNumber: number;
+  assessmentNumber: number;
+}): Promise<{ success: boolean; error: string | null; deleted?: number }> {
+  const auth = await getAssessmentAuth();
+  if (!auth) return { success: false, error: "Not signed in." };
+  if (!auth.isAdmin) return { success: false, error: "Only administrators can delete mock reports." };
+  if (
+    !Number.isInteger(input.classId) ||
+    input.classId <= 0 ||
+    !Number.isInteger(input.academicYearId) ||
+    input.academicYearId <= 0 ||
+    !Number.isInteger(input.termNumber) ||
+    input.termNumber <= 0 ||
+    !Number.isInteger(input.assessmentNumber) ||
+    input.assessmentNumber <= 0
+  ) {
+    return { success: false, error: "Select a valid mock report group." };
+  }
+
+  try {
+    const result = await db.assessmentReport.deleteMany({
+      where: {
+        classId: input.classId,
+        academicYearId: input.academicYearId,
+        termNumber: input.termNumber,
+        type: "MOCK",
+        assessmentNumber: input.assessmentNumber,
+      },
+    });
+    if (!result.count) return { success: false, error: "No mock reports were found." };
+    revalidatePath(RESULTS_PATH);
+    return { success: true, error: null, deleted: result.count };
+  } catch (error) {
+    console.error("Failed to delete mock reports:", error);
+    return { success: false, error: "Could not delete mock reports." };
   }
 }
