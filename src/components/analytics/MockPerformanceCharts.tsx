@@ -2,7 +2,6 @@
 
 import {
   CartesianGrid,
-  Legend,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -50,6 +49,10 @@ export default function MockPerformanceCharts({
   const [classId, setClassId] = useState("");
   const [termKey, setTermKey] = useState("");
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[] | null>(
+    null
+  );
+  const [selectedSubjectId, setSelectedSubjectId] = useState("all");
+  const [selectedMockNumbers, setSelectedMockNumbers] = useState<number[] | null>(
     null
   );
 
@@ -152,6 +155,7 @@ export default function MockPerformanceCharts({
   const subjectChartData = assessmentNumbers.map((assessmentNumber) => {
     const point: Record<string, string | number | null> = {
       mockLabel: `Mock ${assessmentNumber}`,
+      assessmentNumber,
     };
     for (const subjectId of subjectNames.keys()) {
       const stats = subjectStats.get(assessmentNumber)?.get(subjectId);
@@ -161,6 +165,24 @@ export default function MockPerformanceCharts({
     }
     return point;
   });
+  const availableSubjectEntries = Array.from(subjectNames.entries()).sort(
+    (a, b) => a[1].localeCompare(b[1])
+  );
+  const visibleSubjectEntries =
+    selectedSubjectId === "all"
+      ? availableSubjectEntries
+      : availableSubjectEntries.filter(
+          ([subjectId]) => String(subjectId) === selectedSubjectId
+        );
+  const visibleMockNumbers =
+    selectedMockNumbers === null
+      ? assessmentNumbers
+      : selectedMockNumbers.filter((number) =>
+          assessmentNumbers.includes(number)
+        );
+  const visibleSubjectChartData = subjectChartData.filter((point) =>
+    visibleMockNumbers.includes(Number(point.assessmentNumber))
+  );
 
   const toggleStudent = (studentId: string) => {
     const selected = effectiveSelectedStudentIds;
@@ -169,6 +191,19 @@ export default function MockPerformanceCharts({
     } else if (selected.length < 6) {
       setSelectedStudentIds([...selected, studentId]);
     }
+  };
+
+  const toggleMock = (assessmentNumber: number) => {
+    if (selectedMockNumbers === null) {
+      setSelectedMockNumbers([assessmentNumber]);
+      return;
+    }
+
+    setSelectedMockNumbers(
+      selectedMockNumbers.includes(assessmentNumber)
+        ? selectedMockNumbers.filter((number) => number !== assessmentNumber)
+        : [...selectedMockNumbers, assessmentNumber].sort((a, b) => a - b)
+    );
   };
 
   return (
@@ -183,6 +218,8 @@ export default function MockPerformanceCharts({
               setClassId(event.target.value);
               setTermKey("");
               setSelectedStudentIds(null);
+              setSelectedSubjectId("all");
+              setSelectedMockNumbers(null);
             }}
             disabled={!availableClasses.length}
           >
@@ -201,6 +238,8 @@ export default function MockPerformanceCharts({
             onChange={(event) => {
               setTermKey(event.target.value);
               setSelectedStudentIds(null);
+              setSelectedSubjectId("all");
+              setSelectedMockNumbers(null);
             }}
             disabled={!availableTerms.length}
           >
@@ -366,81 +405,167 @@ export default function MockPerformanceCharts({
         </article>
 
         <article className="w-full min-w-0 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm sm:p-5">
-          <div className="mb-5">
-            <h3 className="text-sm font-semibold text-slate-900 sm:text-base">
-              Subject performance per mock
-            </h3>
-            <p className="mt-1 text-xs leading-5 text-slate-500 sm:text-sm">
-              Compare the class average for each subject across mock examinations.
-            </p>
+          <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-900 sm:text-base">
+                Subject performance per mock
+              </h3>
+              <p className="mt-1 text-xs leading-5 text-slate-500 sm:text-sm">
+                Select a subject and one or more mocks to compare class-average trends.
+              </p>
+            </div>
+            {subjectNames.size > 0 && (
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+                {visibleSubjectEntries.length} subject{visibleSubjectEntries.length === 1 ? "" : "s"}
+                {" · "}
+                {visibleMockNumbers.length} mock{visibleMockNumbers.length === 1 ? "" : "s"}
+              </span>
+            )}
           </div>
           {subjectChartData.length && subjectNames.size ? (
             <>
-              <div className="h-[280px] sm:h-[360px]">
-                <ResponsiveContainer width="100%" height="100%">
-                <LineChart
-                  data={subjectChartData}
-                  margin={{ top: 8, right: 8, bottom: 4, left: 4 }}
-                >
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    vertical={false}
-                    stroke="#eef2f7"
-                  />
-                  <XAxis
-                    dataKey="mockLabel"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: "#64748b", fontSize: 10 }}
-                    minTickGap={8}
-                  />
-                  <YAxis
-                    domain={[0, 100]}
-                    axisLine={false}
-                    tickLine={false}
-                    width={50}
-                    tick={{ fill: "#64748b", fontSize: 10 }}
-                    tickFormatter={(value: number) => `${value}%`}
-                  />
-                  <Tooltip
-                    contentStyle={tooltipStyle}
-                    formatter={(value) =>
-                      typeof value === "number"
-                        ? `${value.toFixed(1)}%`
-                        : value
-                    }
-                  />
-                  {Array.from(subjectNames, ([subjectId, name], index) => (
-                    <Line
-                      key={subjectId}
-                      type="monotone"
-                      dataKey={`subject-${subjectId}`}
-                      name={name}
-                      stroke={colors[index % colors.length]}
-                      strokeWidth={2}
-                      connectNulls={false}
-                      dot={{ r: 4 }}
-                      activeDot={{ r: 6 }}
-                    />
-                  ))}
-                </LineChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="mt-3 grid max-h-32 grid-cols-2 gap-x-3 gap-y-2 overflow-y-auto border-t border-slate-100 pt-3 sm:grid-cols-3">
-              {Array.from(subjectNames, ([subjectId, name], index) => (
-                <div
-                  key={subjectId}
-                  className="flex min-w-0 items-center gap-2 text-xs text-slate-600"
-                >
-                  <span
-                    aria-hidden="true"
-                    className="h-2.5 w-2.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: colors[index % colors.length] }}
-                  />
-                  <span className="truncate">{name}</span>
+              <div className="mb-4 grid gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3 md:grid-cols-[minmax(12rem,0.8fr)_minmax(0,1.8fr)]">
+                <label className="flex min-w-0 flex-col gap-1.5 text-xs font-semibold text-slate-500">
+                  Subject
+                  <select
+                    className={`${selectClass} w-full`}
+                    value={selectedSubjectId}
+                    onChange={(event) => setSelectedSubjectId(event.target.value)}
+                  >
+                    <option value="all">All subjects</option>
+                    {availableSubjectEntries.map(([subjectId, name]) => (
+                      <option key={subjectId} value={subjectId}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div role="group" aria-label="Mocks to compare" className="min-w-0">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold text-slate-500">
+                      Mocks to compare
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedMockNumbers(null)}
+                      className="text-xs font-semibold text-sky-700 transition hover:text-sky-900"
+                    >
+                      All mocks
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {assessmentNumbers.map((assessmentNumber) => {
+                      const isSelected =
+                        selectedMockNumbers === null ||
+                        selectedMockNumbers.includes(assessmentNumber);
+                      return (
+                        <button
+                          key={assessmentNumber}
+                          type="button"
+                          aria-pressed={isSelected}
+                          onClick={() => toggleMock(assessmentNumber)}
+                          className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+                            isSelected
+                              ? "border-sky-200 bg-white text-sky-800 shadow-sm"
+                              : "border-transparent bg-transparent text-slate-500 hover:border-slate-200 hover:bg-white"
+                          }`}
+                        >
+                          Mock {assessmentNumber}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              ))}
               </div>
+              {visibleMockNumbers.length > 0 && visibleSubjectEntries.length > 0 ? (
+                <>
+                  <div className="h-[280px] sm:h-[360px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart
+                        data={visibleSubjectChartData}
+                        margin={{ top: 8, right: 8, bottom: 4, left: 4 }}
+                      >
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          vertical={false}
+                          stroke="#eef2f7"
+                        />
+                        <XAxis
+                          dataKey="mockLabel"
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fill: "#64748b", fontSize: 10 }}
+                          minTickGap={8}
+                        />
+                        <YAxis
+                          domain={[0, 100]}
+                          axisLine={false}
+                          tickLine={false}
+                          width={50}
+                          tick={{ fill: "#64748b", fontSize: 10 }}
+                          tickFormatter={(value: number) => `${value}%`}
+                        />
+                        <Tooltip
+                          contentStyle={tooltipStyle}
+                          formatter={(value) =>
+                            typeof value === "number"
+                              ? `${value.toFixed(1)}%`
+                              : value
+                          }
+                        />
+                        {visibleSubjectEntries.map(([subjectId, name]) => {
+                          const colorIndex = availableSubjectEntries.findIndex(
+                            ([availableId]) => availableId === subjectId
+                          );
+                          return (
+                            <Line
+                              key={subjectId}
+                              type="monotone"
+                              dataKey={`subject-${subjectId}`}
+                              name={name}
+                              stroke={colors[colorIndex % colors.length]}
+                              strokeWidth={2}
+                              connectNulls={false}
+                              dot={{ r: 4 }}
+                              activeDot={{ r: 6 }}
+                            />
+                          );
+                        })}
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="mt-3 grid max-h-32 grid-cols-2 gap-x-3 gap-y-2 overflow-y-auto border-t border-slate-100 pt-3 sm:grid-cols-3">
+                    {visibleSubjectEntries.map(([subjectId, name]) => {
+                      const colorIndex = availableSubjectEntries.findIndex(
+                        ([availableId]) => availableId === subjectId
+                      );
+                      return (
+                        <div
+                          key={subjectId}
+                          className="flex min-w-0 items-center gap-2 text-xs text-slate-600"
+                        >
+                          <span
+                            aria-hidden="true"
+                            className="h-2.5 w-2.5 shrink-0 rounded-full"
+                            style={{
+                              backgroundColor: colors[colorIndex % colors.length],
+                            }}
+                          />
+                          <span className="truncate">{name}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : (
+                <EmptyChart
+                  message={
+                    visibleMockNumbers.length === 0
+                      ? "Select at least one mock to compare performance."
+                      : "No subject data is available for this selection."
+                  }
+                />
+              )}
             </>
           ) : (
             <EmptyChart message="Subject trends will appear when mock scores are entered." />
