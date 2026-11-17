@@ -4,6 +4,7 @@ import Image from "next/image";
 import {
   createMidTermReports,
   createMockReports,
+  deleteAssessmentReport,
   deleteMockReports,
   publishAssessmentReports,
   upsertAssessmentSubjectScore,
@@ -13,6 +14,7 @@ import type { AssessmentReportRow, ResultsPageContext } from "@/lib/resultsData"
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "react-toastify";
+import { useConfirmation } from "@/components/ConfirmationProvider";
 
 type AssessmentKind = "MID_TERM" | "MOCK";
 
@@ -21,13 +23,16 @@ function AssessmentReportCard({
   kind,
   school,
   canPublish,
+  canDelete,
 }: {
   report: AssessmentReportRow;
   kind: AssessmentKind;
   school: ResultsPageContext["schoolSettings"];
   canPublish: boolean;
+  canDelete: boolean;
 }) {
   const router = useRouter();
+  const { confirm: confirmAction } = useConfirmation();
   const [pending, startTransition] = useTransition();
   const [scores, setScores] = useState<Record<number, string>>(
     Object.fromEntries(report.subjectLines.map((line) => [line.subjectId, String(line.score)]))
@@ -65,9 +70,30 @@ function AssessmentReportCard({
     });
   };
 
+  const remove = async () => {
+    if (
+      !(await confirmAction({
+        title: "Delete student report?",
+        description: `${report.studentName}'s ${kind === "MID_TERM" ? "mid-term" : `Mock ${report.assessmentNumber}`} report will be permanently deleted.`,
+      }))
+    ) {
+      return;
+    }
+
+    startTransition(async () => {
+      const result = await deleteAssessmentReport({ reportId: report.id, type: kind });
+      if (result.success) {
+        toast.success("Assessment report deleted.");
+        router.refresh();
+      } else {
+        toast.error(result.error || "Could not delete assessment report.");
+      }
+    });
+  };
+
   return (
     <details className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-      <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 p-3 sm:p-4 [&::-webkit-details-marker]:hidden">
+      <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 p-2.5 sm:gap-3 sm:p-4 [&::-webkit-details-marker]:hidden">
         <div className="min-w-0">
           <h3 className="truncate text-sm font-semibold text-slate-900">{report.studentName}</h3>
           <p className="mt-1 text-xs text-slate-500">
@@ -75,33 +101,33 @@ function AssessmentReportCard({
             {kind === "MOCK" ? ` · Mock ${report.assessmentNumber}` : ""}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-start gap-x-2 gap-y-1 sm:justify-end sm:gap-3">
           {kind === "MOCK" && report.overallPercentage != null ? (
-            <span className="text-sm font-semibold text-slate-700">{report.overallPercentage.toFixed(1)}%</span>
+            <span className="text-xs font-semibold text-slate-700 sm:text-sm">{report.overallPercentage.toFixed(1)}%</span>
           ) : null}
-          <span className="text-sm font-semibold text-slate-700">Total {report.totalScore}</span>
-          <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${report.isPublished ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>
+          <span className="text-xs font-semibold text-slate-700 sm:text-sm">Total {report.totalScore}</span>
+          <span className={`rounded-full px-2 py-1 text-[10px] font-medium sm:px-2.5 sm:text-xs ${report.isPublished ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>
             {report.isPublished ? "Published" : "In progress"}
           </span>
           <span aria-hidden="true" className="text-slate-500">⌄</span>
         </div>
       </summary>
       <div className="border-t border-slate-200">
-      <header className="border-b border-slate-200 bg-slate-50 px-4 py-4 text-center">
+      <header className="border-b border-slate-200 bg-slate-50 px-3 py-3 text-center sm:px-4 sm:py-4">
         {school?.logoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={school.logoUrl} alt="School logo" className="mx-auto mb-2 h-12 w-12 rounded-lg object-contain" />
         ) : null}
-        <h3 className="text-lg font-bold text-slate-900">{school?.name ?? "School Name"}</h3>
+        <h3 className="text-base font-bold text-slate-900 sm:text-lg">{school?.name ?? "School Name"}</h3>
         {school?.address ? <p className="mt-1 text-xs text-slate-600">{school.address}</p> : null}
         {contact ? <p className="mt-1 text-xs text-slate-500">{contact}</p> : null}
-        <p className="mt-3 text-sm font-bold uppercase tracking-wide text-sky-800">
+        <p className="mt-2 text-xs font-bold uppercase tracking-wide text-sky-800 sm:mt-3 sm:text-sm">
           {kind === "MID_TERM" ? "Mid-Term Examination Results" : `Mock Examination ${report.assessmentNumber}`}
         </p>
       </header>
 
-      <div className="p-4">
-        <dl className="grid grid-cols-2 gap-x-3 gap-y-3 rounded-lg bg-slate-50 p-3 sm:grid-cols-4">
+      <div className="p-3 sm:p-4">
+        <dl className="grid grid-cols-2 gap-x-2 gap-y-2 rounded-lg bg-slate-50 p-2 sm:grid-cols-4 sm:gap-x-3 sm:gap-y-3 sm:p-3">
           <div><dt className="text-xs text-slate-500">Student</dt><dd className="mt-0.5 text-sm font-semibold text-slate-900">{report.studentName}</dd></div>
           <div><dt className="text-xs text-slate-500">Class</dt><dd className="mt-0.5 text-sm font-semibold text-slate-900">{report.className}</dd></div>
           <div><dt className="text-xs text-slate-500">Academic year</dt><dd className="mt-0.5 text-sm font-semibold text-slate-900">{report.academicYearLabel}</dd></div>
@@ -109,9 +135,9 @@ function AssessmentReportCard({
           {kind === "MOCK" ? <div><dt className="text-xs text-slate-500">Mock number</dt><dd className="mt-0.5 text-sm font-semibold text-slate-900">{report.assessmentNumber}</dd></div> : null}
         </dl>
 
-        <div className="mt-4 space-y-2 sm:hidden">
+        <div className="mt-3 space-y-2 sm:hidden">
           {report.subjectLines.map((line) => (
-            <div key={line.subjectId} className="rounded-lg border border-slate-200 p-3">
+            <div key={line.subjectId} className="rounded-lg border border-slate-200 p-2.5">
               <p className="font-medium text-slate-900">{line.subjectName}</p>
               <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
                 <label className="text-xs text-slate-500">
@@ -143,7 +169,7 @@ function AssessmentReportCard({
           ))}
         </div>
 
-        <div className="mt-4 hidden overflow-x-auto rounded-lg border border-slate-200 sm:block">
+        <div className="mt-3 hidden overflow-x-auto rounded-lg border border-slate-200 sm:block">
           <table className="w-full min-w-[440px] text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase text-slate-600">
               <tr>
@@ -178,7 +204,7 @@ function AssessmentReportCard({
           </table>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-4 sm:grid-cols-4">
           <div className="rounded-lg border border-slate-200 p-3">
             <p className="text-xs text-slate-500">Total score</p>
             <p className="mt-1 text-lg font-bold text-slate-900">{report.totalScore}</p>
@@ -202,7 +228,7 @@ function AssessmentReportCard({
         </div>
 
         {kind === "MOCK" ? (
-          <details className="mt-4 rounded-lg border border-slate-200 p-3">
+          <details className="mt-3 rounded-lg border border-slate-200 p-2.5 sm:mt-4 sm:p-3">
             <summary className="cursor-pointer text-sm font-semibold text-slate-800">Grading system reference</summary>
             <div className="mt-3 overflow-x-auto">
               <table className="w-full min-w-[300px] text-left text-xs">
@@ -219,13 +245,18 @@ function AssessmentReportCard({
           </details>
         ) : null}
 
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3 sm:mt-4">
           <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${report.isPublished ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>
             {report.isPublished ? "Published" : "In progress"}
           </span>
           {canPublish && !report.isPublished ? (
             <button type="button" disabled={pending} onClick={publish} className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
               Publish report
+            </button>
+          ) : null}
+          {canDelete ? (
+            <button type="button" disabled={pending} onClick={remove} className="rounded-lg border border-rose-200 px-4 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-50">
+              Delete student report
             </button>
           ) : null}
         </div>
@@ -243,6 +274,7 @@ export default function AssessmentResultsPanel({
   ctx: ResultsPageContext;
 }) {
   const router = useRouter();
+  const { confirm: confirmAction } = useConfirmation();
   const [pending, startTransition] = useTransition();
   const [selectedClassId, setSelectedClassId] = useState("");
   const [selectedMidTermClasses, setSelectedMidTermClasses] = useState<number[]>([]);
@@ -343,13 +375,14 @@ export default function AssessmentResultsPanel({
     });
   };
 
-  const deleteMockGroup = (reports: AssessmentReportRow[]) => {
+  const deleteMockGroup = async (reports: AssessmentReportRow[]) => {
     const report = reports[0];
     if (!report || kind !== "MOCK" || !isAdmin) return;
     if (
-      !window.confirm(
-        `Delete Mock ${report.assessmentNumber} for ${report.className}, ${report.academicYearLabel} Term ${report.termNumber}? This will permanently delete all ${reports.length} student report(s) in this group, including published reports.`
-      )
+      !(await confirmAction({
+        title: `Delete Mock ${report.assessmentNumber}?`,
+        description: `This will permanently delete all ${reports.length} student reports for ${report.className}, ${report.academicYearLabel}, Term ${report.termNumber}, including published reports.`,
+      }))
     ) {
       return;
     }
@@ -420,16 +453,16 @@ export default function AssessmentResultsPanel({
   const canPublish = isAdmin;
 
   return (
-    <section className="space-y-5">
+    <section className="space-y-3 sm:space-y-5">
       {isAdmin ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-          <h2 className="text-lg font-semibold text-slate-900">
+        <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-5">
+          <h2 className="text-base font-semibold text-slate-900 sm:text-lg">
             {kind === "MID_TERM" ? "Set up mid-term examinations" : "Create a mock examination"}
           </h2>
           <p className="mt-1 text-sm text-slate-500">
             Select the academic year and term. Teachers can enter subject scores after reports are created.
           </p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <div className="mt-3 grid gap-2.5 sm:mt-4 sm:grid-cols-3 sm:gap-3">
             <label className="text-sm font-medium text-slate-700">
               Academic year
               <select value={yearId} onChange={(event) => setYearId(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5">
@@ -459,9 +492,9 @@ export default function AssessmentResultsPanel({
           {kind === "MID_TERM" ? (
             <fieldset className="mt-4">
               <legend className="mb-2 text-sm font-medium text-slate-700">Classes taking part</legend>
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-2 sm:gap-2 lg:grid-cols-3">
                 {ctx.classes.map((cls) => (
-                  <label key={cls.id} className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-700">
+                  <label key={cls.id} className="flex items-center gap-2 rounded-lg border border-slate-200 px-2 py-2 text-xs text-slate-700 sm:px-3 sm:py-2.5 sm:text-sm">
                     <input
                       type="checkbox"
                       checked={selectedMidTermClasses.includes(cls.id)}
@@ -503,7 +536,7 @@ export default function AssessmentResultsPanel({
       </div>
       <div
         id="assessment-result-filters"
-        className={`${filtersOpen ? "grid" : "hidden"} gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-3 xl:grid`}
+        className={`${filtersOpen ? "grid" : "hidden"} gap-2.5 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:gap-3 sm:rounded-2xl sm:p-4 sm:grid-cols-3 xl:grid`}
       >
         <label className="text-sm font-medium text-slate-700">
           Class
@@ -531,7 +564,7 @@ export default function AssessmentResultsPanel({
       </div>
 
       {classGroups.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-12 text-center text-sm text-slate-500">
+        <div className="rounded-xl border border-dashed border-slate-300 bg-white px-3 py-8 text-center text-sm text-slate-500 sm:rounded-2xl sm:px-4 sm:py-12">
           {kind === "MID_TERM" ? "No mid-term reports are available for the selected filters." : "No mock results are available for the selected filters."}
         </div>
       ) : classGroups.map((classGroup) => {
@@ -540,7 +573,7 @@ export default function AssessmentResultsPanel({
           0
         );
         return (
-          <details key={classGroup.classId} className="group rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+          <details key={classGroup.classId} className="group rounded-xl border border-slate-200 bg-white p-2.5 shadow-sm sm:rounded-2xl sm:p-4">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
               <span>
                 <span className="block font-semibold text-slate-900">{classGroup.className}</span>
@@ -550,7 +583,7 @@ export default function AssessmentResultsPanel({
               </span>
               <span aria-hidden="true" className="shrink-0 text-slate-500 transition-transform group-open:rotate-180">⌄</span>
             </summary>
-            <div className="mt-4 space-y-4 border-t border-slate-100 pt-4">
+            <div className="mt-3 space-y-3 border-t border-slate-100 pt-3 sm:mt-4 sm:space-y-4 sm:pt-4">
               {classGroup.assessments.map((group) => {
                 const first = group[0];
                 if (!first) return null;
@@ -597,6 +630,7 @@ export default function AssessmentResultsPanel({
                         kind={kind}
                         school={ctx.schoolSettings}
                         canPublish={canPublish}
+                        canDelete={isAdmin}
                       />
                     ))}
                   </div>

@@ -16,6 +16,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "react-toastify";
+import { useConfirmation } from "@/components/ConfirmationProvider";
 import {
   createFeeSchedule,
   recordFeePayment,
@@ -260,6 +261,7 @@ export default function FeesManagement({
   previousTermArrears?: AssignmentOption[];
 }) {
   const router = useRouter();
+  const { confirm: confirmAction } = useConfirmation();
   const [pending, startTransition] = useTransition();
 
   const isViewer = role === "parent" || role === "student";
@@ -1197,8 +1199,14 @@ export default function FeesManagement({
                                     </button>
                                     <button
                                       type="button"
-                                      onClick={() => {
-                                        if (!confirm('Delete this payment?')) return;
+                                      onClick={async () => {
+                                        if (
+                                          !(await confirmAction({
+                                            title: "Delete payment?",
+                                            description:
+                                              "This payment record will be permanently deleted.",
+                                          }))
+                                        ) return;
                                         startTransition(() => {
                                           void (async () => {
                                             const res = await deleteFeePayment(p.id);

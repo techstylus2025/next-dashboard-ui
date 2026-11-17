@@ -2,7 +2,7 @@
 
 import { getCurrentAuthContext } from "@/lib/auth";
 import {
-  computeJhsOverallGrade,
+  computeJhsMockOverallGrade,
   lookupGradeFromScale,
 } from "@/lib/gradingUtils";
 import prisma from "@/lib/prisma";
@@ -248,15 +248,11 @@ export async function upsertAssessmentSubjectScore(input: {
       select: {
         id: true,
         classId: true,
-        isPublished: true,
         type: true,
         class: { select: { gradingLevel: true, supervisorId: true } },
       },
     });
     if (!report) return { success: false, error: "Assessment report not found." };
-    if (report.isPublished) {
-      return { success: false, error: "Published assessment reports cannot be edited." };
-    }
     const subjects = await getClassSubjects(report.classId);
     if (!subjects?.includes(input.subjectId)) {
       return { success: false, error: "Subject is not assigned to this class." };
@@ -319,15 +315,14 @@ export async function upsertAssessmentSubjectScore(input: {
         );
     const overallGrade =
       report.type === "MOCK" && report.class.gradingLevel === "JHS"
-        ? computeJhsOverallGrade(
+        ? computeJhsMockOverallGrade(
             completed.map((line) => ({
-              grade: lookupGradeFromScale(
-                report.class.gradingLevel,
-                line.score,
-                scale
-              ).grade,
+              score: line.score,
+              grade: null,
+              hasScore: line.lastEditedById !== null,
               isCore: line.subject.isCore,
-            }))
+            })),
+            scale
           )
         : grade?.grade === "—"
           ? null
@@ -343,6 +338,7 @@ export async function upsertAssessmentSubjectScore(input: {
       },
     });
     revalidatePath(RESULTS_PATH);
+    revalidatePath("/parent");
     return { success: true, error: null };
   } catch (error) {
     console.error("Failed to save assessment score:", error);
@@ -385,10 +381,39 @@ export async function publishAssessmentReports(input: {
     });
     if (!result.count) return { success: false, error: "No assessment reports were found." };
     revalidatePath(RESULTS_PATH);
+    revalidatePath("/parent");
     return { success: true, error: null, updated: result.count };
   } catch (error) {
     console.error("Failed to publish assessment reports:", error);
     return { success: false, error: "Could not publish assessment reports." };
+  }
+}
+
+export async function deleteAssessmentReport(input: {
+  reportId: number;
+  type: AssessmentType;
+}): Promise<{ success: boolean; error: string | null }> {
+  const auth = await getAssessmentAuth();
+  if (!auth) return { success: false, error: "Not signed in." };
+  if (!auth.isAdmin) return { success: false, error: "Only administrators can delete assessment reports." };
+  if (!Number.isInteger(input.reportId) || input.reportId <= 0) {
+    return { success: false, error: "Select a valid assessment report." };
+  }
+  if (input.type !== "MID_TERM" && input.type !== "MOCK") {
+    return { success: false, error: "Select a valid assessment type." };
+  }
+
+  try {
+    const result = await db.assessmentReport.deleteMany({
+      where: { id: input.reportId, type: input.type },
+    });
+    if (!result.count) return { success: false, error: "Assessment report not found." };
+    revalidatePath(RESULTS_PATH);
+    revalidatePath("/parent");
+    return { success: true, error: null };
+  } catch (error) {
+    console.error("Failed to delete assessment report:", error);
+    return { success: false, error: "Could not delete assessment report." };
   }
 }
 
@@ -426,6 +451,7 @@ export async function deleteMockReports(input: {
     });
     if (!result.count) return { success: false, error: "No mock reports were found." };
     revalidatePath(RESULTS_PATH);
+    revalidatePath("/parent");
     return { success: true, error: null, deleted: result.count };
   } catch (error) {
     console.error("Failed to delete mock reports:", error);

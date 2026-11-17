@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  computeJhsMockOverallGrade,
   computeJhsOverallGrade,
   lookupGradeFromScale,
 } from "./gradingUtils";
@@ -45,5 +46,26 @@ describe("lookupGradeFromScale", () => {
         },
       ])
     ).toEqual({ grade: "1", remark: "Excellent" });
+  });
+});
+
+describe("computeJhsMockOverallGrade", () => {
+  it("calculates the aggregate from completed subject scores and ignores unscored subjects", () => {
+    expect(
+      computeJhsMockOverallGrade(
+        [
+          { score: 85, grade: null, hasScore: true, isCore: true },
+          { score: 70, grade: null, hasScore: true, isCore: true },
+          { score: 45, grade: null, hasScore: true, isCore: false },
+          { score: 90, grade: null, hasScore: true, isCore: false },
+          { score: 10, grade: null, hasScore: false, isCore: true },
+        ],
+        [
+          { level: "JHS", minScore: 0, maxScore: 49, grade: "3", remark: "" },
+          { level: "JHS", minScore: 50, maxScore: 79, grade: "2", remark: "" },
+          { level: "JHS", minScore: 80, maxScore: 100, grade: "1", remark: "" },
+        ]
+      )
+    ).toBe("7");
   });
 });

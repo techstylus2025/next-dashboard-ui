@@ -11,7 +11,14 @@ import type { ResultsPageContext, TermlyReportRow } from "@/lib/resultsData";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "react-toastify";
-import { ClipboardList, GraduationCap, Layers3 } from "lucide-react";
+import {
+  ChevronDown,
+  ClipboardCheck,
+  ClipboardList,
+  FileText,
+  GraduationCap,
+  Layers3,
+} from "lucide-react";
 import ReportEditorCard from "./ReportEditorCard";
 import ReportPreviewModal from "./ReportPreviewModal";
 import ResultsFiltersModal from "./ResultsFiltersModal";
@@ -30,12 +37,27 @@ type SortKey =
   | "percentage";
 
 const RESULTS_TABS = [
-  ["termly", "Termly Report"],
-  ["mid-term", "Mid-Term Exams"],
-  ["mock", "Mock Results"],
+  {
+    value: "termly",
+    label: "Termly reports",
+    description: "End-of-term performance and publication",
+    Icon: FileText,
+  },
+  {
+    value: "mid-term",
+    label: "Mid-term exams",
+    description: "Subject scores and exam reports",
+    Icon: ClipboardCheck,
+  },
+  {
+    value: "mock",
+    label: "Mock results",
+    description: "Mock assessments and grading",
+    Icon: GraduationCap,
+  },
 ] as const;
 
-type ResultsTab = (typeof RESULTS_TABS)[number][0];
+type ResultsTab = (typeof RESULTS_TABS)[number]["value"];
 
 function TermSelect({
   yearId,
@@ -495,18 +517,18 @@ export default function ResultsManagement(ctx: ResultsPageContext) {
   const reportClassCount = new Set(ctx.reports.map((report) => report.classId)).size;
 
   return (
-    <div className="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 p-3 sm:p-5 lg:p-6">
-      <section className="relative isolate overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 px-6 py-8 text-white shadow-xl shadow-slate-900/10 sm:px-8 sm:py-10">
+    <div className="mx-auto flex w-full max-w-screen-2xl flex-col gap-3 p-1 sm:gap-6 sm:p-5 lg:p-6">
+      <section className="relative isolate overflow-hidden rounded-2xl bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 px-4 py-4 text-white shadow-xl shadow-slate-900/10 sm:rounded-3xl sm:px-8 sm:py-10">
         <div className="absolute -right-12 -top-16 -z-10 h-64 w-64 rounded-full bg-sky-400/20 blur-3xl" />
         <div className="absolute -bottom-24 right-1/3 -z-10 h-48 w-48 rounded-full bg-indigo-400/20 blur-3xl" />
-        <div className="flex flex-col justify-between gap-7 lg:flex-row lg:items-end">
+        <div className="flex flex-col justify-between gap-4 sm:gap-7 lg:flex-row lg:items-end">
           <div className="max-w-2xl">
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-sky-100">
-              <ClipboardList className="h-4 w-4" aria-hidden="true" />
+            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-sky-100 sm:mb-3 sm:px-3 sm:py-1.5 sm:text-xs">
+              <ClipboardList className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden="true" />
               Academic performance
             </div>
-            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Results &amp; reports</h1>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-slate-300 sm:text-base">
+            <h1 className="text-2xl font-bold tracking-tight sm:text-4xl">Results &amp; reports</h1>
+            <p className="mt-2 max-w-xl text-xs leading-5 text-slate-300 sm:mt-3 sm:text-base sm:leading-6">
               {ctx.isAdmin
                 ? "Generate, review, and publish term reports with clear oversight of student and class progress."
                 : ctx.canRecordScores
@@ -514,146 +536,123 @@ export default function ResultsManagement(ctx: ResultsPageContext) {
                   : "View term reports and track academic progress for your student."}
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-3 sm:min-w-[390px] sm:grid-cols-3">
-            <div className="rounded-2xl border border-white/10 bg-white/[0.08] p-4 backdrop-blur">
-              <ClipboardList className="mb-3 h-5 w-5 text-sky-300" aria-hidden="true" />
-              <p className="text-2xl font-bold">{ctx.reports.length}</p>
-              <p className="mt-1 text-xs text-slate-300">Reports available</p>
+          <div className="grid grid-cols-3 gap-2 sm:min-w-[390px] sm:gap-3">
+            <div className="rounded-xl border border-white/10 bg-white/[0.08] p-2.5 backdrop-blur sm:rounded-2xl sm:p-4">
+              <ClipboardList className="mb-1.5 h-4 w-4 text-sky-300 sm:mb-3 sm:h-5 sm:w-5" aria-hidden="true" />
+              <p className="text-lg font-bold sm:text-2xl">{ctx.reports.length}</p>
+              <p className="mt-0.5 text-[11px] leading-4 text-slate-300 sm:mt-1 sm:text-xs">Reports available</p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/[0.08] p-4 backdrop-blur">
-              <GraduationCap className="mb-3 h-5 w-5 text-emerald-300" aria-hidden="true" />
-              <p className="text-2xl font-bold">{publishedReportCount}</p>
-              <p className="mt-1 text-xs text-slate-300">Published reports</p>
+            <div className="rounded-xl border border-white/10 bg-white/[0.08] p-2.5 backdrop-blur sm:rounded-2xl sm:p-4">
+              <GraduationCap className="mb-1.5 h-4 w-4 text-emerald-300 sm:mb-3 sm:h-5 sm:w-5" aria-hidden="true" />
+              <p className="text-lg font-bold sm:text-2xl">{publishedReportCount}</p>
+              <p className="mt-0.5 text-[11px] leading-4 text-slate-300 sm:mt-1 sm:text-xs">Published reports</p>
             </div>
-            <div className="col-span-2 rounded-2xl border border-white/10 bg-white/[0.08] p-4 backdrop-blur sm:col-span-1">
-              <Layers3 className="mb-3 h-5 w-5 text-violet-300" aria-hidden="true" />
-              <p className="text-2xl font-bold">{reportClassCount}</p>
-              <p className="mt-1 text-xs text-slate-300">Classes represented</p>
+            <div className="rounded-xl border border-white/10 bg-white/[0.08] p-2.5 backdrop-blur sm:rounded-2xl sm:p-4">
+              <Layers3 className="mb-1.5 h-4 w-4 text-violet-300 sm:mb-3 sm:h-5 sm:w-5" aria-hidden="true" />
+              <p className="text-lg font-bold sm:text-2xl">{reportClassCount}</p>
+              <p className="mt-0.5 text-[11px] leading-4 text-slate-300 sm:mt-1 sm:text-xs">Classes</p>
             </div>
           </div>
         </div>
         {activeYearLabel ? (
-          <div className="mt-6 inline-flex items-center rounded-full border border-white/15 bg-white/[0.08] px-3 py-1.5 text-xs font-medium text-slate-200">
+          <div className="mt-3 inline-flex items-center rounded-full border border-white/15 bg-white/[0.08] px-3 py-1 text-[10px] font-medium text-slate-200 sm:mt-6 sm:py-1.5 sm:text-xs">
             Academic year <span className="mx-2 text-slate-500">·</span>{activeYearLabel}
           </div>
         ) : null}
       </section>
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        {ctx.isAdmin && tab === "reports" ? (
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setViewMode("reports")}
-              className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${
-                viewMode === "reports"
-                  ? "bg-sky-100 text-sky-700 shadow-sm"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
-            >
-              Student progress
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("class-progress")}
-              className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${
-                viewMode === "class-progress"
-                  ? "bg-sky-100 text-sky-700 shadow-sm"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
-            >
-              Class progress
-            </button>
-          </div>
-        ) : <div />}
-      </div>
-
-      {/* Tabs */}
-      <div>
-        <div className="rounded-xl border border-slate-200 bg-white p-2 shadow-sm sm:hidden">
-          <label htmlFor="results-type-select" className="sr-only">
-            Results type
-          </label>
-          <select
-            id="results-type-select"
-            value={resultsTab}
-            onChange={(event) => setResultsTab(event.target.value as ResultsTab)}
-            className="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-900 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-sky-500"
-          >
-            {RESULTS_TABS.map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div
-          className="hidden grid-cols-3 gap-2 rounded-xl border border-slate-200 bg-white p-2 shadow-sm sm:grid"
-          role="tablist"
-          aria-label="Results type"
-        >
-          {RESULTS_TABS.map(([value, label]) => (
+      <nav
+        aria-label="Results sections"
+        className="grid grid-cols-3 gap-1.5 rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm sm:gap-3 sm:rounded-2xl sm:p-3"
+      >
+        {RESULTS_TABS.map(({ value, label, description, Icon }) => {
+          const isSelected = resultsTab === value;
+          return (
             <button
               key={value}
               type="button"
-              role="tab"
-              aria-selected={resultsTab === value}
+              aria-pressed={isSelected}
               onClick={() => setResultsTab(value)}
-              className={`min-h-11 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors ${
-                resultsTab === value
-                  ? "bg-sky-700 text-white shadow-sm"
-                  : "text-slate-700 hover:bg-slate-100"
+              className={`flex min-h-[68px] flex-col items-center justify-center gap-1 rounded-lg border px-1 py-2 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600 focus-visible:ring-offset-2 sm:min-h-[76px] sm:flex-row sm:justify-start sm:gap-3 sm:rounded-xl sm:p-3 sm:text-left ${
+                isSelected
+                  ? "border-sky-700 bg-sky-50 text-sky-900"
+                  : "border-transparent text-slate-700 hover:border-slate-200 hover:bg-slate-50"
               }`}
             >
-              {label}
+              <span
+                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg sm:h-10 sm:w-10 ${
+                  isSelected ? "bg-sky-700 text-white" : "bg-slate-100 text-slate-600"
+                }`}
+              >
+                <Icon className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-xs font-semibold leading-tight sm:text-sm">{label}</span>
+                <span className="mt-1 hidden text-xs leading-4 text-slate-500 sm:block">
+                  {description}
+                </span>
+              </span>
             </button>
-          ))}
-        </div>
-      </div>
+          );
+        })}
+      </nav>
 
       {resultsTab === "termly" && (ctx.canManageReports || ctx.canRecordScores) && (
-        <div className="flex gap-1 overflow-x-auto border-b-2 border-slate-200">
+        <nav
+          aria-label="Termly report actions"
+          className="flex w-full max-w-full gap-1 overflow-x-auto rounded-lg border border-slate-200 bg-white p-1 shadow-sm sm:w-fit sm:rounded-xl sm:p-1.5"
+        >
           {ctx.canManageReports && (
             <button
               type="button"
               onClick={() => setTab("generate")}
-              className={`px-4 py-3 text-sm font-semibold border-b-2 transition-all ${
+              aria-pressed={tab === "generate"}
+              className={`flex-1 rounded-md px-2 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600 focus-visible:ring-offset-2 sm:flex-none sm:rounded-lg sm:px-4 sm:py-2.5 sm:text-sm ${
                 tab === "generate"
-                  ? "border-sky-600 text-sky-700"
-                  : "border-transparent text-slate-600 hover:text-slate-900"
+                  ? "bg-sky-700 text-white shadow-sm"
+                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
               }`}
             >
-              Generate
+              Generate reports
             </button>
           )}
           <button
             type="button"
             onClick={() => setTab("reports")}
-            className={`px-4 py-3 text-sm font-semibold border-b-2 transition-all ${
+            aria-pressed={tab === "reports"}
+            className={`flex-1 rounded-md px-2 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600 focus-visible:ring-offset-2 sm:flex-none sm:rounded-lg sm:px-4 sm:py-2.5 sm:text-sm ${
               tab === "reports"
-                ? "border-sky-600 text-sky-700"
-                : "border-transparent text-slate-600 hover:text-slate-900"
+                ? "bg-sky-700 text-white shadow-sm"
+                : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
             }`}
           >
-            Reports
+            View reports
           </button>
-        </div>
+        </nav>
       )}
 
       {resultsTab === "termly" && (ctx.isAdmin || ctx.isSupervisor) && (
-        <ReportSignatureManager
-          isAdmin={ctx.isAdmin}
-          supervisedClasses={ctx.supervisedClasses}
-          headteacherSignature={ctx.schoolSettings?.headteacherSignature ?? null}
-        />
-      )}
-
-      {resultsTab === "termly" && ctx.isAdmin && (
-        <ClassScoreLimits classes={ctx.classes} />
+        <details className="group rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+            <span>
+              <span className="block text-sm font-semibold text-slate-900">Report settings</span>
+              <span className="mt-0.5 block text-xs text-slate-500">Signatures and score limits</span>
+            </span>
+            <ChevronDown className="h-4 w-4 shrink-0 text-slate-500 transition-transform group-open:rotate-180" aria-hidden="true" />
+          </summary>
+          <div className="mt-3 space-y-3 border-t border-slate-100 pt-3">
+            <ReportSignatureManager
+              isAdmin={ctx.isAdmin}
+              supervisedClasses={ctx.supervisedClasses}
+              headteacherSignature={ctx.schoolSettings?.headteacherSignature ?? null}
+            />
+            {ctx.isAdmin && <ClassScoreLimits classes={ctx.classes} />}
+          </div>
+        </details>
       )}
 
       {resultsTab === "termly" && tab === "generate" && ctx.canManageReports && (
-        <section className="rounded-2xl border border-white/60 bg-white/95 p-4 sm:p-5 shadow-sm ring-1 ring-slate-200/80 space-y-6">
+        <section className="space-y-4 rounded-2xl border border-white/60 bg-white/95 p-3 shadow-sm ring-1 ring-slate-200/80 sm:space-y-6 sm:p-5">
           <div>
             <h2 className="text-base sm:text-lg font-semibold text-slate-900">
               Generate termly reports
@@ -794,7 +793,7 @@ export default function ResultsManagement(ctx: ResultsPageContext) {
           )}
 
           {ctx.isSupervisor && !ctx.isAdmin && (
-            <div className="rounded-xl border border-sky-100 bg-sky-50/50 p-4 space-y-3">
+            <div className="space-y-3 rounded-xl border border-sky-100 bg-sky-50/50 p-3 sm:p-4">
               <h3 className="text-sm font-semibold text-sky-900">
                 Class supervisor
               </h3>
@@ -828,11 +827,48 @@ export default function ResultsManagement(ctx: ResultsPageContext) {
       {resultsTab === "termly" && (tab === "reports" || !ctx.canManageReports) && (
         <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
           {/* Filter section */}
-          <div className="mb-6">
+          <div className="mb-4 sm:mb-6">
             <div className="mb-3 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-              <h3 className="text-sm font-semibold text-slate-900">
-                Filters & search
-              </h3>
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900">
+                  Find reports
+                </h3>
+                <p className="mt-1 text-xs text-slate-500">
+                  Search and narrow results by class, year, or term.
+                </p>
+              </div>
+              {ctx.isAdmin && tab === "reports" ? (
+                <div
+                  role="group"
+                  aria-label="Report progress view"
+                  className="inline-flex w-fit max-w-full rounded-lg bg-slate-100 p-1"
+                >
+                  <button
+                    type="button"
+                    aria-pressed={viewMode === "reports"}
+                    onClick={() => setViewMode("reports")}
+                    className={`rounded-md px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600 ${
+                      viewMode === "reports"
+                        ? "bg-white text-slate-900 shadow-sm"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    Student progress
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={viewMode === "class-progress"}
+                    onClick={() => setViewMode("class-progress")}
+                    className={`rounded-md px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600 ${
+                      viewMode === "class-progress"
+                        ? "bg-white text-slate-900 shadow-sm"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    Class progress
+                  </button>
+                </div>
+              ) : null}
               <ResultsFiltersModal
                 search={search}
                 filterClass={filterClass}
@@ -968,7 +1004,69 @@ export default function ResultsManagement(ctx: ResultsPageContext) {
                   <p className="text-sm text-slate-500">No classes match the current filters.</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
+                <>
+                <div className="space-y-2.5 lg:hidden">
+                  {paginatedClassProgress.map((item) => (
+                    <article
+                      key={item.classId}
+                      className="rounded-xl border border-slate-200 bg-white p-3"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <h4 className="truncate text-sm font-semibold text-slate-900">
+                            {item.className}
+                          </h4>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {item.generated} of {item.totalStudents} reports generated
+                          </p>
+                        </div>
+                        <span className="shrink-0 rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-800">
+                          {item.completion}%
+                        </span>
+                      </div>
+                      <div
+                        role="progressbar"
+                        aria-label={`${item.className} report completion`}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-valuenow={item.completion}
+                        className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100"
+                      >
+                        <div
+                          className="h-full rounded-full bg-sky-700"
+                          style={{ width: `${item.completion}%` }}
+                        />
+                      </div>
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          disabled={pending || !filterYear || !filterTerm || item.generated === 0}
+                          onClick={() => handleClassPublication(item.classId, "publish")}
+                          className="rounded-lg bg-emerald-700 px-2 py-2 text-xs font-semibold text-white disabled:opacity-40"
+                        >
+                          Publish class
+                        </button>
+                        <button
+                          type="button"
+                          disabled={pending || !filterYear || !filterTerm || item.generated === 0}
+                          onClick={() => handleClassPublication(item.classId, "withhold")}
+                          className="rounded-lg border border-rose-200 px-2 py-2 text-xs font-medium text-rose-700 disabled:opacity-40"
+                        >
+                          Withhold
+                        </button>
+                        <button
+                          type="button"
+                          disabled={pending || !filterYear || !filterTerm || item.generated === 0}
+                          onClick={() => handleClassPublication(item.classId, "restore")}
+                          className="col-span-2 rounded-lg border border-slate-300 px-2 py-2 text-xs font-medium text-slate-700 disabled:opacity-40"
+                        >
+                          Restore parent access
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+                <div className="hidden overflow-x-auto lg:block">
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-slate-200 bg-slate-50">
@@ -1049,8 +1147,9 @@ export default function ResultsManagement(ctx: ResultsPageContext) {
                     </tbody>
                   </table>
                 </div>
+                </>
               )}
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-xs text-slate-500 border-t border-slate-200 pt-4">
+              <div className="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-3 text-xs text-slate-500 sm:mt-6 sm:flex-row sm:items-center sm:justify-between sm:pt-4">
                 <div className="font-medium">
                   Showing {paginatedClassProgress.length} of {sortedClassProgress.length} classes
                 </div>
@@ -1152,7 +1251,7 @@ export default function ResultsManagement(ctx: ResultsPageContext) {
             </div>
           )}
           {!(ctx.isAdmin && viewMode === "class-progress") && !shouldGroupRecords && filteredReports.length > 0 && (
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-xs text-slate-500 border-t border-slate-200 pt-4">
+            <div className="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-3 text-xs text-slate-500 sm:mt-6 sm:flex-row sm:items-center sm:justify-between sm:pt-4">
               <div className="font-medium">
                 Showing {paginatedReports.length} of {filteredReports.length} reports
               </div>

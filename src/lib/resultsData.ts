@@ -3,6 +3,7 @@ import { Prisma, PrismaClient } from "@prisma/client";
 import { getCachedResultsData, cacheResultsData } from "@/lib/offlineSync";
 import { shouldUseOfflineCache } from "@/lib/offlineStatus";
 import {
+  computeJhsMockOverallGrade,
   computeJhsOverallGrade,
   computeSubjectPercentage,
   lookupGradeFromScale,
@@ -482,7 +483,6 @@ export async function loadResultsPageData(
         remark: line.remark ?? (hasScore ? gradeLookup.remark : null),
         isCore: line.subject.isCore,
         canEdit:
-          !report.isPublished &&
           (isAdmin ||
             (role === "teacher" &&
               ctxForEdit.taughtKeys.has(`${report.classId}:${line.subjectId}`))),
@@ -490,7 +490,15 @@ export async function loadResultsPageData(
     });
     const overallGrade =
       report.type === "MOCK" && report.class.gradingLevel === "JHS"
-        ? computeJhsOverallGrade(subjectLines)
+        ? computeJhsMockOverallGrade(
+            allSubjectLines.map((line) => ({
+              score: line.score,
+              grade: line.grade,
+              hasScore: line.lastEditedById !== null,
+              isCore: line.subject.isCore,
+            })),
+            scale
+          )
         : report.overallGrade;
 
     return {
@@ -676,8 +684,7 @@ export async function loadResultsPageData(
           remark: line.remark,
           canEdit:
             ctxForEdit.isAdmin ||
-            (!r.isPublished &&
-              ctxForEdit.taughtKeys.has(`${r.classId}:${line.subjectId}`)),
+            ctxForEdit.taughtKeys.has(`${r.classId}:${line.subjectId}`),
         })),
       schoolSettings: schoolSettings
         ? {

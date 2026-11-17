@@ -30,6 +30,10 @@ npm run db:migrate:deploy
 
 Run this as a serialized release step, not concurrently with another migration deployment. Configure `DATABASE_URL` in the deployment environment and use the appropriate production credentials when running the migration. This keeps database migration locking separate from Vercel's parallel or retried build jobs.
 
+## Desktop and Android apps
+
+Native wrappers for the hosted app are in [`desktop`](./desktop/README.md) (Windows installer) and [`android`](./android/README.md) (Android APK). Both connect to the hosted Next.js app; they do not bundle the server or database.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

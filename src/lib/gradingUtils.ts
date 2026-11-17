@@ -56,6 +56,30 @@ export function computeJhsOverallGrade(
     : null;
 }
 
+export function computeJhsMockOverallGrade(
+  subjectLines: {
+    score: number;
+    grade: string | null;
+    hasScore: boolean;
+    isCore: boolean;
+  }[],
+  entries: Pick<
+    GradingScaleEntry,
+    "level" | "minScore" | "maxScore" | "grade" | "remark"
+  >[]
+): string | null {
+  return computeJhsOverallGrade(
+    subjectLines.map((line) => ({
+      grade:
+        line.grade ??
+        (line.hasScore
+          ? lookupGradeFromScale("JHS", line.score, entries).grade
+          : null),
+      isCore: line.isCore,
+    }))
+  );
+}
+
 export const GRADING_LEVEL_LABELS: Record<GradingLevel, string> = {
   CRECHE: "Creche",
   NURSERY: "Nursery",

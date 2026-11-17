@@ -2,6 +2,7 @@ import Announcements from "@/components/Announcements";
 import EventCalendar from "@/components/EventCalendar";
 import ParentChildSelector from "@/components/ParentChildSelector";
 import { getCurrentAuthContext } from "@/lib/auth";
+import { computeJhsMockOverallGrade } from "@/lib/gradingUtils";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { CalendarDays, ClipboardCheck, FileText, MessageSquare, School, Users } from "lucide-react";
@@ -41,7 +42,12 @@ const ParentPage = async () => {
 
   const students = parent.students ?? [];
   const studentIds = students.map((student) => student.id);
-  const [publishedReports, recentAttendance] = await Promise.all([
+  const [
+    publishedReports,
+    publishedMidTermResults,
+    publishedMockResults,
+    recentAttendance,
+  ] = await Promise.all([
     studentIds.length
       ? prisma.termlyReport.findMany({
           where: {
@@ -57,6 +63,58 @@ const ParentPage = async () => {
             publishedAt: true,
             academicYear: { select: { label: true } },
             student: { select: { id: true, name: true, surname: true } },
+          },
+          orderBy: [{ publishedAt: "desc" }, { updatedAt: "desc" }],
+          take: 5,
+        })
+      : Promise.resolve([]),
+    studentIds.length
+      ? prisma.assessmentReport.findMany({
+          where: {
+            studentId: { in: studentIds },
+            type: "MID_TERM",
+            isPublished: true,
+            isWithheld: false,
+          },
+          select: {
+            id: true,
+            overallPercentage: true,
+            overallGrade: true,
+            termNumber: true,
+            publishedAt: true,
+            academicYear: { select: { label: true } },
+            student: { select: { id: true, name: true, surname: true } },
+          },
+          orderBy: [{ publishedAt: "desc" }, { updatedAt: "desc" }],
+          take: 5,
+        })
+      : Promise.resolve([]),
+    studentIds.length
+      ? prisma.assessmentReport.findMany({
+          where: {
+            studentId: { in: studentIds },
+            type: "MOCK",
+            isPublished: true,
+            isWithheld: false,
+          },
+          select: {
+            id: true,
+            assessmentNumber: true,
+            overallPercentage: true,
+            overallGrade: true,
+            termNumber: true,
+            publishedAt: true,
+            academicYear: { select: { label: true } },
+            student: { select: { id: true, name: true, surname: true } },
+            class: { select: { gradingLevel: true } },
+            subjectLines: {
+              select: {
+                score: true,
+                grade: true,
+                lastEditedById: true,
+                subject: { select: { isCore: true } },
+              },
+            },
           },
           orderBy: [{ publishedAt: "desc" }, { updatedAt: "desc" }],
           take: 5,
@@ -81,6 +139,68 @@ const ParentPage = async () => {
         })
       : Promise.resolve([]),
   ]);
+  const mockGradingScale = publishedMockResults.some(
+    (report) => report.class.gradingLevel === "JHS"
+  )
+    ? await prisma.gradingScaleEntry.findMany({
+        where: { level: "JHS" },
+        orderBy: { minScore: "asc" },
+        select: {
+          level: true,
+          minScore: true,
+          maxScore: true,
+          grade: true,
+          remark: true,
+        },
+      })
+    : [];
+  const publishedResults = [
+    ...publishedReports.map((report) => ({
+      id: `termly-${report.id}`,
+      label: "Termly report",
+      student: report.student,
+      academicYear: report.academicYear.label,
+      termNumber: report.termNumber,
+      overallPercentage: report.overallPercentage,
+      overallGrade: report.overallGrade,
+      publishedAt: report.publishedAt,
+    })),
+    ...publishedMidTermResults.map((report) => ({
+      id: `mid-term-${report.id}`,
+      label: "Mid-term exam",
+      student: report.student,
+      academicYear: report.academicYear.label,
+      termNumber: report.termNumber,
+      overallPercentage: report.overallPercentage,
+      overallGrade: report.overallGrade,
+      publishedAt: report.publishedAt,
+    })),
+    ...publishedMockResults.map((report) => ({
+      id: `mock-${report.id}`,
+      label: `Mock ${report.assessmentNumber}`,
+      student: report.student,
+      academicYear: report.academicYear.label,
+      termNumber: report.termNumber,
+      overallPercentage: report.overallPercentage,
+      overallGrade:
+        report.class.gradingLevel === "JHS"
+          ? computeJhsMockOverallGrade(
+              report.subjectLines.map((line) => ({
+                score: line.score,
+                grade: line.grade,
+                hasScore: line.lastEditedById !== null,
+                isCore: line.subject.isCore,
+              })),
+              mockGradingScale
+            )
+          : report.overallGrade,
+      publishedAt: report.publishedAt,
+    })),
+  ].sort(
+    (first, second) =>
+      (second.publishedAt?.getTime() ?? 0) -
+      (first.publishedAt?.getTime() ?? 0)
+  );
   const currentDate = new Date().toLocaleDateString("en-US", {
     weekday: "long",
     month: "long",
@@ -153,16 +273,19 @@ const ParentPage = async () => {
             </div>
             <Link href="/list/results" className="shrink-0 text-sm font-medium text-emerald-800 hover:text-emerald-950">View reports</Link>
           </div>
-          {publishedReports.length ? (
+          {publishedResults.length ? (
             <ul className="divide-y divide-slate-100">
-              {publishedReports.map((report) => (
+              {publishedResults.map((report) => (
                 <li key={report.id} className="flex items-center gap-3 py-3 first:pt-1 last:pb-1">
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-700">
                     <FileText size={17} aria-hidden="true" />
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-slate-900">{report.student.name} {report.student.surname}</p>
-                    <p className="mt-0.5 text-xs text-slate-500">{report.academicYear.label} · Term {report.termNumber}</p>
+                    <p className="mt-0.5 text-xs text-slate-500">{report.academicYear} · Term {report.termNumber}</p>
+                    <span className="mt-1 inline-flex rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-800">
+                      {report.label}
+                    </span>
                   </div>
                   <span className="shrink-0 text-right text-sm font-semibold text-slate-800">
                     {report.overallPercentage === null ? report.overallGrade ?? "Report ready" : `${report.overallPercentage.toFixed(1)}%`}

@@ -2,6 +2,7 @@ import { loadAnalyticsData } from '@/lib/analytics';
 import ChartsSummary from '@/components/analytics/ChartsSummary';
 import MockPerformanceCharts from '@/components/analytics/MockPerformanceCharts';
 import AnalyticsTabs from '@/components/analytics/AnalyticsTabs';
+import AttendanceRateCard from '@/components/analytics/AttendanceRateCard';
 import { ChartColumn, BookOpen, School, Users } from 'lucide-react';
 
 export default async function AnalyticsPage() {
@@ -16,7 +17,7 @@ export default async function AnalyticsPage() {
   );
   const studentAttendanceRate = totalStudents
     ? Math.round((presentStudents / totalStudents) * 100)
-    : 0;
+    : null;
   const activeTermSubjectStats = data.subjectPerformanceSummary.filter(
     (subject) => subject.termKey === data.activePerformanceTermKey
   );
@@ -35,7 +36,7 @@ export default async function AnalyticsPage() {
   ).length;
   const teacherAttendanceRate = data.teachersAttendanceSummary.length
     ? Math.round((presentTeachers / data.teachersAttendanceSummary.length) * 100)
-    : 0;
+    : null;
   const metrics = [
     {
       label: 'Enrolled students',
@@ -53,8 +54,10 @@ export default async function AnalyticsPage() {
     },
     {
       label: 'Student attendance',
-      value: `${studentAttendanceRate}%`,
-      detail: `${presentStudents.toLocaleString()} present today`,
+      value: studentAttendanceRate === null ? '—' : `${studentAttendanceRate}%`,
+      detail: totalStudents
+        ? `${presentStudents.toLocaleString()} present today`
+        : 'No attendance data available',
       icon: ChartColumn,
       color: 'bg-emerald-50 text-emerald-700',
     },
@@ -113,47 +116,25 @@ export default async function AnalyticsPage() {
         ))}
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-2">
-        <article className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h2 className="font-semibold text-slate-900">Teacher attendance</h2>
-              <p className="mt-1 text-sm text-slate-500">Staff attendance recorded today</p>
-            </div>
-            <p className="text-2xl font-semibold text-slate-900">
-              {teacherAttendanceRate}<span className="text-base text-slate-400">%</span>
-            </p>
-          </div>
-          <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-violet-500 to-sky-500 transition-all"
-              style={{ width: `${teacherAttendanceRate}%` }}
-            />
-          </div>
-          <p className="mt-3 text-xs text-slate-500">
-            {presentTeachers} of {data.teachersAttendanceSummary.length} active teachers marked present
-          </p>
-        </article>
-        <article className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h2 className="font-semibold text-slate-900">Student attendance</h2>
-              <p className="mt-1 text-sm text-slate-500">Attendance recorded across all classes today</p>
-            </div>
-            <p className="text-2xl font-semibold text-slate-900">
-              {studentAttendanceRate}<span className="text-base text-slate-400">%</span>
-            </p>
-          </div>
-          <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all"
-              style={{ width: `${studentAttendanceRate}%` }}
-            />
-          </div>
-          <p className="mt-3 text-xs text-slate-500">
-            {presentStudents.toLocaleString()} present out of {totalStudents.toLocaleString()} students
-          </p>
-        </article>
+      <section aria-label="Attendance rates" className="grid gap-4 lg:grid-cols-2">
+        <AttendanceRateCard
+          title="Teacher attendance"
+          description="Staff attendance recorded today"
+          presentCount={presentTeachers}
+          totalCount={data.teachersAttendanceSummary.length}
+          rate={teacherAttendanceRate}
+          accentColor="#8b5cf6"
+          unit="teacher"
+        />
+        <AttendanceRateCard
+          title="Student attendance"
+          description="Attendance recorded across all classes today"
+          presentCount={presentStudents}
+          totalCount={totalStudents}
+          rate={studentAttendanceRate}
+          accentColor="#10b981"
+          unit="student"
+        />
       </section>
 
       <section>

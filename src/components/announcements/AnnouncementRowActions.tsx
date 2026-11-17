@@ -5,6 +5,7 @@ import { dispatchAnnouncementsUpdated } from "@/components/NavbarAnnouncementBel
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "react-toastify";
 import type { Announcement, Class } from "@prisma/client";
 
@@ -76,7 +77,7 @@ export default function AnnouncementRowActions({ id, announcement }: { id: numbe
       >
         <Image src="/delete.svg" alt="" width={14} height={14} />
       </button>
-      {editOpen && (
+      {editOpen && typeof document !== "undefined" && createPortal(
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white dark:bg-slate-950 rounded-lg p-6 max-w-md w-full shadow-xl border border-slate-100 dark:border-slate-800">
             <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
@@ -130,9 +131,10 @@ export default function AnnouncementRowActions({ id, announcement }: { id: numbe
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-      {confirmOpen && (
+      {confirmOpen && typeof document !== "undefined" && createPortal(
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white dark:bg-slate-950 rounded-lg p-4 max-w-sm w-full shadow-xl border border-slate-100 dark:border-slate-800">
             <p className="text-sm text-slate-700 mb-4">
@@ -156,7 +158,8 @@ export default function AnnouncementRowActions({ id, announcement }: { id: numbe
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

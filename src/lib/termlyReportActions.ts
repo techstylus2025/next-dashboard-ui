@@ -812,6 +812,7 @@ export async function setTermlyReportPublication(input: {
       return { success: false, error: "Report not found." };
     }
     revalidatePath(RESULTS_PATH);
+    revalidatePath("/parent");
     return { success: true, error: null };
   } catch (e) {
     console.error(e);
@@ -857,6 +858,7 @@ export async function setClassTermReportPublication(input: {
       data,
     });
     revalidatePath(RESULTS_PATH);
+    revalidatePath("/parent");
     return { success: true, error: null, updated: result.count };
   } catch (e) {
     console.error(e);
@@ -923,6 +925,7 @@ export async function upsertTermlySubjectLine(input: {
 
     await recomputeReportTotals(input.reportId);
     revalidatePath(RESULTS_PATH);
+    revalidatePath("/parent");
     return { success: true, error: null };
   } catch (e) {
     console.error(e);
@@ -942,6 +945,7 @@ export async function deleteTermlyReport(
   try {
     await db.termlyReport.delete({ where: { id: reportId } });
     revalidatePath(RESULTS_PATH);
+    revalidatePath("/parent");
     return { success: true, error: null };
   } catch (e) {
     console.error(e);

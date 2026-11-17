@@ -18,6 +18,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition, type ChangeEvent } from "react";
 import { toast } from "react-toastify";
+import { useConfirmation } from "@/components/ConfirmationProvider";
 import { calculateTermDays } from "@/lib/academicYearUtils";
 import {
   Archive,
@@ -115,6 +116,7 @@ export default function SettingsManagement({
   archivedCounts: ArchiveCounts;
 }) {
   const router = useRouter();
+  const { confirm: confirmAction } = useConfirmation();
   const [pending, startTransition] = useTransition();
   const [settingsTab, setSettingsTab] = useState<"academic" | "grading" | "school" | "archives">("academic");
 
@@ -464,8 +466,13 @@ export default function SettingsManagement({
     });
   };
 
-  const handleDeleteAcademicYear = (id: number) => {
-    if (!confirm("Delete this academic year and all its terms?")) return;
+  const handleDeleteAcademicYear = async (id: number) => {
+    if (
+      !(await confirmAction({
+        title: "Delete academic year?",
+        description: "This academic year and all of its terms will be permanently deleted.",
+      }))
+    ) return;
     startTransition(async () => {
       const res = await deleteAcademicYear(id);
       if (res.success) {
@@ -547,9 +554,12 @@ export default function SettingsManagement({
             disabled={pending}
             onClick={async () => {
               if (
-                !confirm(
-                  "Resetting the app will permanently clear all application data, including archives. Continue?"
-                )
+                !(await confirmAction({
+                  title: "Reset all application data?",
+                  description:
+                    "This will permanently clear all application data, including archived records. This action cannot be undone.",
+                  confirmLabel: "Reset data",
+                }))
               ) {
                 return;
               }

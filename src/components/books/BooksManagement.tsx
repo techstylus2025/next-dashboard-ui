@@ -5,6 +5,7 @@ import { BookOpen, Search, ShoppingBag, Boxes } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "react-toastify";
+import { useConfirmation } from "@/components/ConfirmationProvider";
 import {
   cancelBookOrder,
   confirmBookOrder,
@@ -62,6 +63,7 @@ export default function BooksManagement({
   isParent: boolean;
 }) {
   const router = useRouter();
+  const { confirm: confirmAction } = useConfirmation();
   const [pending, startTransition] = useTransition();
   const [adminTab, setAdminTab] = useState<"books" | "orders">("books");
   const [catalogSearch, setCatalogSearch] = useState("");
@@ -221,8 +223,13 @@ export default function BooksManagement({
     });
   };
 
-  const handleDeleteBook = (id: number) => {
-    if (!confirm("Delete this book record?")) return;
+  const handleDeleteBook = async (id: number) => {
+    if (
+      !(await confirmAction({
+        title: "Delete book?",
+        description: "This book record will be permanently deleted.",
+      }))
+    ) return;
     startTransition(async () => {
       const res = await deleteBook(id);
       if (res.success) {

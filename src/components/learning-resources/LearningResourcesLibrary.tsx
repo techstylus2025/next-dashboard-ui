@@ -6,6 +6,7 @@ import { CldUploadWidget, type CloudinaryUploadWidgetInfo, type CloudinaryUpload
 import { BookOpen, Eye, FileText, Search, Trash2 } from "lucide-react";
 import { createLessonLearningResource, deleteLessonLearningResource } from "@/lib/learningResourceActions";
 import { getYouTubeVideoId, type LearningResourceType } from "@/lib/learningResources";
+import { useConfirmation } from "@/components/ConfirmationProvider";
 
 type ClassOption = {
   id: number;
@@ -184,6 +185,7 @@ function ResourceCard({
 }
 
 export default function LearningResourcesLibrary({ role, classes, resources }: Props) {
+  const { confirm: confirmAction } = useConfirmation();
   const isAdmin = role === "admin";
   const router = useRouter();
   const [type, setType] = useState<LearningResourceType>("DOCUMENT");
@@ -248,8 +250,13 @@ export default function LearningResourcesLibrary({ role, classes, resources }: P
     });
   };
 
-  const handleDelete = (resource: ResourceRecord) => {
-    if (!window.confirm(`Delete "${resource.title}" from Learning Resources?`)) return;
+  const handleDelete = async (resource: ResourceRecord) => {
+    if (
+      !(await confirmAction({
+        title: "Delete learning resource?",
+        description: `"${resource.title}" will be permanently removed from Learning Resources.`,
+      }))
+    ) return;
     setListError("");
     setDeletingId(resource.id);
     startTransition(() => {

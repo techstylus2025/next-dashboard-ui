@@ -213,8 +213,8 @@ export default function MockPerformanceCharts({
         </label>
       </div>
 
-      <div className="grid min-w-0 gap-4 xl:grid-cols-2">
-        <article className="min-w-0 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm sm:p-5">
+      <div className="grid min-w-0 gap-4">
+        <article className="w-full min-w-0 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm sm:p-5">
           <div className="mb-4">
             <h3 className="text-sm font-semibold text-slate-900 sm:text-base">
               Student performance per mock
@@ -227,7 +227,7 @@ export default function MockPerformanceCharts({
             <legend className="mb-2 text-xs font-semibold text-slate-500">
               Students to compare (up to 6)
             </legend>
-            <div className="grid max-h-32 gap-2 overflow-y-auto sm:grid-cols-2">
+            <div className="grid max-h-32 grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-4">
               {students.map((student) => (
                 <label
                   key={student.id}
@@ -365,7 +365,7 @@ export default function MockPerformanceCharts({
           )}
         </article>
 
-        <article className="min-w-0 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm sm:p-5">
+        <article className="w-full min-w-0 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm sm:p-5">
           <div className="mb-5">
             <h3 className="text-sm font-semibold text-slate-900 sm:text-base">
               Subject performance per mock

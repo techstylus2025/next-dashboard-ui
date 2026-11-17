@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { adjustScheduleToCurrentWeek } from "@/lib/utils";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -28,10 +29,19 @@ export async function GET(request: Request) {
     include: { subject: true },
   });
 
-  const data = lessons.map((lesson) => ({
-    title: lesson.subject?.name ? `${lesson.subject.name} • ${lesson.name}` : lesson.name,
-    start: lesson.startTime.toISOString(),
-    end: lesson.endTime.toISOString(),
+  const schedule = adjustScheduleToCurrentWeek(
+    lessons.map((lesson) => ({
+      title: lesson.subject?.name
+        ? `${lesson.subject.name} • ${lesson.name}`
+        : lesson.name,
+      start: lesson.startTime,
+      end: lesson.endTime,
+    }))
+  );
+  const data = schedule.map((lesson) => ({
+    ...lesson,
+    start: lesson.start.toISOString(),
+    end: lesson.end.toISOString(),
   }));
 
   return NextResponse.json({ data });

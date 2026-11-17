@@ -3,8 +3,10 @@ import Avatar from "@/components/Avatar";
 import BigCalendarContainer from "@/components/BigCalendarContainer";
 import FormContainer from "@/components/FormContainer";
 import Performance from "@/components/Performance";
+import StudentMockPerformanceChart from "@/components/StudentMockPerformanceChart";
 import StudentAttendanceCard from "@/components/StudentAttendanceCard";
 import { getCurrentAuthContext } from "@/lib/auth";
+import { computeJhsMockOverallGrade } from "@/lib/gradingUtils";
 import prisma from "@/lib/prisma";
 import { Class, Student } from "@prisma/client";
 import Link from "next/link";
@@ -123,21 +125,110 @@ const SingleStudentPage = async ({
         })()
       : null;
 
-  const reports = await prisma.termlyReport.findMany({
-    where: { studentId: id },
-    include: {
-      class: { select: { name: true } },
-      academicYear: { select: { label: true, createdAt: true } },
-      subjectLines: {
-        include: { subject: { select: { name: true } } },
-        orderBy: { subject: { name: "asc" } },
+  const [reports, assessmentReports] = await Promise.all([
+    prisma.termlyReport.findMany({
+      where: { studentId: id },
+      include: {
+        class: { select: { name: true } },
+        academicYear: { select: { label: true, createdAt: true } },
+        subjectLines: {
+          include: { subject: { select: { name: true } } },
+          orderBy: { subject: { name: "asc" } },
+        },
       },
-    },
-    orderBy: [
-      { academicYear: { createdAt: "desc" } },
-      { termNumber: "desc" },
-    ],
-  });
+      orderBy: [
+        { academicYear: { createdAt: "desc" } },
+        { termNumber: "desc" },
+      ],
+    }),
+    prisma.assessmentReport.findMany({
+      where: { studentId: id },
+      include: {
+        class: {
+          select: { name: true, gradeId: true, gradingLevel: true },
+        },
+        academicYear: { select: { label: true, createdAt: true } },
+        subjectLines: {
+          include: {
+            subject: {
+              select: { name: true, gradeId: true, isCore: true },
+            },
+          },
+          orderBy: { subject: { name: "asc" } },
+        },
+      },
+      orderBy: [
+        { academicYear: { createdAt: "desc" } },
+        { termNumber: "desc" },
+        { type: "asc" },
+        { assessmentNumber: "desc" },
+      ],
+    }),
+  ]);
+
+  const assessmentScales = assessmentReports.length
+    ? await prisma.gradingScaleEntry.findMany({
+        where: {
+          level: {
+            in: [...new Set(assessmentReports.map((report) => report.class.gradingLevel))],
+          },
+        },
+        select: { level: true, minScore: true, maxScore: true, grade: true, remark: true },
+        orderBy: [{ level: "asc" }, { minScore: "asc" }],
+      })
+    : [];
+  const assessmentSummaries = assessmentReports.slice(0, 6).map((report) => ({
+    ...report,
+    overallPercentage: role === "teacher" ? null : report.overallPercentage,
+    overallGrade:
+      role === "teacher"
+        ? null
+        : report.type === "MOCK" && report.class.gradingLevel === "JHS"
+          ? computeJhsMockOverallGrade(
+              report.subjectLines
+                .filter((line) => line.subject.gradeId === report.class.gradeId)
+                .map((line) => ({
+                  score: line.score,
+                  grade: line.grade,
+                  hasScore: line.lastEditedById !== null,
+                  isCore: line.subject.isCore,
+                })),
+              assessmentScales.filter(
+                (entry) => entry.level === report.class.gradingLevel
+              )
+            )
+          : report.overallGrade,
+    subjectLines: report.subjectLines.filter(
+      (line) =>
+        !assignedSubjectIds || assignedSubjectIds.has(line.subjectId)
+    ),
+  }));
+  const mockPerformanceRows = assessmentReports
+    .filter((report) => report.type === "MOCK")
+    .map((report) => {
+      const scoredSubjectLines = report.subjectLines.filter(
+        (line) =>
+          line.lastEditedById !== null &&
+          (role !== "teacher" ||
+            (assignedSubjectIds?.has(line.subjectId) ?? false))
+      );
+      const assignedSubjectAverage = scoredSubjectLines.length
+        ? scoredSubjectLines.reduce((total, line) => total + line.score, 0) /
+          scoredSubjectLines.length
+        : null;
+
+      return {
+        id: report.id,
+        label: `Mock ${report.assessmentNumber}`,
+        period: `${report.academicYear.label} · Term ${report.termNumber}`,
+        score:
+          role === "teacher"
+            ? assignedSubjectAverage
+            : report.overallPercentage ?? assignedSubjectAverage,
+      };
+    })
+    .reverse()
+    .slice(-8);
 
   const latestReport = reports[0]
     ? {
@@ -401,6 +492,16 @@ const SingleStudentPage = async ({
             <p className="text-sm text-slate-500">No termly report available for this student yet.</p>
           )}
         </div>
+        <div className="mt-4 w-full max-w-[860px] xl:max-w-[980px]">
+          <StudentMockPerformanceChart
+            rows={mockPerformanceRows}
+            description={
+              role === "teacher"
+                ? "Average score for your assigned subjects across the latest mock exams."
+                : "Overall score across the student's latest mock exams."
+            }
+          />
+        </div>
       </div>
       {/* RIGHT */}
       <div className="w-full xl:w-1/3 flex flex-col gap-4">
@@ -495,6 +596,110 @@ const SingleStudentPage = async ({
             </div>
           ) : (
             <p className="text-sm text-slate-500">No reports generated for this student.</p>
+          )}
+        </div>
+        <div className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Mid-term & mock results</h2>
+              <p className="text-sm text-slate-500">Recent assessment summaries for this student.</p>
+            </div>
+            <Link
+              className="shrink-0 text-sm font-medium text-slate-600 hover:text-slate-900"
+              href={`/list/results?studentId=${student.id}`}
+            >
+              View all
+            </Link>
+          </div>
+          {assessmentSummaries.length ? (
+            <div className="space-y-3">
+              {assessmentSummaries.map((report) => {
+                const recordedSubjects = report.subjectLines.filter(
+                  (line) => line.lastEditedById !== null
+                );
+                const status = report.isWithheld
+                  ? "Withheld"
+                  : report.isPublished
+                    ? "Published"
+                    : "Draft";
+                const statusClass = report.isWithheld
+                  ? "bg-amber-50 text-amber-700"
+                  : report.isPublished
+                    ? "bg-emerald-50 text-emerald-700"
+                    : "bg-slate-100 text-slate-600";
+
+                return (
+                  <article
+                    key={report.id}
+                    className="rounded-xl border border-slate-200 bg-slate-50/70 p-3"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-900">
+                          {report.type === "MOCK"
+                            ? `Mock ${report.assessmentNumber}`
+                            : "Mid-term examination"}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {report.academicYear.label} · Term {report.termNumber} · {report.class.name}
+                        </p>
+                      </div>
+                      <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold ${statusClass}`}>
+                        {status}
+                      </span>
+                    </div>
+                    {role === "teacher" ? (
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {recordedSubjects.length ? (
+                          <>
+                            {recordedSubjects.slice(0, 4).map((line) => (
+                              <span
+                                key={line.subjectId}
+                                className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600"
+                              >
+                                {line.subject.name}: {line.score}
+                              </span>
+                            ))}
+                            {recordedSubjects.length > 4 ? (
+                              <span className="px-1 py-1 text-xs text-slate-500">
+                                +{recordedSubjects.length - 4} more
+                              </span>
+                            ) : null}
+                          </>
+                        ) : (
+                          <p className="text-xs text-slate-500">
+                            No results for your assigned subjects yet.
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="mt-3 flex items-end justify-between gap-3">
+                        <p className="text-xs text-slate-500">
+                          {recordedSubjects.length} subject{recordedSubjects.length === 1 ? "" : "s"} scored
+                        </p>
+                        <div className="text-right">
+                          <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
+                            Overall result
+                          </p>
+                          <p className="mt-0.5 text-sm font-semibold tabular-nums text-slate-900">
+                            {report.overallPercentage == null
+                              ? "—"
+                              : `${report.overallPercentage.toFixed(1)}%`}
+                            <span className="ml-1.5 text-xs font-medium text-slate-500">
+                              Grade {report.overallGrade ?? "—"}
+                            </span>
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+              No mid-term or mock results available for this student yet.
+            </p>
           )}
         </div>
         <Performance

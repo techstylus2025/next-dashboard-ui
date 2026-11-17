@@ -7,7 +7,7 @@ export default async function ResultsPage() {
   const pageData = await loadResultsPageData(userId ?? undefined, role ?? undefined);
 
   return (
-    <div className="flex-1 p-4 min-h-[60vh] rounded-2xl bg-lamaSkyLight">
+    <div className="min-h-[60vh] flex-1 rounded-xl bg-lamaSkyLight p-2 sm:rounded-2xl sm:p-4">
       <ResultsPageOfflineWrapper initialData={pageData} />
     </div>
   );

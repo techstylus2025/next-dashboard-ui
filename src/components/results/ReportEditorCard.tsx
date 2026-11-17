@@ -11,6 +11,7 @@ import { formatReportDate } from "./TermReportView";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "react-toastify";
+import { useConfirmation } from "@/components/ConfirmationProvider";
 
 export default function ReportEditorCard({
   report,
@@ -26,6 +27,7 @@ export default function ReportEditorCard({
   onPreview: () => void;
 }) {
   const router = useRouter();
+  const { confirm: confirmAction } = useConfirmation();
   const [pending, startTransition] = useTransition();
   const [expanded, setExpanded] = useState(false);
   const [meta, setMeta] = useState({
@@ -102,8 +104,13 @@ export default function ReportEditorCard({
     });
   };
 
-  const handleDelete = () => {
-    if (!confirm(`Delete report for ${report.studentName}?`)) return;
+  const handleDelete = async () => {
+    if (
+      !(await confirmAction({
+        title: "Delete student report?",
+        description: `The termly report for ${report.studentName} will be permanently deleted.`,
+      }))
+    ) return;
     startTransition(async () => {
       const res = await deleteTermlyReport(report.id);
       if (res.success) {

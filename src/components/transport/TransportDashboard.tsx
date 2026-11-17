@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import { useConfirmation } from "@/components/ConfirmationProvider";
 
 const TransportMap = dynamic(() => import("./TransportMap"), {
   ssr: false,
@@ -87,6 +88,7 @@ const TransportDashboard = ({
   parentStudents: ParentStudent[];
   adminStudentChoices: AdminStudentChoice[];
 }) => {
+  const { confirm: confirmAction } = useConfirmation();
   const [buses, setBuses] = useState<BusItem[]>([]);
   const [requests, setRequests] = useState<TransportRequest[]>([]);
   const [registrations, setRegistrations] = useState<BusRegistration[]>([]);
@@ -293,7 +295,12 @@ const TransportDashboard = ({
   };
 
   const handleDeleteBus = async (busId: number) => {
-    if (!window.confirm("Delete this bus? This action cannot be undone.")) {
+    if (
+      !(await confirmAction({
+        title: "Delete bus?",
+        description: "This bus and its associated details will be permanently deleted.",
+      }))
+    ) {
       return;
     }
 
@@ -353,7 +360,13 @@ const TransportDashboard = ({
   };
 
   const handleDeleteRegistration = async (registrationId: number) => {
-    if (!window.confirm("Remove this bus registration?")) {
+    if (
+      !(await confirmAction({
+        title: "Remove bus registration?",
+        description: "This student will be removed from the selected bus.",
+        confirmLabel: "Remove registration",
+      }))
+    ) {
       return;
     }
 

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import LessonForm from "@/components/forms/LessonForm";
+import { useConfirmation } from "@/components/ConfirmationProvider";
 import { deleteLesson } from "@/lib/lessonActions";
 
 type LessonItem = {
@@ -39,6 +40,7 @@ const TimetableManagement = ({
   classes,
 }: TimetableManagementProps) => {
   const router = useRouter();
+  const { confirm: confirmAction } = useConfirmation();
   const [showForm, setShowForm] = useState(false);
   const [editingLesson, setEditingLesson] = useState<LessonItem | null>(null);
   const [loading, setLoading] = useState(false);
@@ -53,7 +55,14 @@ const TimetableManagement = ({
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this lesson?")) return;
+    if (
+      !(await confirmAction({
+        title: "Delete lesson?",
+        description: "This lesson will be permanently removed from the timetable.",
+      }))
+    ) {
+      return;
+    }
 
     setLoading(true);
     const result = await deleteLesson(id);

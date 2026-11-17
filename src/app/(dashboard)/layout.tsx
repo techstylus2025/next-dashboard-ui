@@ -7,6 +7,7 @@ import type { DashboardUser } from "@/types/auth";
 import { getAccessRestriction } from "@/lib/accessControl";
 import { redirect } from "next/navigation";
 import { getSchoolBranding } from "@/lib/schoolBranding";
+import { ConfirmationProvider } from "@/components/ConfirmationProvider";
 
 export default async function DashboardLayout({
   children,
@@ -52,15 +53,17 @@ export default async function DashboardLayout({
 
   return (
     <ClerkProvider>
-      <DashboardShell
-        homeHref={homeHref}
-        supervisorClassName={supervisorClassName}
-        customUser={dashboardUser}
-        schoolName={school.name}
-        schoolLogoUrl={school.logoUrl}
-      >
-        {children}
-      </DashboardShell>
+      <ConfirmationProvider>
+        <DashboardShell
+          homeHref={homeHref}
+          supervisorClassName={supervisorClassName}
+          customUser={dashboardUser}
+          schoolName={school.name}
+          schoolLogoUrl={school.logoUrl}
+        >
+          {children}
+        </DashboardShell>
+      </ConfirmationProvider>
     </ClerkProvider>
   );
 }

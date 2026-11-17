@@ -14,6 +14,7 @@ import type { GradingLevel } from "@prisma/client";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "react-toastify";
+import { useConfirmation } from "@/components/ConfirmationProvider";
 
 const LEVELS: GradingLevel[] = [
   "CRECHE",
@@ -45,6 +46,7 @@ export default function GradingSystemSection({
   levels: GradingLevelRow[];
 }) {
   const router = useRouter();
+  const { confirm: confirmAction } = useConfirmation();
   const [pending, startTransition] = useTransition();
   const [activeLevel, setActiveLevel] = useState<GradingLevel>("CRECHE");
   const [form, setForm] = useState<FormState>(emptyForm);
@@ -115,8 +117,13 @@ export default function GradingSystemSection({
     });
   };
 
-  const handleDelete = (id: number) => {
-    if (!confirm("Delete this grading entry?")) return;
+  const handleDelete = async (id: number) => {
+    if (
+      !(await confirmAction({
+        title: "Delete grading entry?",
+        description: "This grading scale entry will be permanently deleted.",
+      }))
+    ) return;
     startTransition(async () => {
       const res = await deleteGradingScaleEntry(id);
       if (res.success) {
@@ -158,8 +165,13 @@ export default function GradingSystemSection({
     });
   };
 
-  const handleLevelDelete = (id: number) => {
-    if (!confirm("Delete this grading level?")) return;
+  const handleLevelDelete = async (id: number) => {
+    if (
+      !(await confirmAction({
+        title: "Delete grading level?",
+        description: "This grading level and its entries will be permanently deleted.",
+      }))
+    ) return;
 
     startTransition(async () => {
       const res = await deleteGradingLevel(id);

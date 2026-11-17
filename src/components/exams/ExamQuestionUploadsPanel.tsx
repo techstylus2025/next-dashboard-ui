@@ -9,6 +9,7 @@ import ExamQuestionPreviewModal from "@/components/exams/ExamQuestionPreviewModa
 import { approveExamQuestion, deleteExamQuestionUpload } from "@/lib/actions";
 import { BadgeCheck, ChevronDown, Eye, Pencil, Trash2 } from "lucide-react";
 import { groupUploadsByAcademicPeriod } from "@/lib/groupUploadsByAcademicPeriod";
+import { useConfirmation } from "@/components/ConfirmationProvider";
 
 export type ExamQuestionEditItem = {
   id: number;
@@ -65,6 +66,7 @@ const ExamQuestionUploadsPanel = ({
   approvedUploads = [],
   activeTermBadge,
 }: Props) => {
+  const { confirm: confirmAction } = useConfirmation();
   const [open, setOpen] = useState(false);
   const [editingUpload, setEditingUpload] = useState<ExamQuestionEditItem | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -108,8 +110,13 @@ const ExamQuestionUploadsPanel = ({
     });
   };
 
-  const handleDelete = (id: number) => {
-    if (!window.confirm("Delete this exam question upload?")) return;
+  const handleDelete = async (id: number) => {
+    if (
+      !(await confirmAction({
+        title: "Delete exam question upload?",
+        description: "This uploaded exam question file will be permanently deleted.",
+      }))
+    ) return;
     startTransition(() => {
       deleteAction({ id });
     });
