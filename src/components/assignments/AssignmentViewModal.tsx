@@ -1,10 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 
 export default function AssignmentViewModal({ assignment }: { assignment: any }) {
   const [open, setOpen] = useState(false);
+  const [imageOpen, setImageOpen] = useState(false);
+
+  useEffect(() => {
+    if (!imageOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setImageOpen(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [imageOpen]);
 
   return (
     <>
@@ -79,6 +89,28 @@ export default function AssignmentViewModal({ assignment }: { assignment: any })
               </div>
             </div>
 
+            {assignment.imageUrl && (
+              <div className="mt-6">
+                <h3 className="text-sm font-semibold text-slate-900">Assignment image</h3>
+                <button
+                  type="button"
+                  onClick={() => setImageOpen(true)}
+                  aria-label="View assignment image full screen"
+                  className="mt-2 block w-full cursor-zoom-in overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-2 text-left"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={assignment.imageUrl}
+                    alt={`${assignment.title} image`}
+                    className="max-h-80 w-full rounded-lg object-contain"
+                  />
+                  <span className="mt-2 block text-center text-xs font-medium text-slate-600">
+                    Tap or click to view full screen
+                  </span>
+                </button>
+              </div>
+            )}
+
             <div className="mt-6 flex justify-end">
               <button
                 type="button"
@@ -88,6 +120,38 @@ export default function AssignmentViewModal({ assignment }: { assignment: any })
                 Done
               </button>
             </div>
+          </section>
+        </div>
+      )}
+
+      {imageOpen && assignment.imageUrl && (
+        <div
+          className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-950 p-3 sm:p-8"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setImageOpen(false);
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-label={`${assignment.title} image full screen`}
+            className="relative flex h-full w-full items-center justify-center"
+          >
+            <button
+              type="button"
+              onClick={() => setImageOpen(false)}
+              aria-label="Close full-screen image"
+              className="absolute right-0 top-0 z-10 rounded-full bg-white/10 p-3 text-2xl leading-none text-white hover:bg-white/20"
+            >
+              <span aria-hidden="true">&times;</span>
+            </button>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={assignment.imageUrl}
+              alt={`${assignment.title} image`}
+              className="max-h-full max-w-full object-contain"
+            />
           </section>
         </div>
       )}

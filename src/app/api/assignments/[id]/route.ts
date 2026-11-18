@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getCurrentAuthContext } from "@/lib/auth";
-import { teacherCanAccessAssignment } from "@/lib/assignmentAccess";
+import { isCloudinaryAssignmentImage } from "@/lib/assignmentImages";
+import {
+  teacherCanAccessAssignment,
+} from "@/lib/assignmentAccess";
 
 export async function PUT(
   req: Request,
@@ -27,6 +30,7 @@ export async function PUT(
       dueDate,
       isArchived,
       id: bodyId,
+      imageUrl,
     } = body;
 
     let assignmentId = Number.isInteger(Number(id))
@@ -99,6 +103,16 @@ export async function PUT(
         { status: 400 }
       );
     }
+    if (
+      imageUrl !== undefined &&
+      imageUrl !== null &&
+      !isCloudinaryAssignmentImage(imageUrl)
+    ) {
+      return NextResponse.json(
+        { success: false, error: "Choose a valid uploaded assignment image." },
+        { status: 400 }
+      );
+    }
 
     const parsedStartDate =
       startDate !== undefined ? new Date(startDate) : undefined;
@@ -123,6 +137,7 @@ export async function PUT(
         ...(questions !== undefined && {
           questions: typeof questions === "string" && questions.trim() ? questions.trim() : null,
         }),
+        ...(imageUrl !== undefined && { imageUrl: imageUrl ?? null }),
         ...(parsedStartDate && { startDate: parsedStartDate }),
         ...(parsedDueDate && { dueDate: parsedDueDate }),
         ...(isArchived !== undefined && {

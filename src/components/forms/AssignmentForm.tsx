@@ -2,6 +2,11 @@
 
 import { useEffect, useMemo, useState, type Dispatch, type FormEvent, type SetStateAction } from "react";
 import { useRouter } from "next/navigation";
+import {
+  CldUploadWidget,
+  type CloudinaryUploadWidgetInfo,
+  type CloudinaryUploadWidgetResults,
+} from "next-cloudinary";
 
 type LessonOption = {
   id: number;
@@ -41,6 +46,7 @@ const AssignmentForm = ({ type, data, setOpen }: AssignmentFormProps) => {
     questions: "",
     startDate: "",
     dueDate: "",
+    imageUrl: null as string | null,
   });
   const router = useRouter();
   const isEditing = type === "update" && data;
@@ -64,6 +70,7 @@ const AssignmentForm = ({ type, data, setOpen }: AssignmentFormProps) => {
             questions: data.questions ?? "",
             startDate: data.startDate ? new Date(data.startDate).toISOString().slice(0, 10) : "",
             dueDate: data.dueDate ? new Date(data.dueDate).toISOString().slice(0, 10) : "",
+            imageUrl: data.imageUrl ?? null,
           });
         } else {
           setForm((current) => ({ ...current, teacherId: result.currentUserId ?? "" }));
@@ -122,6 +129,7 @@ const AssignmentForm = ({ type, data, setOpen }: AssignmentFormProps) => {
         questions: form.questions.trim() || null,
         startDate: form.startDate,
         dueDate: form.dueDate,
+        imageUrl: form.imageUrl,
       };
       const response = await fetch(
         isEditing ? `/api/assignments/${data.id}` : "/api/assignments",
@@ -301,6 +309,81 @@ const AssignmentForm = ({ type, data, setOpen }: AssignmentFormProps) => {
           className="w-full resize-y rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
         />
       </label>
+
+      <div className="space-y-2">
+        <div>
+          <p className="text-sm font-semibold text-slate-700">Assignment image (optional)</p>
+          <p className="mt-1 text-xs text-slate-500">Add an image for students and parents to view with the assignment.</p>
+        </div>
+        {form.imageUrl && (
+          <div className="relative w-fit max-w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={form.imageUrl}
+              alt="Assignment image preview"
+              className="max-h-64 max-w-full rounded-lg object-contain"
+            />
+            <button
+              type="button"
+              onClick={() => setForm((current) => ({ ...current, imageUrl: null }))}
+              className="mt-2 text-sm font-medium text-rose-700 hover:text-rose-800"
+            >
+              Remove image
+            </button>
+          </div>
+        )}
+        <CldUploadWidget
+          uploadPreset="school"
+          options={{
+            resourceType: "image",
+            clientAllowedFormats: ["jpg", "jpeg", "png", "webp", "gif"],
+            maxImageFileSize: 10_000_000,
+            maxFiles: 1,
+            multiple: false,
+            sources: ["local"],
+            folder: "assignments",
+          }}
+          onSuccess={(result: CloudinaryUploadWidgetResults, { widget }) => {
+            if (typeof result.info === "string" || !result.info?.secure_url) {
+              setError("Cloud storage did not return a usable assignment image.");
+              return;
+            }
+
+            const info = result.info as CloudinaryUploadWidgetInfo;
+            if (!["jpg", "jpeg", "png", "webp", "gif"].includes(info.format?.toLowerCase() ?? "")) {
+              setError("Upload a JPG, PNG, WEBP, or GIF image.");
+              return;
+            }
+
+            setForm((current) => ({ ...current, imageUrl: info.secure_url }));
+            setError(null);
+            widget.close();
+          }}
+          onError={(uploadError) => {
+            const message = typeof uploadError === "string" ? uploadError : uploadError?.statusText;
+            setError(
+              message
+                ? `Image upload failed: ${message}`
+                : "Image upload failed. Check the Cloudinary upload preset and try again."
+            );
+          }}
+        >
+          {({ open }) => (
+            <button
+              type="button"
+              onClick={() => {
+                setError(null);
+                open();
+              }}
+              disabled={saving}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            >
+              {form.imageUrl ? "Choose a different image" : "Choose image"}
+            </button>
+          )}
+        </CldUploadWidget>
+        <p className="text-xs text-slate-500">JPG, PNG, WEBP, or GIF · maximum 10 MB</p>
+      </div>
 
       <div className="flex justify-end gap-3 border-t border-slate-200 pt-4">
         <button

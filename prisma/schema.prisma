@@ -540,6 +540,7 @@ model Assignment {
   lessonId   Int
   isArchived Boolean  @default(false)
   questions  String?
+  imageUrl   String?
   lesson     Lesson   @relation(fields: [lessonId], references: [id])
   results    Result[]
 }
