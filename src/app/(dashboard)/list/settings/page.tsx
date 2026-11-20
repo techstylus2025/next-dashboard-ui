@@ -29,6 +29,7 @@ export default async function SettingsPage() {
         students={settingsData.students}
         parents={settingsData.parents}
         schoolSettings={settingsData.schoolSettings}
+        reportOptions={settingsData.reportOptions}
         archivedCounts={settingsData.archivedCounts}
       />
     </div>

@@ -8,6 +8,10 @@ import {
   computeSubjectPercentage,
   lookupGradeFromScale,
 } from "@/lib/gradingUtils";
+import {
+  EMPTY_TERMLY_REPORT_OPTION_LISTS,
+  type TermlyReportOptionLists,
+} from "@/lib/termlyReportOptionTypes";
 
 const db = prisma as unknown as PrismaClient;
 
@@ -36,6 +40,7 @@ export type ResultsPageContext = {
   activeYearId: number | null;
   reports: TermlyReportRow[];
   assessments: AssessmentReportRow[];
+  reportOptions: TermlyReportOptionLists;
   assignedSubjects: { classId: number; subjectId: number; subjectName: string }[];
   schoolSettings: {
     name: string;
@@ -547,7 +552,23 @@ export async function loadResultsPageData(
     },
   });
 
-  const schoolSettings = await db.schoolSetting.findFirst();
+  const [schoolSettings, reportOptionSet] = await Promise.all([
+    db.schoolSetting.findFirst(),
+    db.termlyReportOptionSet.findUnique({ where: { id: 1 } }),
+  ]);
+  const reportOptions: TermlyReportOptionLists = reportOptionSet
+    ? {
+        interest: reportOptionSet.interestOptions,
+        conduct: reportOptionSet.conductOptions,
+        supervisorRemarks: reportOptionSet.supervisorRemarkOptions,
+        headteacherRemarks: reportOptionSet.headteacherRemarkOptions,
+        customEntryAccess: {
+          interest: reportOptionSet.allowCustomInterest,
+          conduct: reportOptionSet.allowCustomConduct,
+          supervisorRemarks: reportOptionSet.allowCustomSupervisorRemarks,
+        },
+      }
+    : EMPTY_TERMLY_REPORT_OPTION_LISTS;
 
   const reports: TermlyReportRow[] = rawReports.map((r) => {
     const scaleForClass = gradingScaleEntries.filter(
@@ -721,6 +742,7 @@ export async function loadResultsPageData(
     activeYearId: active?.id ?? years[0]?.id ?? null,
     reports,
     assessments,
+    reportOptions,
     schoolSettings: schoolSettings
       ? {
           name: schoolSettings.name,

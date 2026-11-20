@@ -5,8 +5,10 @@ import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import { PrismaClient } from "@prisma/client";
 import { calculateTermDays } from "@/lib/academicYearUtils";
+import type { TermlyReportOptionLists } from "@/lib/termlyReportOptionTypes";
 
 const SETTINGS_PATH = "/list/settings";
+const RESULTS_PATH = "/list/results";
 const db = prisma as unknown as PrismaClient;
 
 async function requireAdmin(): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -782,6 +784,128 @@ export async function updateSchoolSettings(
   } catch (e) {
     console.error(e);
     return { success: false, error: "Could not save school settings." };
+  }
+}
+
+export async function updateSupervisorCustomEntryAccess(input: {
+  field: "interest" | "conduct" | "supervisorRemarks";
+  enabled: boolean;
+}): Promise<{ success: boolean; error: string | null }> {
+  const authCheck = await requireAdmin();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
+  if (
+    !input ||
+    !["interest", "conduct", "supervisorRemarks"].includes(input.field) ||
+    typeof input.enabled !== "boolean"
+  ) {
+    return { success: false, error: "Invalid supervisor custom-entry setting." };
+  }
+
+  const update =
+    input.field === "interest"
+      ? { allowCustomInterest: input.enabled }
+      : input.field === "conduct"
+        ? { allowCustomConduct: input.enabled }
+        : { allowCustomSupervisorRemarks: input.enabled };
+
+  try {
+    await db.termlyReportOptionSet.upsert({
+      where: { id: 1 },
+      create: {
+        id: 1,
+        interestOptions: [],
+        conductOptions: [],
+        supervisorRemarkOptions: [],
+        headteacherRemarkOptions: [],
+        allowCustomInterest: input.field === "interest" ? input.enabled : true,
+        allowCustomConduct: input.field === "conduct" ? input.enabled : true,
+        allowCustomSupervisorRemarks:
+          input.field === "supervisorRemarks" ? input.enabled : true,
+      },
+      update,
+    });
+
+    revalidatePath(SETTINGS_PATH);
+    revalidatePath(RESULTS_PATH);
+    return { success: true, error: null };
+  } catch (e) {
+    console.error(e);
+    return { success: false, error: "Could not save supervisor custom-entry setting." };
+  }
+}
+
+export async function updateTermlyReportOptionLists(
+  input: TermlyReportOptionLists
+): Promise<{ success: boolean; error: string | null }> {
+  const authCheck = await requireAdmin();
+  if (!authCheck.ok) return { success: false, error: authCheck.error };
+
+  const normalize = (values: unknown): string[] | null => {
+    if (!Array.isArray(values) || values.some((value) => typeof value !== "string")) {
+      return null;
+    }
+
+    const seen = new Set<string>();
+    return values.reduce<string[]>((options, value) => {
+      const option = value.trim();
+      const key = option.toLowerCase();
+      if (option && !seen.has(key)) {
+        seen.add(key);
+        options.push(option);
+      }
+      return options;
+    }, []);
+  };
+
+  const interestOptions = normalize(input?.interest);
+  const conductOptions = normalize(input?.conduct);
+  const supervisorRemarkOptions = normalize(input?.supervisorRemarks);
+  const headteacherRemarkOptions = normalize(input?.headteacherRemarks);
+  const customEntryAccess = input?.customEntryAccess;
+  if (
+    !interestOptions ||
+    !conductOptions ||
+    !supervisorRemarkOptions ||
+    !headteacherRemarkOptions ||
+    !customEntryAccess ||
+    typeof customEntryAccess.interest !== "boolean" ||
+    typeof customEntryAccess.conduct !== "boolean" ||
+    typeof customEntryAccess.supervisorRemarks !== "boolean"
+  ) {
+    return { success: false, error: "Report options must be lists of text values." };
+  }
+
+  try {
+    await db.termlyReportOptionSet.upsert({
+      where: { id: 1 },
+      create: {
+        id: 1,
+        interestOptions,
+        conductOptions,
+        supervisorRemarkOptions,
+        headteacherRemarkOptions,
+        allowCustomInterest: customEntryAccess.interest,
+        allowCustomConduct: customEntryAccess.conduct,
+        allowCustomSupervisorRemarks: customEntryAccess.supervisorRemarks,
+      },
+      update: {
+        interestOptions,
+        conductOptions,
+        supervisorRemarkOptions,
+        headteacherRemarkOptions,
+        allowCustomInterest: customEntryAccess.interest,
+        allowCustomConduct: customEntryAccess.conduct,
+        allowCustomSupervisorRemarks: customEntryAccess.supervisorRemarks,
+      },
+    });
+
+    revalidatePath(SETTINGS_PATH);
+    revalidatePath(RESULTS_PATH);
+    return { success: true, error: null };
+  } catch (e) {
+    console.error(e);
+    return { success: false, error: "Could not save termly report options." };
   }
 }
 

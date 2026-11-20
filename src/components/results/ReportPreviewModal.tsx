@@ -75,7 +75,7 @@ export default function ReportPreviewModal({
           </div>
         </div>
 
-        <div className="overflow-y-auto flex-1 p-3 sm:p-5 print:bg-white print:p-8 print:overflow-visible">
+        <div className="report-preview-content overflow-y-auto flex-1 p-3 sm:p-5 print:bg-white print:p-0 print:overflow-visible">
           <TermReportView report={report} />
         </div>
       </div>

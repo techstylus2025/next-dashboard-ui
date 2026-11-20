@@ -439,3 +439,28 @@ keys=name,capacity,gradeId,supervisorId,subjectIds
   supervisorId: 'user_3DzHKhUOvEqMwLQqD7vFZ1WHZtL',
   subjects: { connect: [ { id: 2 } ] }
 }
+[enter-updateClass] 2026-11-20T11:04:29.462Z payload={
+  id: 8,
+  name: 'Basic 7',
+  capacity: 25,
+  gradeId: 5,
+  supervisorId: 'user_3KC3PFChNHMAyrpr5PSWWg26jtN',
+  subjectIds: []
+}
+keys=id,name,capacity,gradeId,supervisorId,subjectIds
+[update-payload] 2026-11-20T11:04:29.954Z payload={
+  name: 'Basic 7',
+  capacity: 25,
+  gradeId: 5,
+  gradingLevel: 'JHS',
+  supervisorId: 'user_3KC3PFChNHMAyrpr5PSWWg26jtN',
+  subjects: {
+    set: [
+      { id: 1 },  { id: 3 },
+      { id: 6 },  { id: 7 },
+      { id: 8 },  { id: 9 },
+      { id: 10 }, { id: 11 },
+      { id: 12 }, { id: 15 }
+    ]
+  }
+}

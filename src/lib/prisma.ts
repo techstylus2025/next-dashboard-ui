@@ -20,9 +20,15 @@ declare global {
 
 function getPrisma(): PrismaClient {
   const cached = globalThis.prismaGlobal;
-  if (cached) {
+  if (cached && typeof cached.termlyReportOptionSet !== "undefined") {
     return cached;
   }
+  if (cached) {
+    void cached.$disconnect().catch((error: unknown) => {
+      console.error("Failed to disconnect an outdated Prisma client.", error);
+    });
+  }
+
   const client = prismaClientSingleton();
   if (process.env.NODE_ENV !== "production") {
     globalThis.prismaGlobal = client;

@@ -289,7 +289,7 @@ export default function TermReportView({
               <h3 className="text-xs font-bold uppercase tracking-wider text-[#062e61]">
                 Staff Remarks
               </h3>
-              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="report-staff-remarks-grid mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
                     Class Facilitator
@@ -307,36 +307,44 @@ export default function TermReportView({
                   </p>
                 </div>
               </div>
-              <div className="mt-4 grid grid-cols-2 gap-4">
+              <div className="report-signature-grid mt-4 grid grid-cols-2 gap-4">
                 <div>
-                  <div className="border-t border-slate-300 pt-2 text-center text-[10px] font-medium uppercase tracking-wider text-slate-500">
-                    Facilitator&apos;s Signature
-                  </div>
-                  {report.supervisorSignature ? (
-                    report.supervisorSignature.startsWith("https://") ? (
+                  <div className="report-signature-line relative flex h-12 items-end justify-center border-b border-slate-400">
+                    {report.supervisorSignature?.startsWith("https://") ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={report.supervisorSignature} alt="Facilitator signature" className="mx-auto mt-1 h-10 max-w-32 object-contain" />
-                    ) : (
-                      <p className="mt-1 text-center text-xs italic text-slate-600">
+                      <img
+                        src={report.supervisorSignature}
+                        alt="Facilitator signature"
+                        className="absolute bottom-0 left-1/2 h-10 max-w-32 -translate-x-1/2 object-contain"
+                      />
+                    ) : report.supervisorSignature ? (
+                      <p className="absolute bottom-0 left-1/2 -translate-x-1/2 text-center text-xs italic leading-none text-slate-600">
                         {report.supervisorSignature}
                       </p>
-                    )
-                  ) : null}
+                    ) : null}
+                  </div>
+                  <p className="report-signature-label pt-1 text-center text-[10px] font-medium uppercase tracking-wider text-slate-500">
+                    Facilitator&apos;s Signature
+                  </p>
                 </div>
                 <div>
-                  <div className="border-t border-slate-300 pt-2 text-center text-[10px] font-medium uppercase tracking-wider text-slate-500">
-                    Headteacher&apos;s Signature
-                  </div>
-                  {report.headteacherSignature ? (
-                    report.headteacherSignature.startsWith("https://") ? (
+                  <div className="report-signature-line relative flex h-12 items-end justify-center border-b border-slate-400">
+                    {report.headteacherSignature?.startsWith("https://") ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={report.headteacherSignature} alt="Headteacher signature" className="mx-auto mt-1 h-10 max-w-32 object-contain" />
-                    ) : (
-                      <p className="mt-1 text-center text-xs italic text-slate-600">
+                      <img
+                        src={report.headteacherSignature}
+                        alt="Headteacher signature"
+                        className="absolute bottom-0 left-1/2 h-10 max-w-32 -translate-x-1/2 object-contain"
+                      />
+                    ) : report.headteacherSignature ? (
+                      <p className="absolute bottom-0 left-1/2 -translate-x-1/2 text-center text-xs italic leading-none text-slate-600">
                         {report.headteacherSignature}
                       </p>
-                    )
-                  ) : null}
+                    ) : null}
+                  </div>
+                  <p className="report-signature-label pt-1 text-center text-[10px] font-medium uppercase tracking-wider text-slate-500">
+                    Headteacher&apos;s Signature
+                  </p>
                 </div>
               </div>
             </div>

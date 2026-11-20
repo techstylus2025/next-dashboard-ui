@@ -4,32 +4,51 @@ import {
   deleteTermlyReport,
   setTermlyReportPublication,
   updateTermlyReportMeta,
+  updateTermlyReportSupervisorOptions,
   upsertTermlySubjectLine,
 } from "@/lib/termlyReportActions";
 import type { TermlyReportRow } from "@/lib/resultsData";
+import type { TermlyReportOptionLists } from "@/lib/termlyReportOptionTypes";
 import { formatReportDate } from "./TermReportView";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "react-toastify";
 import { useConfirmation } from "@/components/ConfirmationProvider";
 
+type SupervisorOptionKey = "interest" | "conduct" | "supervisorRemarks";
+
 export default function ReportEditorCard({
   report,
   canManageMeta,
+  canManageSupervisorOptions,
   canDelete,
   canPublish,
   onPreview,
+  reportOptions,
 }: {
   report: TermlyReportRow;
   canManageMeta: boolean;
+  canManageSupervisorOptions: boolean;
   canDelete: boolean;
   canPublish: boolean;
   onPreview: () => void;
+  reportOptions: TermlyReportOptionLists;
 }) {
   const router = useRouter();
   const { confirm: confirmAction } = useConfirmation();
   const [pending, startTransition] = useTransition();
   const [expanded, setExpanded] = useState(false);
+  const [customOptionEntry, setCustomOptionEntry] = useState<
+    Record<SupervisorOptionKey, boolean>
+  >(() => ({
+    interest: reportOptions.customEntryAccess.interest,
+    conduct: reportOptions.customEntryAccess.conduct,
+    supervisorRemarks: reportOptions.customEntryAccess.supervisorRemarks,
+  }));
+  const canUseCustomOptionEntry = (field: SupervisorOptionKey) =>
+    canManageSupervisorOptions &&
+    !canManageMeta &&
+    reportOptions.customEntryAccess[field];
   const [meta, setMeta] = useState({
     totalOnRoll: String(report.totalOnRoll),
     totalAttendance: String(report.totalAttendance),
@@ -59,25 +78,36 @@ export default function ReportEditorCard({
 
   const refresh = () => router.refresh();
 
+  const toggleCustomOptionEntry = (field: SupervisorOptionKey) => {
+    setCustomOptionEntry((current) => ({ ...current, [field]: !current[field] }));
+  };
+
   const saveMeta = () => {
     startTransition(async () => {
-      const res = await updateTermlyReportMeta({
-        reportId: report.id,
-        totalOnRoll: parseInt(meta.totalOnRoll, 10) || report.totalOnRoll,
-        totalAttendance:
-          parseInt(meta.totalAttendance, 10) || report.totalAttendance,
-        vacationDate: meta.vacationDate || null,
-        reopeningDate: meta.reopeningDate || null,
-        interest: meta.interest || null,
-        conduct: meta.conduct || null,
-        resultStatus: meta.resultStatus || null,
-        supervisorRemarks: meta.supervisorRemarks || null,
-        supervisorSignature: meta.supervisorSignature || null,
-        headteacherRemarks: meta.headteacherRemarks || null,
-        headteacherSignature: meta.headteacherSignature || null,
-      });
+      const res = canManageMeta
+        ? await updateTermlyReportMeta({
+            reportId: report.id,
+            totalOnRoll: parseInt(meta.totalOnRoll, 10) || report.totalOnRoll,
+            totalAttendance:
+              parseInt(meta.totalAttendance, 10) || report.totalAttendance,
+            vacationDate: meta.vacationDate || null,
+            reopeningDate: meta.reopeningDate || null,
+            interest: meta.interest || null,
+            conduct: meta.conduct || null,
+            resultStatus: meta.resultStatus || null,
+            supervisorRemarks: meta.supervisorRemarks || null,
+            supervisorSignature: meta.supervisorSignature || null,
+            headteacherRemarks: meta.headteacherRemarks || null,
+            headteacherSignature: meta.headteacherSignature || null,
+          })
+        : await updateTermlyReportSupervisorOptions({
+            reportId: report.id,
+            interest: meta.interest || null,
+            conduct: meta.conduct || null,
+            supervisorRemarks: meta.supervisorRemarks || null,
+          });
       if (res.success) {
-        toast.success("Report details saved.");
+            toast.success(canManageMeta ? "Report details saved." : "Report options saved.");
         refresh();
       } else {
         toast.error(res.error || "Save failed.");
@@ -150,7 +180,8 @@ export default function ReportEditorCard({
   };
 
   const hasEditableSubjects = report.subjectLines.some((l) => l.canEdit);
-  const canEditAnything = canManageMeta || hasEditableSubjects;
+  const canEditAnything =
+    canManageMeta || canManageSupervisorOptions || hasEditableSubjects;
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-2.5 shadow-sm sm:p-3">
@@ -440,148 +471,232 @@ export default function ReportEditorCard({
             </table>
           </div>
 
-          {canManageMeta && (
+          {(canManageMeta || canManageSupervisorOptions) && (
             <div className="border-t border-slate-100 pt-4 space-y-3">
               <h4 className="text-sm font-medium text-slate-700">
                 Report details
               </h4>
-              <p className="text-xs text-slate-500">
-                Reopening date is set from the next term in the active academic
-                year when reports are generated. You can override it here.
-              </p>
+              {canManageMeta && (
+                <p className="text-xs text-slate-500">
+                  Reopening date is set from the next term in the active academic
+                  year when reports are generated. You can override it here.
+                </p>
+              )}
               <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 text-sm">
-                <label className="flex flex-col gap-1">
-                  Total on roll
-                  <input
-                    type="number"
-                    className="rounded-lg border border-slate-200 px-2 py-2 w-full"
-                    value={meta.totalOnRoll}
-                    onChange={(e) =>
-                      setMeta((m) => ({ ...m, totalOnRoll: e.target.value }))
-                    }
-                  />
-                </label>
-                <label className="flex flex-col gap-1">
-                  Total attendance
-                  <input
-                    type="number"
-                    className="rounded-lg border border-slate-200 px-2 py-2 w-full"
-                    value={meta.totalAttendance}
-                    onChange={(e) =>
-                      setMeta((m) => ({
-                        ...m,
-                        totalAttendance: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label className="flex flex-col gap-1">
-                  Vacation date
-                  <input
-                    type="date"
-                    className="rounded-lg border border-slate-200 px-2 py-2 w-full"
-                    value={meta.vacationDate}
-                    onChange={(e) =>
-                      setMeta((m) => ({ ...m, vacationDate: e.target.value }))
-                    }
-                  />
-                </label>
-                <label className="flex flex-col gap-1">
-                  Reopening date
-                  <input
-                    type="date"
-                    className="rounded-lg border border-slate-200 px-2 py-2 w-full"
-                    value={meta.reopeningDate}
-                    onChange={(e) =>
-                      setMeta((m) => ({ ...m, reopeningDate: e.target.value }))
-                    }
-                  />
-                </label>
-                <label className="flex flex-col gap-1">
-                  Interest
-                  <input
-                    className="rounded-lg border border-slate-200 px-2 py-2 w-full"
-                    value={meta.interest}
-                    onChange={(e) =>
-                      setMeta((m) => ({ ...m, interest: e.target.value }))
-                    }
-                  />
-                </label>
-                <label className="flex flex-col gap-1">
-                  Conduct
-                  <input
-                    className="rounded-lg border border-slate-200 px-2 py-2 w-full"
-                    value={meta.conduct}
-                    onChange={(e) =>
-                      setMeta((m) => ({ ...m, conduct: e.target.value }))
-                    }
-                  />
-                </label>
-                <label className="flex flex-col gap-1">
-                  Result
-                  <input
-                    className="rounded-lg border border-slate-200 px-2 py-2 w-full"
-                    placeholder="Pass / Promoted"
-                    value={meta.resultStatus}
-                    onChange={(e) =>
-                      setMeta((m) => ({ ...m, resultStatus: e.target.value }))
-                    }
-                  />
-                </label>
-                <label className="flex flex-col gap-1 sm:col-span-2">
-                  Class supervisor remarks
-                  <textarea
-                    className="rounded-lg border border-slate-200 px-2 py-2 w-full"
-                    rows={2}
-                    value={meta.supervisorRemarks}
-                    onChange={(e) =>
-                      setMeta((m) => ({
-                        ...m,
-                        supervisorRemarks: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label className="flex flex-col gap-1">
-                  Supervisor signature
-                  <input
-                    className="rounded-lg border border-slate-200 px-2 py-2 w-full"
-                    value={meta.supervisorSignature}
-                    onChange={(e) =>
-                      setMeta((m) => ({
-                        ...m,
-                        supervisorSignature: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label className="flex flex-col gap-1 sm:col-span-2">
-                  Headteacher remarks
-                  <textarea
-                    className="rounded-lg border border-slate-200 px-2 py-2 w-full"
-                    rows={2}
-                    value={meta.headteacherRemarks}
-                    onChange={(e) =>
-                      setMeta((m) => ({
-                        ...m,
-                        headteacherRemarks: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label className="flex flex-col gap-1">
-                  Headteacher signature
-                  <input
-                    className="rounded-lg border border-slate-200 px-2 py-2 w-full"
-                    value={meta.headteacherSignature}
-                    onChange={(e) =>
-                      setMeta((m) => ({
-                        ...m,
-                        headteacherSignature: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
+                {canManageMeta && (
+                  <>
+                    <label className="flex flex-col gap-1">
+                      Total on roll
+                      <input
+                        type="number"
+                        className="rounded-lg border border-slate-200 px-2 py-2 w-full"
+                        value={meta.totalOnRoll}
+                        onChange={(e) =>
+                          setMeta((m) => ({ ...m, totalOnRoll: e.target.value }))
+                        }
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      Total attendance
+                      <input
+                        type="number"
+                        className="rounded-lg border border-slate-200 px-2 py-2 w-full"
+                        value={meta.totalAttendance}
+                        onChange={(e) =>
+                          setMeta((m) => ({ ...m, totalAttendance: e.target.value }))
+                        }
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      Vacation date
+                      <input
+                        type="date"
+                        className="rounded-lg border border-slate-200 px-2 py-2 w-full"
+                        value={meta.vacationDate}
+                        onChange={(e) =>
+                          setMeta((m) => ({ ...m, vacationDate: e.target.value }))
+                        }
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      Reopening date
+                      <input
+                        type="date"
+                        className="rounded-lg border border-slate-200 px-2 py-2 w-full"
+                        value={meta.reopeningDate}
+                        onChange={(e) =>
+                          setMeta((m) => ({ ...m, reopeningDate: e.target.value }))
+                        }
+                      />
+                    </label>
+                  </>
+                )}
+                {canManageSupervisorOptions && (
+                  <>
+                    {(["interest", "conduct"] as const).map((field) => {
+                      const options = reportOptions[field];
+                      const label = field === "interest" ? "Interest" : "Conduct";
+                      const isCustomEntry = customOptionEntry[field];
+
+                      return (
+                        <div key={field} className="flex flex-col gap-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-medium">{label}</span>
+                            {canUseCustomOptionEntry(field) && (
+                              <button
+                                type="button"
+                                aria-pressed={isCustomEntry}
+                                onClick={() => toggleCustomOptionEntry(field)}
+                                className="text-xs font-medium text-sky-700 hover:underline"
+                              >
+                                {isCustomEntry ? "Use admin list" : "Use custom entry"}
+                              </button>
+                            )}
+                          </div>
+                          {isCustomEntry && canUseCustomOptionEntry(field) ? (
+                            <input
+                              className="rounded-lg border border-slate-200 px-2 py-2 w-full"
+                              aria-label={`Custom ${label.toLowerCase()}`}
+                              value={meta[field]}
+                              onChange={(e) =>
+                                setMeta((current) => ({ ...current, [field]: e.target.value }))
+                              }
+                            />
+                          ) : (
+                            <select
+                              className="rounded-lg border border-slate-200 px-2 py-2 w-full"
+                              aria-label={label}
+                              value={meta[field]}
+                              onChange={(e) =>
+                                setMeta((current) => ({ ...current, [field]: e.target.value }))
+                              }
+                            >
+                              <option value="">Select {label.toLowerCase()}</option>
+                              {!options.includes(meta[field]) && meta[field] && (
+                                <option value={meta[field]}>{meta[field]} (saved value)</option>
+                              )}
+                              {options.map((option) => (
+                                <option key={option} value={option}>{option}</option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
+                      );
+                    })}
+                    <div className="flex flex-col gap-1 sm:col-span-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium">Class supervisor remarks</span>
+                        {canUseCustomOptionEntry("supervisorRemarks") && (
+                          <button
+                            type="button"
+                            aria-pressed={customOptionEntry.supervisorRemarks}
+                            onClick={() => toggleCustomOptionEntry("supervisorRemarks")}
+                            className="text-xs font-medium text-sky-700 hover:underline"
+                          >
+                            {customOptionEntry.supervisorRemarks ? "Use admin list" : "Use custom entry"}
+                          </button>
+                        )}
+                      </div>
+                      {customOptionEntry.supervisorRemarks &&
+                      canUseCustomOptionEntry("supervisorRemarks") ? (
+                        <textarea
+                          className="rounded-lg border border-slate-200 px-2 py-2 w-full"
+                          aria-label="Custom class supervisor remarks"
+                          rows={2}
+                          value={meta.supervisorRemarks}
+                          onChange={(e) =>
+                            setMeta((current) => ({
+                              ...current,
+                              supervisorRemarks: e.target.value,
+                            }))
+                          }
+                        />
+                      ) : (
+                        <select
+                          className="rounded-lg border border-slate-200 px-2 py-2 w-full"
+                          aria-label="Class supervisor remarks"
+                          value={meta.supervisorRemarks}
+                          onChange={(e) =>
+                            setMeta((current) => ({
+                              ...current,
+                              supervisorRemarks: e.target.value,
+                            }))
+                          }
+                        >
+                          <option value="">Select class supervisor remarks</option>
+                          {!reportOptions.supervisorRemarks.includes(meta.supervisorRemarks) && meta.supervisorRemarks && (
+                            <option value={meta.supervisorRemarks}>{meta.supervisorRemarks} (saved value)</option>
+                          )}
+                          {reportOptions.supervisorRemarks.map((option) => (
+                            <option key={option} value={option}>{option}</option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  </>
+                )}
+                {canManageMeta && (
+                  <>
+                    <label className="flex flex-col gap-1">
+                      Result
+                      <input
+                        className="rounded-lg border border-slate-200 px-2 py-2 w-full"
+                        placeholder="Pass / Promoted"
+                        value={meta.resultStatus}
+                        onChange={(e) =>
+                          setMeta((m) => ({ ...m, resultStatus: e.target.value }))
+                        }
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      Supervisor signature
+                      <input
+                        className="rounded-lg border border-slate-200 px-2 py-2 w-full"
+                        value={meta.supervisorSignature}
+                        onChange={(e) =>
+                          setMeta((m) => ({
+                            ...m,
+                            supervisorSignature: e.target.value,
+                          }))
+                        }
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1 sm:col-span-2">
+                      Headteacher remarks
+                      <select
+                        className="rounded-lg border border-slate-200 px-2 py-2 w-full"
+                        value={meta.headteacherRemarks}
+                        onChange={(e) =>
+                          setMeta((m) => ({
+                            ...m,
+                            headteacherRemarks: e.target.value,
+                          }))
+                        }
+                      >
+                        <option value="">Select headteacher remarks</option>
+                        {!reportOptions.headteacherRemarks.includes(meta.headteacherRemarks) && meta.headteacherRemarks && (
+                          <option value={meta.headteacherRemarks}>{meta.headteacherRemarks} (saved value)</option>
+                        )}
+                        {reportOptions.headteacherRemarks.map((option) => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      Headteacher signature
+                      <input
+                        className="rounded-lg border border-slate-200 px-2 py-2 w-full"
+                        value={meta.headteacherSignature}
+                        onChange={(e) =>
+                          setMeta((m) => ({
+                            ...m,
+                            headteacherSignature: e.target.value,
+                          }))
+                        }
+                      />
+                    </label>
+                  </>
+                )}
               </div>
               <button
                 type="button"
@@ -589,7 +704,7 @@ export default function ReportEditorCard({
                 onClick={saveMeta}
                 className="w-full sm:w-auto rounded-lg bg-sky-600 px-4 py-2.5 text-sm text-white hover:bg-sky-700 disabled:opacity-50"
               >
-                Save report details
+                {canManageMeta ? "Save report details" : "Save report options"}
               </button>
             </div>
           )}

@@ -37,6 +37,7 @@ export default function ResultsPageOfflineWrapper({
     supervisedClassIds: initialData.supervisedClassIds,
     supervisedClasses: initialData.supervisedClasses,
     assignedSubjects: initialData.assignedSubjects,
+    reportOptions: initialData.reportOptions,
   };
 
   // Show loading state while fetching cache

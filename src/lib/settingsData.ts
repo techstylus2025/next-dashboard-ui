@@ -2,6 +2,10 @@ import prisma from "@/lib/prisma";
 import { PrismaClient } from "@prisma/client";
 import type { AcademicYearRow } from "@/components/settings/SettingsManagement";
 import { isRecoverablePrismaError } from "@/lib/prismaError";
+import {
+  EMPTY_TERMLY_REPORT_OPTION_LISTS,
+  type TermlyReportOptionLists,
+} from "@/lib/termlyReportOptionTypes";
 
 const db = prisma as unknown as PrismaClient;
 
@@ -37,6 +41,7 @@ export async function loadSettingsPageData(): Promise<{
     email: string;
     logoUrl: string | null;
   } | null;
+  reportOptions: TermlyReportOptionLists;
   archivedCounts: {
     feeSchedules: number;
     attendance: number;
@@ -52,10 +57,11 @@ export async function loadSettingsPageData(): Promise<{
   let students: { id: string; name: string; surname: string }[] = [];
   let parents: { id: string; name: string; surname: string }[] = [];
   let schoolSettings = null;
+  let reportOptionSet = null;
   let archivedCounts: number[] = [0, 0, 0, 0, 0, 0, 0];
 
   try {
-    [years, teachers, students, parents, schoolSettings, archivedCounts] = await Promise.all([
+    [years, teachers, students, parents, schoolSettings, reportOptionSet, archivedCounts] = await Promise.all([
       db.academicYear.findMany({
         include: { terms: { orderBy: { termNumber: "asc" } } },
         orderBy: { createdAt: "desc" },
@@ -64,6 +70,7 @@ export async function loadSettingsPageData(): Promise<{
       db.student.findMany({ select: { id: true, name: true, surname: true }, orderBy: { name: "asc" } }),
       db.parent.findMany({ select: { id: true, name: true, surname: true }, orderBy: { name: "asc" } }),
       db.schoolSetting.findFirst(),
+      db.termlyReportOptionSet.findUnique({ where: { id: 1 } }),
       Promise.all([
         db.feeSchedule.count({ where: { isArchived: true } }),
         db.attendance.count({ where: { isArchived: true } }),
@@ -110,6 +117,19 @@ export async function loadSettingsPageData(): Promise<{
           logoUrl: schoolSettings.logoUrl,
         }
       : null,
+    reportOptions: reportOptionSet
+      ? {
+          interest: reportOptionSet.interestOptions,
+          conduct: reportOptionSet.conductOptions,
+          supervisorRemarks: reportOptionSet.supervisorRemarkOptions,
+          headteacherRemarks: reportOptionSet.headteacherRemarkOptions,
+          customEntryAccess: {
+            interest: reportOptionSet.allowCustomInterest,
+            conduct: reportOptionSet.allowCustomConduct,
+            supervisorRemarks: reportOptionSet.allowCustomSupervisorRemarks,
+          },
+        }
+      : EMPTY_TERMLY_REPORT_OPTION_LISTS,
     archivedCounts: {
       feeSchedules: archivedCounts[0],
       attendance: archivedCounts[1],

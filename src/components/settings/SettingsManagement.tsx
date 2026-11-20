@@ -10,9 +10,12 @@ import {
   archiveTeacherRecordsWithSelection,
   archiveStudentRecordsWithSelection,
   updateSchoolSettings,
+  updateSupervisorCustomEntryAccess,
+  updateTermlyReportOptionLists,
   resetAppData,
   type TermInput,
 } from "@/lib/settingsActions";
+import type { TermlyReportOptionLists } from "@/lib/termlyReportOptionTypes";
 import { archiveParentRecords } from "@/lib/parentArchiveActions";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -25,8 +28,11 @@ import {
   BookOpenCheck,
   Building2,
   CalendarDays,
+  ChevronDown,
+  ClipboardList,
   Settings2,
   ShieldCheck,
+  X,
 } from "lucide-react";
 
 export type TermRow = {
@@ -56,6 +62,12 @@ export type SchoolSettingsRow = {
   email: string;
   logoUrl: string | null;
 };
+
+type ReportOptionKey =
+  | "interest"
+  | "conduct"
+  | "supervisorRemarks"
+  | "headteacherRemarks";
 
 type ArchiveCounts = {
   feeSchedules: number;
@@ -104,6 +116,7 @@ export default function SettingsManagement({
   students,
   parents,
   schoolSettings,
+  reportOptions: initialReportOptions,
   archivedCounts,
 }: {
   academicYears: AcademicYearRow[];
@@ -113,12 +126,13 @@ export default function SettingsManagement({
   students?: { id: string; name: string; surname: string }[];
   parents?: { id: string; name: string; surname: string }[];
   schoolSettings?: SchoolSettingsRow | null;
+  reportOptions: TermlyReportOptionLists;
   archivedCounts: ArchiveCounts;
 }) {
   const router = useRouter();
   const { confirm: confirmAction } = useConfirmation();
   const [pending, startTransition] = useTransition();
-  const [settingsTab, setSettingsTab] = useState<"academic" | "grading" | "school" | "archives">("academic");
+  const [settingsTab, setSettingsTab] = useState<"academic" | "grading" | "school" | "report-options" | "archives">("academic");
 
   const [schoolName, setSchoolName] = useState(schoolSettings?.name ?? "");
   const [schoolAddress, setSchoolAddress] = useState(schoolSettings?.address ?? "");
@@ -126,6 +140,21 @@ export default function SettingsManagement({
   const [schoolLocation, setSchoolLocation] = useState(schoolSettings?.location ?? "");
   const [schoolEmail, setSchoolEmail] = useState(schoolSettings?.email ?? "");
   const [schoolLogoUrl, setSchoolLogoUrl] = useState(schoolSettings?.logoUrl ?? "");
+  const [reportOptions, setReportOptions] = useState(initialReportOptions);
+  const [optionDrafts, setOptionDrafts] = useState<Record<ReportOptionKey, string>>({
+    interest: "",
+    conduct: "",
+    supervisorRemarks: "",
+    headteacherRemarks: "",
+  });
+  const [expandedReportOptionGroups, setExpandedReportOptionGroups] = useState<
+    Record<ReportOptionKey, boolean>
+  >({
+    interest: false,
+    conduct: false,
+    supervisorRemarks: false,
+    headteacherRemarks: false,
+  });
 
   const [label, setLabel] = useState("");
   const [numberOfTerms, setNumberOfTerms] = useState(3);
@@ -177,6 +206,55 @@ export default function SettingsManagement({
       setSchoolLogoUrl(schoolSettings.logoUrl ?? "");
     }
   }, [schoolSettings]);
+
+  useEffect(() => {
+    setReportOptions(initialReportOptions);
+  }, [initialReportOptions]);
+
+  const addReportOption = (key: ReportOptionKey) => {
+    const option = optionDrafts[key].trim();
+    if (!option) return;
+    if (reportOptions[key].some((existing) => existing.toLowerCase() === option.toLowerCase())) {
+      toast.error("That option is already in the list.");
+      return;
+    }
+
+    setReportOptions((current) => ({ ...current, [key]: [...current[key], option] }));
+    setOptionDrafts((current) => ({ ...current, [key]: "" }));
+  };
+
+  const saveReportOptions = () => {
+    startTransition(async () => {
+      const res = await updateTermlyReportOptionLists(reportOptions);
+      if (res.success) {
+        toast.success("Termly report options saved.");
+        router.refresh();
+      } else {
+        toast.error(res.error || "Could not save termly report options.");
+      }
+    });
+  };
+
+  const toggleSupervisorCustomEntry = (key: Exclude<ReportOptionKey, "headteacherRemarks">) => {
+    const enabled = !reportOptions.customEntryAccess[key];
+    setReportOptions((current) => ({
+      ...current,
+      customEntryAccess: { ...current.customEntryAccess, [key]: enabled },
+    }));
+
+    startTransition(async () => {
+      const res = await updateSupervisorCustomEntryAccess({ field: key, enabled });
+      if (res.success) {
+        toast.success("Supervisor custom-entry setting saved.");
+      } else {
+        setReportOptions((current) => ({
+          ...current,
+          customEntryAccess: { ...current.customEntryAccess, [key]: !enabled },
+        }));
+        toast.error(res.error || "Could not save supervisor custom-entry setting.");
+      }
+    });
+  };
 
   const handleLogoUpload = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -500,7 +578,7 @@ export default function SettingsManagement({
             </span>
             <h1 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">School configuration</h1>
             <p className="mt-2 text-sm leading-6 text-slate-300 sm:text-base">
-              Configure school identity, academic calendars, grading rules, and record retention.
+              Configure school identity, termly report options, academic calendars, grading rules, and record retention.
             </p>
             <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.08] px-3 py-1.5 text-xs font-medium text-slate-200">
               <ShieldCheck className="h-4 w-4 text-emerald-300" aria-hidden="true" />
@@ -526,11 +604,12 @@ export default function SettingsManagement({
       </section>
 
       <section className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-4">
-        <nav aria-label="School settings sections" className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 sm:flex sm:w-auto sm:gap-1">
+        <nav aria-label="School settings sections" className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 sm:grid-cols-3 lg:flex lg:w-auto lg:gap-1">
           {([
             { key: "school", label: "School profile", icon: Building2 },
             { key: "academic", label: "Academic calendar", icon: CalendarDays },
             { key: "grading", label: "Grading system", icon: BookOpenCheck },
+            { key: "report-options", label: "Report options", icon: ClipboardList },
             { key: "archives", label: "Archives", icon: Archive },
           ] as const).map(({ key, label: tabLabel, icon: Icon }) => (
             <button
@@ -580,7 +659,138 @@ export default function SettingsManagement({
         </button>
       </section>
 
-      {settingsTab === "grading" ? (
+      {settingsTab === "report-options" ? (
+        <section className="rounded-2xl border border-white/60 bg-white/95 p-5 shadow-sm ring-1 ring-slate-200/80 md:p-6">
+          <h2 className="text-base font-semibold text-slate-800 sm:text-lg">Termly report dropdown options</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Manage the choices available when editing student termly reports. Supervisor custom-entry switches save immediately; list changes save below.
+          </p>
+          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+            {([
+              { key: "interest", label: "Interest" },
+              { key: "conduct", label: "Conduct" },
+              { key: "supervisorRemarks", label: "Class supervisor remarks" },
+              { key: "headteacherRemarks", label: "Headteacher remarks" },
+            ] as const).map(({ key, label: fieldLabel }) => (
+              <div key={key} className="rounded-xl border border-slate-200 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    aria-expanded={expandedReportOptionGroups[key]}
+                    aria-controls={`report-options-${key}`}
+                    onClick={() =>
+                      setExpandedReportOptionGroups((current) => ({
+                        ...current,
+                        [key]: !current[key],
+                      }))
+                    }
+                    className="flex min-w-0 flex-1 items-center justify-between gap-3 text-left"
+                  >
+                    <h3 className="text-sm font-semibold text-slate-800">{fieldLabel}</h3>
+                    <ChevronDown
+                      className={`h-4 w-4 shrink-0 text-slate-500 transition-transform duration-300 ${
+                        expandedReportOptionGroups[key] ? "rotate-180" : ""
+                      }`}
+                      aria-hidden="true"
+                    />
+                  </button>
+                  {key !== "headteacherRemarks" && (
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className="text-xs text-slate-600">Supervisor custom entry</span>
+                      <button
+                        type="button"
+                        disabled={pending}
+                        role="switch"
+                        aria-checked={reportOptions.customEntryAccess[key]}
+                        aria-label={`Allow supervisors to enter custom ${fieldLabel.toLowerCase()}`}
+                        onClick={() => toggleSupervisorCustomEntry(key)}
+                        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600 focus-visible:ring-offset-2 disabled:opacity-50 ${
+                          reportOptions.customEntryAccess[key] ? "bg-sky-600" : "bg-slate-300"
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            reportOptions.customEntryAccess[key] ? "translate-x-6" : "translate-x-1"
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <div
+                  id={`report-options-${key}`}
+                  className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out motion-reduce:transition-none ${
+                    expandedReportOptionGroups[key]
+                      ? "grid-rows-[1fr] opacity-100"
+                      : "grid-rows-[0fr] opacity-0"
+                  }`}
+                  aria-hidden={!expandedReportOptionGroups[key]}
+                  inert={!expandedReportOptionGroups[key]}
+                >
+                  <div className="min-h-0 overflow-hidden">
+                    <div className="mt-3 flex gap-2">
+                      <input
+                        className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                        aria-label={`New ${fieldLabel.toLowerCase()} option`}
+                        placeholder={`Add ${fieldLabel.toLowerCase()} option`}
+                        value={optionDrafts[key]}
+                        onChange={(event) =>
+                          setOptionDrafts((current) => ({ ...current, [key]: event.target.value }))
+                        }
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            addReportOption(key);
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => addReportOption(key)}
+                        className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
+                      >
+                        Add
+                      </button>
+                    </div>
+                    {reportOptions[key].length ? (
+                      <ul className="mt-3 space-y-2">
+                        {reportOptions[key].map((option, index) => (
+                          <li key={`${option}-${index}`} className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                            <span className="break-words">{option}</span>
+                            <button
+                              type="button"
+                              aria-label={`Remove ${option} from ${fieldLabel}`}
+                              onClick={() =>
+                                setReportOptions((current) => ({
+                                  ...current,
+                                  [key]: current[key].filter((_, itemIndex) => itemIndex !== index),
+                                }))
+                              }
+                              className="shrink-0 rounded p-1 text-slate-500 hover:bg-rose-50 hover:text-rose-700"
+                            >
+                              <X className="h-4 w-4" aria-hidden="true" />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-3 text-xs text-slate-500">No options added yet.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <button
+            type="button"
+            disabled={pending}
+            onClick={saveReportOptions}
+            className="mt-5 rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-slate-700 disabled:opacity-50"
+          >
+            Save report options
+          </button>
+        </section>
+      ) : settingsTab === "grading" ? (
         <GradingSystemSection entries={gradingEntries} levels={gradingLevels} />
       ) : settingsTab === "school" ? (
         <section className="rounded-2xl border border-white/60 bg-white/95 backdrop-blur-sm p-5 md:p-6 shadow-sm ring-1 ring-slate-200/80">

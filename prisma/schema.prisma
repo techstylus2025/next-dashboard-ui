@@ -125,6 +125,18 @@ model SchoolSetting {
   updatedAt           DateTime @updatedAt
 }
 
+model TermlyReportOptionSet {
+  id                           Int      @id @default(1)
+  interestOptions              String[] @default([])
+  conductOptions               String[] @default([])
+  supervisorRemarkOptions      String[] @default([])
+  headteacherRemarkOptions     String[] @default([])
+  allowCustomInterest          Boolean  @default(true)
+  allowCustomConduct           Boolean  @default(true)
+  allowCustomSupervisorRemarks Boolean  @default(true)
+  updatedAt                    DateTime @updatedAt
+}
+
 model Message {
   id            Int         @id @default(autoincrement())
   senderId      String

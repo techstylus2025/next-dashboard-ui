@@ -787,6 +787,52 @@ export async function updateTermlyReportMeta(input: {
   }
 }
 
+export async function updateTermlyReportSupervisorOptions(input: {
+  reportId: number;
+  interest?: string | null;
+  conduct?: string | null;
+  supervisorRemarks?: string | null;
+}): Promise<{ success: boolean; error: string | null }> {
+  const ctx = await getAuthCtx();
+  if (!ctx) return { success: false, error: "Not signed in." };
+  if (ctx.isAdmin || ctx.role !== "teacher") {
+    return {
+      success: false,
+      error: "Only class supervisors can update these report options.",
+    };
+  }
+
+  const report = await db.termlyReport.findUnique({
+    where: { id: input.reportId },
+    select: { classId: true },
+  });
+  if (!report) return { success: false, error: "Report not found." };
+  if (!ctx.supervisedClassIds.includes(report.classId)) {
+    return {
+      success: false,
+      error: "You can only update options for reports in classes you supervise.",
+    };
+  }
+
+  try {
+    await db.termlyReport.update({
+      where: { id: input.reportId },
+      data: {
+        interest: input.interest,
+        conduct: input.conduct,
+        supervisorRemarks: input.supervisorRemarks,
+        isPublished: false,
+        publishedAt: null,
+      },
+    });
+    revalidatePath(RESULTS_PATH);
+    return { success: true, error: null };
+  } catch (e) {
+    console.error(e);
+    return { success: false, error: "Could not update report options." };
+  }
+}
+
 export async function setTermlyReportPublication(input: {
   reportId: number;
   action: "publish" | "withhold" | "restore";

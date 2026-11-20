@@ -510,6 +510,8 @@ export default function ResultsManagement(ctx: ResultsPageContext) {
 
   const canManageMetaForReport = (report: TermlyReportRow) =>
     ctx.isAdmin;
+  const canManageSupervisorOptionsForReport = (report: TermlyReportRow) =>
+    ctx.isAdmin || (ctx.isSupervisor && ctx.supervisedClassIds.includes(report.classId));
 
   const publishedReportCount = ctx.reports.filter(
     (report) => report.isPublished && !report.isWithheld
@@ -1219,6 +1221,8 @@ export default function ResultsManagement(ctx: ResultsPageContext) {
                                     <ReportEditorCard
                                       key={report.id}
                                       report={report}
+                                      reportOptions={ctx.reportOptions}
+                                      canManageSupervisorOptions={canManageSupervisorOptionsForReport(report)}
                                       canManageMeta={canManageMetaForReport(report)}
                                       canDelete={ctx.isAdmin}
                                       canPublish={ctx.isAdmin}
@@ -1242,6 +1246,8 @@ export default function ResultsManagement(ctx: ResultsPageContext) {
                 <ReportEditorCard
                   key={report.id}
                   report={report}
+                  reportOptions={ctx.reportOptions}
+                  canManageSupervisorOptions={canManageSupervisorOptionsForReport(report)}
                   canManageMeta={canManageMetaForReport(report)}
                   canDelete={ctx.isAdmin}
                   canPublish={ctx.isAdmin}
